@@ -1,0 +1,2105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Seasons — a personal management system by EiMAGiNE</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Seasons">
+<meta name="theme-color" content="#F3F1E9">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,500&family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F3F1E9;
+    --paper-raised:#FFFFFF;
+    --ink:#2B2A25;
+    --ink-soft:#63615A;
+    --ink-faint:#A6A398;
+    --line:#E6E2D4;
+    --shadow: 0 1px 2px rgba(43,42,37,0.04), 0 4px 16px rgba(43,42,37,0.05);
+    --autumn:#8C6239;   --autumn-bg:#EEE3D3;  --autumn-ink:#4E3419;
+    --winter:#3F9BB0;   --winter-bg:#D9EEF2;  --winter-ink:#1D5561;
+    --spring:#4C8C5B;   --spring-bg:#DFEEE2;  --spring-ink:#264E2E;
+    --summer:#B8392F;   --summer-bg:#F3DDDA;  --summer-ink:#5E1D17;
+    --accent:#B8392F;   --accent-ink:#5E1D17;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--paper); color:var(--ink);
+    font-family:'Inter',sans-serif; font-size:16px; line-height:1.6;
+    padding:env(safe-area-inset-top) 0 calc(4rem + env(safe-area-inset-bottom));
+    -webkit-tap-highlight-color:transparent;
+  }
+  .wrap{max-width:700px; margin:0 auto; padding:0 1.3rem;}
+  h1,h2,h3{font-family:'Fraunces',serif; font-weight:500; margin:0;}
+  button, input, textarea{font-family:inherit;}
+
+  header{padding:2.2rem 0 .3rem; text-align:center;}
+  header .eyebrow{font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.09em; text-transform:uppercase; color:var(--ink-faint); margin-bottom:.6rem;}
+  header h1{font-size:32px; letter-spacing:-.015em;}
+  .by-line{font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--ink-faint); margin-top:2px; letter-spacing:.03em;}
+  header p{color:var(--ink-soft); font-size:14.5px; max-width:400px; margin:.8rem auto 0;}
+
+  .quicknav{ display:none; }
+
+  .page-switch{
+    position:sticky; top:0; z-index:20;
+    display:flex; margin:1.4rem 1.3rem 0; border:1px solid var(--line); border-radius:14px; overflow:hidden;
+    background:rgba(255,255,255,0.92); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);
+  }
+  .page-switch button{
+    flex:1; border:none; border-right:1px solid var(--line); background:transparent;
+    padding:13px 8px; font-family:'Fraunces',serif; font-size:14px; font-weight:500; color:var(--ink-soft); cursor:pointer;
+  }
+  .page-switch button:last-child{ border-right:none; }
+  .page-switch button.active{ background:var(--grp, var(--ink)); color:var(--paper); }
+
+  .coord-callout{ display:flex; align-items:center; gap:8px; margin:0 1.3rem 1.2rem; padding:10px 12px; border-radius:10px; border:1px solid var(--line); background:var(--paper-raised); cursor:pointer; font-size:12.5px; color:var(--ink-soft); }
+  .coord-callout b{ color:var(--ink); }
+  .coord-callout .cc-arrow{ margin-left:auto; flex-shrink:0; font-family:'IBM Plex Mono',monospace; font-size:10.5px; color:var(--ink-faint); }
+
+  .group-label{ margin:1.6rem 1.3rem .2rem; font-family:'Fraunces',serif; font-size:22px; font-weight:500; color:var(--grp, var(--ink)); }
+  .group-label:first-of-type{ margin-top:1.4rem; }
+  [data-group="spirit"]{ --grp: var(--ink); }
+  [data-group="soul"]{ --grp: var(--ink-soft); }
+  [data-group="body"]{ --grp: var(--accent-ink); }
+  .csec[data-group] .csec-title::before{ content:''; display:inline-block; width:6px; height:6px; border-radius:50%; background:var(--grp); margin-right:8px; vertical-align:middle; }
+  .quicknav a[data-group]::before{ content:''; display:inline-block; width:6px; height:6px; border-radius:50%; background:var(--grp); margin-right:6px; vertical-align:middle; }
+
+  .csec{margin-top:1.6rem; background:var(--paper-raised); border-radius:16px; box-shadow:var(--shadow); overflow:hidden;}
+  .csec-head{
+    width:100%; display:flex; align-items:center; justify-content:space-between; gap:10px;
+    padding:1.1rem 1.3rem; background:none; border:none; cursor:pointer; text-align:left;
+  }
+  .csec-head-left{display:flex; align-items:baseline; gap:9px;}
+  .csec-title{font-family:'Fraunces',serif; font-size:17.5px; color:var(--ink);}
+  .csec-meta{font-family:'IBM Plex Mono',monospace; font-size:10.5px; color:var(--ink-faint);}
+  .csec-chevron{color:var(--ink-faint); font-size:13px; transition:transform .18s ease; flex-shrink:0;}
+  .csec.open .csec-chevron{transform:rotate(180deg);}
+  .csec-body{display:none; padding:0 1.3rem 1.3rem;}
+  .csec.open .csec-body{display:block;}
+  .csec-sub{color:var(--ink-soft); font-size:13px; margin:-.4rem 0 1.1rem;}
+
+  .today-card{background:var(--ink); color:var(--paper); border-radius:16px; padding:1.4rem 1.5rem; margin:1.4rem 0 0; box-shadow:var(--shadow);}
+  .today-eyebrow{font-family:'IBM Plex Mono',monospace; font-size:10.5px; letter-spacing:.07em; text-transform:uppercase; opacity:.55;}
+  .today-heading{font-family:'Fraunces',serif; font-size:25px; margin-top:5px; line-height:1.25;}
+  .today-season-meta{font-family:'Inter',sans-serif; font-size:12.5px; opacity:.68; margin-top:5px;}
+  .today-q{font-family:'Cormorant Garamond',serif; font-style:italic; font-size:19px; opacity:.92; margin-top:12px;}
+  .today-streak{font-family:'IBM Plex Mono',monospace; font-size:10.5px; opacity:.55; margin-top:10px;}
+
+  .coord-picker{display:flex; align-items:center; gap:10px; margin-bottom:1rem; flex-wrap:wrap;}
+  .coord-picker-label{font-family:'IBM Plex Mono',monospace; font-size:10.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-faint);}
+  .coord-back-today{font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--ink-faint); text-decoration:underline; margin-left:auto;}
+  .coord-row.spotlight{background:color-mix(in srgb, var(--coord-color) 9%, transparent); border-radius:10px; margin:0 -10px; padding-left:10px; padding-right:10px;}
+  .coord-week-badge{
+    display:inline-block; font-family:'IBM Plex Mono',monospace; font-size:9px; text-transform:uppercase; letter-spacing:.04em;
+    color:var(--coord-color); border:1px solid var(--coord-color); border-radius:9px; padding:1px 7px; margin-left:7px; vertical-align:middle;
+  }
+  .today-coord{font-family:'Inter',sans-serif; font-size:13px; opacity:.85; margin-top:9px; padding-top:9px; border-top:1px solid rgba(243,241,233,0.15);}
+  .today-coord b{font-weight:600;}
+  .coord-chips{display:flex; gap:6px; flex-wrap:wrap;}
+  .coord-chip{
+    display:flex; align-items:center; gap:6px; font-size:12.5px; font-weight:500; color:var(--ink-soft);
+    background:var(--paper); border:1px solid var(--line); border-radius:16px; padding:5px 11px; cursor:pointer;
+  }
+  .coord-chip.active{color:var(--chip-ink); background:var(--chip-bg); border-color:var(--chip-color);}
+  .coord-chip .dot{width:7px; height:7px; border-radius:50%; background:var(--chip-color);}
+  .coord-season-info{font-size:13px; color:var(--ink-soft); margin-bottom:1.3rem;}
+  .coord-season-info b{color:var(--ink); font-weight:500;}
+  .coord-season-info .meta-line{display:block; font-size:11.5px; color:var(--ink-faint); margin-top:2px;}
+  .coord-list{position:relative;}
+  .coord-wheel-wrap{margin:0 0 1.6rem; display:flex; justify-content:center;}
+  .coord-row{display:flex; gap:14px; padding:1rem 0; border-top:1px solid var(--line); transition:background .4s ease;}
+  .coord-row.flash{background:color-mix(in srgb, var(--coord-color) 22%, transparent); border-radius:10px; margin:0 -10px; padding-left:10px; padding-right:10px;}
+  .coord-row:first-child{border-top:none;}
+  .coord-index{
+    font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--coord-color, var(--ink-faint));
+    padding-top:5px; flex-shrink:0; width:20px;
+  }
+  .coord-main{flex:1; min-width:0;}
+  .coord-label{font-family:'Fraunces',serif; font-size:14px; color:var(--ink-soft); margin-bottom:2px;}
+  .coord-value{font-family:'Cormorant Garamond',serif; font-weight:500; font-size:22px; color:var(--ink); line-height:1.35;}
+
+  .compass-row{display:flex; justify-content:center; margin:0 0 1.3rem;}
+  .compass{width:170px; height:170px;}
+  .compass svg{width:100%; height:100%; overflow:visible;}
+  .wedge{cursor:pointer; opacity:.5; transition:opacity .15s ease;}
+  .wedge:hover{opacity:.75;}
+  .wedge.active{opacity:1;}
+  .wedge-sub{font-family:'Inter',sans-serif; font-size:8px; fill:var(--ink-faint); letter-spacing:.04em;}
+  .compass-center{fill:var(--paper); stroke:var(--line); stroke-width:1;}
+  .compass-center-text{font-family:'IBM Plex Mono',monospace; font-size:8px; fill:var(--ink-faint); text-anchor:middle;}
+  .compass-center-season{font-family:'Fraunces',serif; font-size:11px; fill:var(--ink); text-anchor:middle; font-weight:500;}
+
+  .progress-row{display:flex; gap:8px; margin-bottom:1.1rem; flex-wrap:wrap;}
+  .progress-chip{flex:1; min-width:120px; padding:.55rem .75rem; border-radius:10px; font-size:11.5px;}
+  .progress-chip .pc-name{font-weight:500; text-transform:uppercase; letter-spacing:.03em; font-size:9.5px; opacity:.7;}
+  .progress-chip .pc-count{font-family:'Fraunces',serif; font-size:16px; margin-top:2px;}
+  .week-grid{display:grid; grid-template-columns:repeat(13,1fr); gap:5px; margin-bottom:1.2rem;}
+  .week-pill{
+    aspect-ratio:1; border-radius:7px; border:1px solid var(--line); background:var(--paper);
+    display:flex; align-items:center; justify-content:center; font-family:'IBM Plex Mono',monospace;
+    font-size:9.5px; color:var(--ink-faint); cursor:pointer;
+  }
+  .week-pill.current{outline:2px solid var(--ink); outline-offset:1px;}
+  .week-pill.done{color:var(--paper-raised);}
+  .week-detail{background:var(--paper); border-radius:14px; padding:1.3rem;}
+  .wd-head{display:flex; justify-content:space-between; align-items:baseline; margin-bottom:.2rem; flex-wrap:wrap; gap:8px;}
+  .wd-head h4{font-family:'Fraunces',serif; font-weight:500; font-size:18px; margin:0;}
+  .wd-week{font-family:'IBM Plex Mono',monospace; font-size:10.5px; color:var(--ink-faint);}
+  .wd-subgroup{font-size:12px; color:var(--ink-soft); margin-bottom:1rem;}
+  .wd-verses{display:grid; gap:2px;}
+  .wd-verse{padding:9px 0; border-top:1px solid var(--line);}
+  .wd-verse:first-child{border-top:none;}
+  .wd-verse-head{display:flex; align-items:center; gap:8px; flex-wrap:wrap;}
+  .wd-verse-head b{font-family:'IBM Plex Mono',monospace; font-size:10px; text-transform:uppercase; letter-spacing:.04em; color:var(--ink-faint); font-weight:500;}
+  .verse-ref{font-size:14px; color:var(--ink);}
+  .verse-show-btn{margin-left:auto; font-size:11.5px; font-weight:500; color:var(--ink-soft); background:var(--paper-raised); border:1px solid var(--line); border-radius:14px; padding:4px 11px; cursor:pointer;}
+  .verse-text-box{display:none; margin-top:8px; padding:12px 14px; background:var(--paper-raised); border-radius:10px;}
+  .verse-text-box.open{display:block;}
+  .verse-text{font-family:'Cormorant Garamond',serif; font-size:18px; line-height:1.55; color:var(--ink); margin:0 0 8px;}
+  .verse-source{font-size:11px; color:var(--ink-faint);}
+  .verse-source a{color:var(--ink-faint);}
+  .verse-loading, .verse-error{font-size:12.5px; color:var(--ink-faint);}
+  .wd-mark{margin-top:1.1rem; padding-top:1rem; border-top:1px dashed var(--line); display:flex; justify-content:flex-end;}
+  .wd-actions{display:flex; gap:8px;}
+  .mark-btn, .share-btn{font-weight:500; font-size:12.5px; padding:8px 15px; border-radius:9px; border:1px solid var(--line); background:var(--paper-raised); color:var(--ink); cursor:pointer;}
+  .mark-btn.done{background:var(--ink); color:var(--paper); border-color:var(--ink);}
+
+  .share-panel{margin-top:1.1rem; padding-top:1.1rem; border-top:1px dashed var(--line); display:none;}
+  .share-panel.open{display:block;}
+  .photo-row{display:flex; align-items:center; gap:10px; margin-bottom:.9rem; flex-wrap:wrap;}
+  .photo-btn{font-size:12.5px; padding:8px 13px; border-radius:9px; border:1px solid var(--line); background:var(--paper-raised); color:var(--ink); cursor:pointer;}
+  .photo-thumb{width:34px; height:34px; border-radius:7px; object-fit:cover; border:1px solid var(--line); display:none;}
+  .photo-remove{background:none; border:none; color:var(--ink-faint); text-decoration:underline; cursor:pointer; font-size:11.5px; display:none;}
+  .stage-quick{display:flex; gap:6px; flex-wrap:wrap; margin-bottom:.7rem;}
+  .stage-quick button{
+    font-size:12px; font-weight:500; padding:6px 12px; border-radius:14px; border:1px solid var(--line);
+    background:var(--paper); color:var(--ink-soft); cursor:pointer;
+  }
+  .stage-quick button.active{background:var(--ink); color:var(--paper); border-color:var(--ink);}
+  .format-quick{display:flex; gap:6px; margin-bottom:.9rem;}
+  .format-quick button{
+    font-size:12px; font-weight:500; padding:6px 12px; border-radius:14px; border:1px solid var(--line);
+    background:var(--paper); color:var(--ink-soft); cursor:pointer;
+  }
+  .format-quick button.active{background:var(--ink); color:var(--paper); border-color:var(--ink);}
+  .stage-suggest{font-size:11.5px; color:var(--ink-faint); margin:0 0 1rem; font-family:'IBM Plex Mono',monospace; line-height:1.6;}
+  .share-toggles{display:flex; gap:12px; flex-wrap:wrap; margin-bottom:.9rem;}
+  .share-toggle{display:flex; align-items:center; gap:6px; font-size:12.5px; color:var(--ink-soft); cursor:pointer;}
+  .share-toggle input{accent-color:var(--ink);}
+  .share-note{width:100%; min-height:50px; border:1px solid var(--line); border-radius:9px; padding:10px; font-size:12.5px; resize:vertical; margin-bottom:.9rem; background:var(--paper-raised); color:var(--ink);}
+  .share-card-wrap{display:flex; justify-content:center; margin-bottom:1rem;}
+  .share-card-canvas{width:100%; max-width:280px; height:auto; border-radius:14px; box-shadow:var(--shadow);}
+  .share-actions{display:flex; gap:8px; flex-wrap:wrap; justify-content:center;}
+  .share-action-btn{font-weight:500; font-size:12.5px; padding:9px 15px; border-radius:9px; border:none; cursor:pointer;}
+  .share-action-btn.primary{background:var(--ink); color:var(--paper);}
+  .share-action-btn.secondary{background:var(--paper); color:var(--ink); border:1px solid var(--line);}
+  .share-status{font-family:'IBM Plex Mono',monospace; font-size:10.5px; color:var(--ink-faint); text-align:center; margin-top:.6rem; min-height:14px;}
+
+  .journal-sub{color:var(--ink-soft); font-size:13px; margin:-.4rem 0 1rem;}
+  textarea.journal-input{width:100%; min-height:100px; border:1px solid var(--line); border-radius:12px; padding:14px; font-size:14.5px; resize:vertical; background:var(--paper); color:var(--ink);}
+  textarea:focus{outline:none; border-color:var(--ink-faint);}
+  .journal-actions{display:flex; justify-content:flex-end; margin-top:.7rem;}
+  .save-btn{font-weight:500; font-size:13.5px; padding:10px 19px; border-radius:9px; border:none; background:var(--ink); color:var(--paper); cursor:pointer;}
+  .save-btn:disabled{opacity:.4; cursor:default;}
+  .save-status{font-family:'IBM Plex Mono',monospace; font-size:10.5px; color:var(--ink-faint); margin-right:auto; align-self:center;}
+  .entries{margin-top:1.4rem;}
+  .entry{border-top:1px solid var(--line); padding:.9rem 0; display:grid; gap:6px;}
+  .entry-meta{display:flex; gap:10px; align-items:center; font-family:'IBM Plex Mono',monospace; font-size:10px; color:var(--ink-faint);}
+  .entry-tag{padding:2px 8px; border-radius:10px; font-size:9.5px;}
+  .entry-text{font-size:13.5px; white-space:pre-wrap;}
+  .entry-del{margin-left:auto; background:none; border:none; color:var(--ink-faint); cursor:pointer; font-size:11px; text-decoration:underline;}
+  .empty-note{color:var(--ink-faint); font-size:12.5px; font-style:italic; padding:.3rem 0;}
+
+  .domains-sub{color:var(--ink-faint); font-size:12.5px; margin:-.4rem 0 1rem; font-style:italic;}
+  .domain-cols{display:grid; grid-template-columns:1fr 1fr 1fr; gap:9px;}
+  .domain-col{background:var(--paper); border:1px dashed var(--line); border-radius:12px; padding:.85rem .9rem;}
+  .domain-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:.6rem;}
+  .domain-name{font-weight:500; font-size:10.5px; text-transform:uppercase; letter-spacing:.04em; color:var(--ink-soft);}
+  .domain-count{font-family:'IBM Plex Mono',monospace; font-size:10px; color:var(--ink-faint);}
+  .domain-tasks{display:grid; gap:6px; margin-bottom:.75rem; min-height:6px;}
+  .domain-task{display:flex; align-items:flex-start; gap:7px; font-size:12.5px;}
+  .domain-task input[type=checkbox]{margin-top:3px; accent-color:var(--ink); flex-shrink:0;}
+  .domain-task.done span{text-decoration:line-through; color:var(--ink-faint);}
+  .domain-task-del{background:none; border:none; color:var(--ink-faint); cursor:pointer; font-size:10.5px; margin-left:auto; flex-shrink:0;}
+  .domain-add{display:flex; gap:6px;}
+  .domain-add input{flex:1; min-width:0; border:1px solid var(--line); border-radius:7px; padding:6px 8px; font-size:12px; background:var(--paper-raised); color:var(--ink);}
+  .domain-add button{border:none; background:var(--ink); color:var(--paper); border-radius:7px; padding:6px 10px; font-size:12.5px; cursor:pointer;}
+  @media (max-width:600px){ .domain-cols{grid-template-columns:1fr;} }
+
+  .foot-tuck{margin-top:2.2rem; text-align:center; display:flex; flex-direction:column; align-items:center; gap:10px;}
+  .tuck-btn{background:none; border:none; color:var(--ink-faint); font-size:11.5px; text-decoration:underline; cursor:pointer; font-family:'IBM Plex Mono',monospace;}
+  .backup-row{display:flex; gap:14px;}
+  .notes-panel{display:none; margin-top:.8rem; text-align:left; width:100%;}
+  .notes-panel.open{display:block;}
+  .note-item{background:var(--paper-raised); border:1px solid var(--line); border-radius:12px; margin-bottom:8px; overflow:hidden;}
+  .note-head{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:12px 14px; cursor:pointer;}
+  .note-head-title{display:flex; align-items:center; gap:9px; font-size:13px; font-weight:500;}
+  .note-badge{font-family:'IBM Plex Mono',monospace; font-size:9px; padding:2px 7px; border-radius:9px; background:var(--paper); color:var(--ink-soft); flex-shrink:0;}
+  .note-chevron{color:var(--ink-faint); transition:transform .15s ease; flex-shrink:0; font-size:11px;}
+  .note-item.open .note-chevron{transform:rotate(180deg);}
+  .note-body{display:none;}
+  .note-item.open .note-body{display:block;}
+  .note-body-inner{padding:0 14px 14px; font-size:12.5px; color:var(--ink-soft);}
+
+  @media (max-width:520px){ .week-grid{grid-template-columns:repeat(7,1fr);} }
+
+  /* ---- Body (PT) ---- */
+  .pt-day-banner{display:flex; justify-content:space-between; align-items:baseline; margin-bottom:.8rem; padding-bottom:.6rem; border-bottom:1px solid var(--line);}
+  .pt-day-banner .pt-dt-name{font-family:'Fraunces',serif; font-size:16px; color:var(--ink);}
+  .pt-day-banner .pt-dt-tag{font-family:'IBM Plex Mono',monospace; font-size:10.5px; color:var(--accent-ink); border:1px solid var(--accent); border-radius:10px; padding:2px 8px;}
+  .pt-date-row{display:flex; align-items:center; justify-content:space-between; font-size:11.5px; color:var(--ink-faint); margin-bottom:.9rem; font-family:'IBM Plex Mono',monospace;}
+  .pt-date-row input[type=date]{font-family:'IBM Plex Mono',monospace; font-size:12px; padding:6px 8px; border:1px solid var(--line); border-radius:7px; background:var(--paper-raised); color:var(--ink);}
+  .pt-banner{font-size:12.5px; padding:9px 12px; border-radius:10px; margin-bottom:.9rem; line-height:1.5;}
+  .pt-banner.nudge{background:var(--accent-bg,#F3DDDA); color:var(--accent-ink); border:1px solid var(--accent);}
+  .pt-banner.levelup{background:var(--paper); border:1px solid var(--line);}
+  .pt-levelup-actions{display:flex; gap:8px; margin-top:8px;}
+  .pt-exercise{padding:.9rem 0; border-top:1px solid var(--line);}
+  .pt-exercise:first-child{border-top:none;}
+  .pt-ex-top{display:flex; justify-content:space-between; align-items:baseline; gap:8px; margin-bottom:8px;}
+  .pt-ex-name-wrap{display:flex; align-items:center; gap:6px; cursor:pointer;}
+  .pt-ex-name{font-family:'Fraunces',serif; font-size:15px; font-weight:500; color:var(--ink);}
+  .pt-info-dot{width:16px; height:16px; border-radius:50%; border:1px solid var(--ink-faint); color:var(--ink-faint); font-size:10px; font-family:'IBM Plex Mono',monospace; display:flex; align-items:center; justify-content:center; flex-shrink:0;}
+  .pt-ex-target{font-family:'IBM Plex Mono',monospace; font-size:10.5px; color:var(--ink-faint); white-space:nowrap; display:flex; align-items:center; gap:6px;}
+  .pt-edit-toggle{cursor:pointer; color:var(--ink-faint); border:1px solid var(--ink-faint); border-radius:50%; width:16px; height:16px; font-size:9px; display:inline-flex; align-items:center; justify-content:center;}
+  .pt-edit-row{display:flex; gap:8px; align-items:flex-end; flex-wrap:wrap; margin-bottom:10px; padding:8px; border:1px dashed var(--ink-faint); border-radius:9px; background:var(--paper);}
+  .pt-trend-row{margin-bottom:8px; font-family:'IBM Plex Mono',monospace; font-size:11px;}
+  .pt-trend.up{color:var(--spring-ink);}
+  .pt-trend.down{color:var(--accent-ink);}
+  .pt-trend.flat{color:var(--ink-faint);}
+  .pt-pr-badge{font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--accent-ink); margin-left:8px;}
+  .pt-sets-row{display:flex; gap:8px; flex-wrap:wrap; align-items:flex-end;}
+  .pt-set-input{display:flex; flex-direction:column; gap:3px;}
+  .pt-set-input label{font-family:'IBM Plex Mono',monospace; font-size:9.5px; color:var(--ink-faint);}
+  .pt-set-input input{width:60px; padding:7px 6px; font-family:'IBM Plex Mono',monospace; font-size:13px; border:1px solid var(--line); border-radius:7px; background:var(--paper-raised); color:var(--ink);}
+  .pt-rest-btn{font-family:'IBM Plex Mono',monospace; font-size:10.5px; border:1px solid var(--line); border-radius:7px; background:var(--paper-raised); color:var(--ink-soft); padding:6px 8px; cursor:pointer; height:32px;}
+  .pt-rest-btn.running{border-color:var(--accent); color:var(--accent-ink);}
+  .pt-extra-block{margin:1rem 0; padding-top:.9rem; border-top:1px solid var(--line);}
+  .pt-extra-block h4{font-family:'IBM Plex Mono',monospace; font-size:10.5px; letter-spacing:.04em; text-transform:uppercase; color:var(--ink-faint); margin:0 0 8px;}
+  .pt-cal-grid{display:grid; grid-template-columns:repeat(7,1fr); gap:5px; margin-bottom:1rem;}
+  .pt-cal-cell{aspect-ratio:1; border-radius:7px; border:1px solid var(--line); display:flex; flex-direction:column; align-items:center; justify-content:center; font-family:'IBM Plex Mono',monospace; font-size:9.5px; color:var(--ink-faint);}
+  .pt-cal-cell.done{background:var(--ink); color:var(--paper); border-color:var(--ink);}
+  .pt-cal-cell.missed{background:transparent; color:var(--accent-ink); border-color:var(--accent);}
+  .pt-cal-cell.rest{background:var(--paper); border-style:dashed;}
+  .pt-cal-cell.future{color:var(--line);}
+  .pt-cal-cell.today{border-width:2px; border-color:var(--ink);}
+  .pt-cal-cell.clickable{cursor:pointer;}
+  .pt-cal-legend{display:flex; flex-wrap:wrap; gap:12px; font-family:'IBM Plex Mono',monospace; font-size:10.5px; color:var(--ink-faint);}
+  .pt-cal-legend .dot{display:inline-block; width:8px; height:8px; border-radius:3px; border:1px solid var(--line); margin-right:4px; vertical-align:middle;}
+  .pt-cal-legend .dot.done{background:var(--ink); border-color:var(--ink);}
+  .pt-cal-legend .dot.missed{border-color:var(--accent);}
+  .pt-cal-legend .dot.rest{border-style:dashed;}
+  .pt-prog-table{width:100%; border-collapse:collapse; font-size:12.5px; margin-bottom:1rem;}
+  .pt-prog-table th, .pt-prog-table td{text-align:left; padding:6px 4px; border-bottom:1px solid var(--line);}
+  .pt-prog-table th{color:var(--ink-faint); font-weight:normal; font-size:10.5px; font-family:'IBM Plex Mono',monospace;}
+  .pt-chips{display:flex; flex-wrap:wrap; gap:6px; margin-bottom:1rem;}
+  .pt-pb-line{font-size:12.5px; color:var(--ink); margin-bottom:10px; padding:9px 11px; border-radius:9px; border:1px solid var(--line); background:var(--paper);}
+  .pt-pb-line b{color:var(--accent-ink);}
+  .pt-chart-box{border:1px solid var(--line); border-radius:9px; padding:10px 6px;}
+  .pt-streak-line{display:flex; justify-content:space-between; font-family:'IBM Plex Mono',monospace; font-size:10.5px; color:var(--ink-faint); margin-top:10px; padding-top:8px; border-top:1px solid var(--line);}
+  .pt-onboard p{font-size:13px; line-height:1.6; color:var(--ink-soft);}
+  .pt-onboard input[type=date]{font-family:'IBM Plex Mono',monospace; font-size:14px; padding:9px; border:1px solid var(--line); border-radius:9px; background:var(--paper-raised); width:100%; margin:10px 0 16px;}
+  .pt-guide-overlay{display:none; position:fixed; inset:0; background:rgba(43,42,37,0.5); z-index:50; align-items:flex-end; justify-content:center;}
+  .pt-guide-overlay.open{display:flex;}
+  .pt-guide-sheet{background:var(--paper); border-radius:16px 16px 0 0; width:100%; max-width:520px; max-height:88vh; overflow-y:auto; padding:1.2rem 1.3rem 1.4rem;}
+  .pt-guide-sheet .m-head{display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;}
+  .pt-guide-sheet h2{font-family:'Fraunces',serif; font-weight:500; font-size:19px; color:var(--ink);}
+  .pt-modal-close{border:1px solid var(--line); border-radius:50%; background:var(--paper-raised); width:28px; height:28px; cursor:pointer; font-size:14px; color:var(--ink);}
+  .pt-demo-box{border:1px solid var(--line); border-radius:9px; background:var(--paper); margin-bottom:12px; overflow:hidden;}
+  .pt-tempo-line{font-family:'IBM Plex Mono',monospace; font-size:11.5px; color:var(--accent-ink); margin-bottom:12px;}
+  .pt-guide-section{margin-bottom:12px;}
+  .pt-guide-section h4{font-family:'IBM Plex Mono',monospace; font-size:10.5px; letter-spacing:.04em; text-transform:uppercase; color:var(--ink-faint); margin:0 0 6px;}
+  .pt-guide-section ul{margin:0; padding-left:18px; font-size:13px; line-height:1.6; color:var(--ink);}
+  .pt-guide-section.mistakes li{color:var(--accent-ink);}
+  .pt-video-block{border:1px solid var(--line); border-radius:9px; padding:8px 10px; margin-top:4px;}
+  .pt-video-block summary{font-family:'Fraunces',serif; font-size:12.5px; font-weight:500; color:var(--ink); cursor:pointer;}
+  .pt-video-embed{margin-top:10px;}
+  .pt-video-embed iframe{border:1px solid var(--line); border-radius:7px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="eyebrow">A personal management system</div>
+    <h1>Seasons</h1>
+    <div class="by-line">by EiMAGiNE</div>
+    <p>Ten coordinates, one season at a time — scripture, reflection and everyday tasks arranged as a single, unhurried flow.</p>
+  </header>
+</div>
+
+<nav class="page-switch" id="page-switch">
+  <button data-group="spirit" class="active">Spirit</button>
+  <button data-group="soul">Soul</button>
+  <button data-group="body">Body</button>
+</nav>
+
+<div class="wrap">
+  <div class="today-card" id="today-card"></div>
+
+  <div class="group-label" data-group="spirit">Spirit</div>
+  <section class="csec open" id="sec-coordinates" data-key="coordinates" data-group="spirit">
+    <button class="csec-head">
+      <div class="csec-head-left"><span class="csec-title">Coordinates</span></div>
+      <span class="csec-chevron">⌄</span>
+    </button>
+    <div class="csec-body">
+      <div class="compass-row">
+        <div class="compass">
+          <svg viewBox="0 0 300 300">
+            <path id="wedge-0" class="wedge" d="M150,150 L65.15,65.15 A120,120 0 0,1 234.85,65.15 Z"></path>
+            <path id="wedge-3" class="wedge" d="M150,150 L234.85,65.15 A120,120 0 0,1 234.85,234.85 Z"></path>
+            <path id="wedge-1" class="wedge" d="M150,150 L234.85,234.85 A120,120 0 0,1 65.15,234.85 Z"></path>
+            <path id="wedge-2" class="wedge" d="M150,150 L65.15,234.85 A120,120 0 0,1 65.15,65.15 Z"></path>
+            <text x="150" y="42" text-anchor="middle" class="wedge-sub">north</text>
+            <text x="278" y="153" text-anchor="middle" class="wedge-sub">east</text>
+            <text x="150" y="268" text-anchor="middle" class="wedge-sub">south</text>
+            <text x="24" y="153" text-anchor="middle" class="wedge-sub">west</text>
+            <circle cx="150" cy="150" r="42" class="compass-center"></circle>
+            <text x="150" y="145" class="compass-center-text">viewing</text>
+            <text id="center-season" x="150" y="163" class="compass-center-season"></text>
+          </svg>
+        </div>
+      </div>
+      <div class="coord-picker">
+        <span class="coord-picker-label">View</span>
+        <div class="coord-chips" id="coord-chips"></div>
+        <a href="#" id="coord-back-today" class="coord-back-today" style="display:none;">↺ back to today</a>
+      </div>
+      <div class="coord-season-info" id="coord-season-info"></div>
+      <div class="coord-wheel-wrap" id="coord-wheel-wrap"></div>
+      <div class="coord-list" id="coord-list"></div>
+    </div>
+  </section>
+
+  <section class="csec open" id="sec-weekly" data-key="weekly" data-group="spirit">
+    <button class="csec-head">
+      <div class="csec-head-left"><span class="csec-title">Weekly scripture</span></div>
+      <span class="csec-chevron">⌄</span>
+    </button>
+    <div class="csec-body">
+      <p class="csec-sub" id="weekly-sub">Loading…</p>
+      <div class="progress-row" id="progress-row"></div>
+      <div class="week-grid" id="week-grid"></div>
+      <div class="week-detail" id="week-detail"></div>
+    </div>
+  </section>
+
+  <div class="group-label" data-group="soul">Soul</div>
+  <div class="week-detail" id="soul-overview" style="margin:0 1.3rem 1.2rem;"></div>
+  <div class="coord-callout" id="coord-callout-soul"></div>
+  <section class="csec" id="sec-learning" data-key="learning" data-group="soul">
+    <button class="csec-head">
+      <div class="csec-head-left"><span class="csec-title">Learning</span></div>
+      <span class="csec-chevron">⌄</span>
+    </button>
+    <div class="csec-body">
+      <p class="journal-sub">Two lanes — Sharpen for professional growth, Root for soul and mind. Capture what you read, then distill it by week and by season.</p>
+      <div class="stage-quick" id="learning-lane-switch">
+        <button data-lane="sharpen" class="active">Sharpen</button>
+        <button data-lane="root">Root</button>
+      </div>
+      <div id="learning-form-mount"></div>
+      <input type="text" id="learning-filter" placeholder="Search notes…" style="width:100%; border:1px solid var(--line); border-radius:9px; padding:9px 12px; font-size:13px; background:var(--paper-raised); color:var(--ink); margin-bottom:6px;">
+      <div class="entries" id="learning-entries"></div>
+    </div>
+  </section>
+
+  <section class="csec" id="sec-journal" data-key="journal" data-group="soul">
+    <button class="csec-head">
+      <div class="csec-head-left"><span class="csec-title">Points taken</span></div>
+      <span class="csec-chevron">⌄</span>
+    </button>
+    <div class="csec-body">
+      <p class="journal-sub" id="journal-prompt">Loading…</p>
+      <textarea class="journal-input" id="journal-input" placeholder="Write freely — a few lines or a few pages."></textarea>
+      <div class="journal-actions">
+        <span class="save-status" id="save-status"></span>
+        <button class="save-btn" id="save-btn">Save entry</button>
+      </div>
+      <input type="text" id="journal-filter" placeholder="Search entries…" style="width:100%; border:1px solid var(--line); border-radius:9px; padding:9px 12px; font-size:13px; background:var(--paper-raised); color:var(--ink); margin:10px 0 6px;">
+      <div class="entries" id="entries"></div>
+    </div>
+  </section>
+
+  <section class="csec" id="sec-domains" data-key="domains" data-group="soul">
+    <button class="csec-head">
+      <div class="csec-head-left"><span class="csec-title">Domains</span></div>
+      <span class="csec-chevron">⌄</span>
+    </button>
+    <div class="csec-body">
+      <p class="domains-sub">Family, Education and Entertainment — add a task, an optional due date, and star anything that's high priority.</p>
+      <div class="domain-cols" id="domain-cols"></div>
+    </div>
+  </section>
+
+  <div class="group-label" data-group="body">Body</div>
+  <div class="week-detail" id="body-overview" style="margin:0 1.3rem 1.2rem;"></div>
+  <div class="coord-callout" id="coord-callout-body"></div>
+  <section class="csec" id="sec-body" data-key="body" data-group="body">
+    <button class="csec-head">
+      <div class="csec-head-left"><span class="csec-title">Body</span></div>
+      <span class="csec-chevron">⌄</span>
+    </button>
+    <div class="csec-body">
+      <p class="journal-sub" id="pt-tagline">Loading…</p>
+      <div id="pt-mount"></div>
+    </div>
+  </section>
+
+  <div class="foot-tuck">
+    <div style="font-family:'IBM Plex Mono',monospace; font-size:10.5px; color:var(--ink-faint); margin-bottom:6px;">Export</div>
+    <div class="stage-quick" id="export-scope">
+      <button data-scope="all" class="active">All</button>
+      <button data-scope="spirit">Spirit</button>
+      <button data-scope="soul">Soul</button>
+      <button data-scope="body">Body</button>
+    </div>
+    <div class="backup-row">
+      <button class="tuck-btn" id="import-btn">Import data</button>
+      <button class="tuck-btn" id="notes-tuck-btn">Plan notes &amp; changelog</button>
+    </div>
+    <input type="file" id="import-input" accept="application/json" style="display:none;">
+    <div class="notes-panel" id="notes-panel"><div id="notes-list"></div></div>
+  </div>
+</div>
+
+<div class="pt-guide-overlay" id="pt-guide-overlay"></div>
+
+<script>
+const COORD_LABELS = ['Theme','Focus','Movement','Function','Virtue','Response','Element','Orientation','Reflection','Outcome'];
+
+const SEASONS = [
+  { key:'autumn', name:'Autumn', months:'Sep – Nov', color:'autumn',
+    piece:'♔ King', blurb:'Knows its position, and governs from it',
+    metaDetail:'Archetype — Lion / Lamb / Eagle / Man',
+    values:['Origin — authority','Focus — identity','Vision — see','Purpose — intent','Love — kindness','Justification — go','Earth — source','North — conceive','Who am I? Why am I?','Identity revealed and rooted']
+  },
+  { key:'winter', name:'Winter', months:'Dec – Feb', color:'winter',
+    piece:'♟ Pawns', blurb:'Daily habits, incremental progress',
+    metaDetail:'Formation — King / Pawn / Knight, Bishop, Rook / Queen',
+    values:['Being — character','Discipline — formation','Values — stand','Principles — wisdom','Faith — hope','Righteousness — share','Water — essence','West — birth','How do I live?','Life formed and consistent']
+  },
+  { key:'spring', name:'Spring', months:'Mar – May', color:'spring',
+    piece:'♞♗♖', blurb:'Equip · extend · execute',
+    metaDetail:'Activation — Solutions / Transformation / Expressions / Convenience',
+    values:['Creation — expression','Consistency — activation','Mission — move','Potential — power','Grace — mercy','Sanctification — serve','Fire — intention','South — grow','What do I do?','Purpose activated and released']
+  },
+  { key:'summer', name:'Summer', months:'Jun – Aug', color:'summer',
+    piece:'♛ Queen', blurb:'Widest reach, steadiest hand',
+    metaDetail:'Governance — King / Prophet / Judge / Priest',
+    values:['Alignment — stewardship','Resilience — governance','Mandate — govern','Plan / predict — process','Peace — joy','Obedience — shine','Wind — will','East — sustain','How long do I sustain?','Life stewarded with peace and authority']
+  }
+];
+
+const DIRECTION_WEDGE = { autumn:0, winter:2, spring:1, summer:3 };
+
+const WEEKS = [
+  {w:1,t:'Created Identity',r:'Genesis 1:27',f:'Psalm 139:14',s:'Psalm 8:4-5'},
+  {w:2,t:'Known Before Time',r:'Jeremiah 1:5',f:'Psalm 139:13',s:'Romans 8:29'},
+  {w:3,t:'Chosen & Set Apart',r:'1 Peter 2:9',f:'Ephesians 1:4-5',s:'1 Thessalonians 5:23'},
+  {w:4,t:'Designed for Purpose',r:'Ephesians 2:10',f:'Jeremiah 29:11',s:'Philippians 2:13'},
+  {w:5,t:'Loved & Accepted',r:'1 John 4:9-10',f:'Romans 5:8',s:'John 15:9'},
+  {w:6,t:'Directed by God',r:'Psalm 25:9',f:'Psalm 32:8',s:'Psalm 37:23'},
+  {w:7,t:'Finite but Purposeful',r:'Psalm 144:4',f:'Psalm 90:12',s:'Colossians 4:5'},
+  {w:8,t:'Image of a Creator',r:'Genesis 1:1',f:'Exodus 31:3',s:'Isaiah 64:8'},
+  {w:9,t:'Built on a Foundation',r:'Matthew 7:24-25',f:'Proverbs 24:3-4',s:'Luke 6:48'},
+  {w:10,t:'Led by His Voice',r:'John 10:27',f:'Isaiah 30:21',s:'Hebrews 3:15'},
+  {w:11,t:'Spiritually Aware',r:'1 Corinthians 2:14',f:'John 14:26',s:'Romans 8:5'},
+  {w:12,t:'Rooted and Grounded',r:'Colossians 2:6-7',f:'Ephesians 3:17',s:'Psalm 1:3'},
+  {w:13,t:'Identity Surrendered',r:'Galatians 2:20',f:'Romans 8:1',s:'Philippians 3:8'},
+  {w:14,t:'Fear of the Lord',r:'Proverbs 1:7',f:'Psalm 111:10',s:'James 1:5'},
+  {w:15,t:'Values Shape Life',r:'Colossians 3:12-14',f:'Galatians 5:22-23',s:'Ephesians 4:1'},
+  {w:16,t:'Renewed Mind',r:'Romans 12:2',f:'Philippians 2:5',s:'Hebrews 12:11'},
+  {w:17,t:'Wisdom as a Guide',r:'Proverbs 4:7',f:'James 3:17',s:'Psalm 119:105'},
+  {w:18,t:'Walking by Faith',r:'Hebrews 11:1',f:'Romans 10:17',s:'2 Corinthians 5:7'},
+  {w:19,t:'Trust over Control',r:'Proverbs 3:5-6',f:'Ecclesiastes 7:12',s:'Isaiah 26:4'},
+  {w:20,t:'Truth & Integrity',r:'John 8:32',f:'Ephesians 4:15',s:'Psalm 25:5'},
+  {w:21,t:'Power of Words',r:'Proverbs 18:21',f:'James 3:5',s:'Colossians 4:6'},
+  {w:22,t:'Heart Alignment',r:'Matthew 12:34',f:'Psalm 19:14',s:'Ezekiel 36:26'},
+  {w:23,t:'Discipline & Measure',r:'Galatians 6:7',f:'Luke 6:38',s:'1 Corinthians 9:25'},
+  {w:24,t:'Consistency in Action',r:'Galatians 6:9',f:'Hebrews 12:1',s:'Romans 6:13'},
+  {w:25,t:'Character as Witness',r:'Matthew 5:16',f:'1 Timothy 4:12',s:'Titus 2:7'},
+  {w:26,t:'Faith Expressed in Action',r:'James 2:17',f:'Matthew 7:21',s:'Luke 6:46'},
+  {w:27,t:'Committed Plans',g:'Knight · March — create opportunities',r:'Proverbs 16:3',f:'James 4:13-15',s:'Psalm 37:5'},
+  {w:28,t:'Guided Path',r:'Psalm 23:1-3',f:'Isaiah 58:11',s:'John 14:6'},
+  {w:29,t:'Created to Build',r:'Genesis 1:26-28',f:'Exodus 35:31',s:'Colossians 1:16'},
+  {w:30,t:'Light in the World',r:'Matthew 5:14',f:'Philippians 2:15',s:'John 15:8'},
+  {w:31,t:'Gifts & Capacity',g:'Bishop · April — equipping',r:'Romans 12:6',f:'1 Corinthians 12:4',s:'2 Timothy 1:6'},
+  {w:32,t:'Grace for Action',r:'Ephesians 2:8',f:'2 Corinthians 12:9',s:'Hebrews 4:16'},
+  {w:33,t:'Empowered by Spirit',r:'Zechariah 4:6',f:'2 Timothy 1:7',s:'Romans 15:13'},
+  {w:34,t:'Faith Requires Action',r:'James 2:26',f:'Hebrews 11:6',s:'Titus 3:8'},
+  {w:35,t:'Arise & Shine',r:'Isaiah 60:1',f:'John 8:12',s:'Ephesians 5:8'},
+  {w:36,t:'Provision for Purpose',g:'Rook · May — execute strategy',r:'Malachi 3:10',f:'John 15:5',s:'2 Corinthians 9:10'},
+  {w:37,t:'Living Sacrifice',r:'Romans 12:1',f:'Psalm 40:8',s:'Hebrews 13:21'},
+  {w:38,t:'Growing in Wisdom',r:'Proverbs 1:5',f:'2 Timothy 3:16',s:'Hebrews 5:14'},
+  {w:39,t:'Sent with Purpose',r:'Matthew 28:19-20',f:'Acts 1:8',s:'Romans 10:15'},
+  {w:40,t:'Seek First Alignment',r:'Matthew 6:33',f:'Proverbs 4:23',s:'James 4:8'},
+  {w:41,t:'Led by Peace',r:'Colossians 3:15',f:'Romans 8:14',s:'Psalm 119:165'},
+  {w:42,t:'Faithful in Little',r:'Luke 16:10',f:'1 Corinthians 4:2',s:'Matthew 25:21'},
+  {w:43,t:'Strategic Planning',r:'Proverbs 21:5',f:'Proverbs 19:21',s:'Psalm 20:4'},
+  {w:44,t:'God Over Plans',r:'Proverbs 16:9',f:'Isaiah 46:10',s:'Psalm 33:11'},
+  {w:45,t:'Joy as Strength',r:'Nehemiah 8:10',f:'Psalm 16:11',s:'James 1:2'},
+  {w:46,t:'Trusting Process',r:'Ecclesiastes 3:1',f:'Romans 8:28',s:'Psalm 31:15'},
+  {w:47,t:'Shine Through Discipline',r:'Daniel 12:3',f:'Proverbs 22:29',s:'1 Timothy 4:7'},
+  {w:48,t:'Rest & Renewal',r:'Matthew 11:28',f:'Mark 6:31',s:'Psalm 46:10'},
+  {w:49,t:'Sustained Provision',r:'John 10:10',f:'2 Corinthians 9:8',s:'Philippians 4:19'},
+  {w:50,t:'Faithfulness Over Time',r:'1 Corinthians 15:58',f:'2 Timothy 4:7-8',s:'Colossians 3:23'},
+  {w:51,t:'Community & Accountability',r:'Hebrews 10:24-25',f:'Proverbs 27:17',s:'Galatians 6:2'},
+  {w:52,t:'Legacy & Multiplication',r:'2 Timothy 2:2',f:'Psalm 78:4',s:'Deuteronomy 6:7'}
+];
+
+function seasonIndexForWeek(w){ return Math.min(3, Math.floor((w-1)/13)); }
+function seasonIndexForDate(d){
+  const m = d.getMonth();
+  if(m>=8 && m<=10) return 0;
+  if(m===11 || m<=1) return 1;
+  if(m>=2 && m<=4) return 2;
+  return 3;
+}
+function mostRecentSaturday(d){
+  const r = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const diff = (r.getDay() - 6 + 7) % 7;
+  r.setDate(r.getDate() - diff);
+  return r;
+}
+function currentWeekNumber(d){
+  const y = d.getMonth()>=8 ? d.getFullYear() : d.getFullYear()-1;
+  const start = mostRecentSaturday(new Date(y,8,1));
+  const diffDays = Math.floor((d-start)/86400000);
+  let wk = Math.floor(diffDays/7)+1;
+  if(wk<1) wk=1; if(wk>52) wk=52;
+  return wk;
+}
+
+const today = new Date();
+const currentSeasonIndex = seasonIndexForDate(today);
+const nowWeek = currentWeekNumber(today);
+let viewSeasonKey = SEASONS[currentSeasonIndex].key;
+let activeWeek = nowWeek;
+
+const PLAN_YEAR_ANCHOR = mostRecentSaturday(new Date(today.getMonth()>=8 ? today.getFullYear() : today.getFullYear()-1, 8, 1));
+function weekStartDate(weekNum){
+  const d = new Date(PLAN_YEAR_ANCHOR);
+  d.setDate(d.getDate() + (weekNum-1)*7);
+  return d;
+}
+function suggestedPostingDays(weekNum){
+  const start = weekStartDate(weekNum);
+  const fmt = (offset)=>{
+    const d = new Date(start); d.setDate(d.getDate()+offset);
+    return d.toLocaleDateString(undefined, { weekday:'short', month:'short', day:'numeric' });
+  };
+  return { reveal: fmt(0), reframe: fmt(3), respond: fmt(5) };
+}
+
+const COORD_ROTATION_ORDER = [4,0,7,2,9,5,1,8,3,6];
+function coordIndexForWeek(weekNum){ return COORD_ROTATION_ORDER[(weekNum-1) % COORD_ROTATION_ORDER.length]; }
+const featuredCoordIndex = coordIndexForWeek(nowWeek);
+
+const LS = {
+  get(key){ try{ return localStorage.getItem(key); }catch(e){ return null; } },
+  set(key, val){ try{ localStorage.setItem(key, val); return true; }catch(e){ return false; } },
+  remove(key){ try{ localStorage.removeItem(key); }catch(e){} }
+};
+
+const SECTION_STATE_KEY = 'seasons-section-state';
+let sectionState = Object.assign({ coordinates:true, weekly:true, journal:false, learning:false, domains:false, body:false }, (()=>{ try{ return JSON.parse(LS.get(SECTION_STATE_KEY)||'{}'); }catch(e){ return {}; } })());
+function applySectionStates(){
+  document.querySelectorAll('.csec').forEach(sec=>{
+    sec.classList.toggle('open', sectionState[sec.getAttribute('data-key')] !== false);
+  });
+}
+function renderCoordCallouts(){
+  const s = SEASONS[currentSeasonIndex];
+  const html = `<span>This week's coordinate — <b>${COORD_LABELS[featuredCoordIndex]}</b>: ${s.values[featuredCoordIndex]}</span><span class="cc-arrow">→ Spirit</span>`;
+  ['coord-callout-soul','coord-callout-body'].forEach(id=>{
+    const el = document.getElementById(id);
+    if(el){ el.innerHTML = html; el.onclick = goToCoordinate; }
+  });
+}
+function goToCoordinate(){
+  setActivePage('spirit');
+  sectionState.coordinates = true;
+  LS.set(SECTION_STATE_KEY, JSON.stringify(sectionState));
+  applySectionStates();
+  requestAnimationFrame(()=> requestAnimationFrame(()=> jumpToCoordRow(featuredCoordIndex)));
+}
+function renderSoulOverview(){
+  const mount = document.getElementById('soul-overview');
+  if(!mount) return;
+  const learning = loadLearningEntries();
+  const sharpenEntries = learning.filter(e=>e.lane==='sharpen');
+  const rootEntries = learning.filter(e=>e.lane==='root');
+  const journal = loadEntries().slice().sort((a,b)=>b.ts-a.ts);
+  const latestSharpen = sharpenEntries[0];
+  const latestRoot = rootEntries[0];
+  const latestJournal = journal[0];
+
+  const block = (label, item, textFn) => item ? `
+    <div style="margin-bottom:12px;">
+      <div class="entry-meta" style="margin-bottom:2px;">${label}</div>
+      <div style="font-size:13.5px; color:var(--ink); line-height:1.5;">${textFn(item)}</div>
+    </div>` : '';
+
+  mount.innerHTML = `
+    <div class="wd-head"><h4>Overview</h4><span class="wd-week">${sharpenEntries.length} Sharpen · ${rootEntries.length} Root · ${journal.length} journal</span></div>
+    ${block('Latest from Sharpen', latestSharpen, e=>`${e.takeaway.replace(/</g,'&lt;')} <span style="color:var(--ink-faint);">→ ${e.action.replace(/</g,'&lt;')}</span>`)}
+    ${block('Latest from Root', latestRoot, e=>`${e.takeaway.replace(/</g,'&lt;')} <span style="color:var(--ink-faint);">→ ${e.action.replace(/</g,'&lt;')}</span>`)}
+    ${block('Latest journal entry', latestJournal, e=>`${e.text.replace(/</g,'&lt;').slice(0,180)}${e.text.length>180?'…':''}`)}
+    ${(!latestSharpen && !latestRoot && !latestJournal) ? `<div class="empty-note">Nothing logged yet — add a note in Learning or write a line in Points taken to see it here.</div>` : ''}
+  `;
+}
+
+const PAGE_KEY = 'seasons-active-page';
+function setActivePage(page){
+  document.querySelectorAll('.csec[data-group]').forEach(el=>{ el.style.display = el.dataset.group === page ? '' : 'none'; });
+  document.querySelectorAll('.group-label[data-group]').forEach(el=>{ el.style.display = el.dataset.group === page ? '' : 'none'; });
+  document.querySelectorAll('#page-switch button').forEach(b=> b.classList.toggle('active', b.dataset.group === page));
+  LS.set(PAGE_KEY, page);
+}
+function initPageSwitch(){
+  document.querySelectorAll('#page-switch button').forEach(b=>{
+    b.addEventListener('click', ()=>{ setActivePage(b.dataset.group); window.scrollTo({top:0, behavior:'smooth'}); });
+  });
+  setActivePage(LS.get(PAGE_KEY) || 'spirit');
+}
+
+function initCollapsibles(){
+  document.querySelectorAll('.csec-head').forEach(head=>{
+    head.addEventListener('click', ()=>{
+      const sec = head.closest('.csec');
+      const open = sec.classList.toggle('open');
+      sectionState[sec.getAttribute('data-key')] = open;
+      LS.set(SECTION_STATE_KEY, JSON.stringify(sectionState));
+    });
+  });
+  document.querySelectorAll('.quicknav a').forEach(a=>{
+    a.addEventListener('click', (e)=>{
+      e.preventDefault();
+      const sec = document.getElementById(a.getAttribute('href').slice(1));
+      if(!sec) return;
+      if(!sec.classList.contains('open')){
+        sec.classList.add('open');
+        sectionState[sec.getAttribute('data-key')] = true;
+        LS.set(SECTION_STATE_KEY, JSON.stringify(sectionState));
+      }
+      sec.scrollIntoView({ behavior:'smooth', block:'start' });
+    });
+  });
+}
+
+function initCompass(){
+  SEASONS.forEach((s)=>{
+    const wedge = document.getElementById('wedge-'+DIRECTION_WEDGE[s.key]);
+    wedge.style.fill = `var(--${s.color})`;
+    wedge.addEventListener('click', ()=> setViewSeason(s.key));
+  });
+  const backLink = document.getElementById('coord-back-today');
+  backLink.addEventListener('click', (e)=>{ e.preventDefault(); setViewSeason(SEASONS[currentSeasonIndex].key); });
+}
+function renderCompassState(){
+  SEASONS.forEach((s)=> document.getElementById('wedge-'+DIRECTION_WEDGE[s.key]).classList.toggle('active', s.key===viewSeasonKey));
+  document.getElementById('center-season').textContent = SEASONS.find(s=>s.key===viewSeasonKey).name;
+}
+function renderCoordChips(){
+  const mount = document.getElementById('coord-chips');
+  mount.innerHTML = SEASONS.map(s=>`
+    <button class="coord-chip${s.key===viewSeasonKey?' active':''}" data-key="${s.key}"
+      style="--chip-color:var(--${s.color}); --chip-bg:var(--${s.color}-bg); --chip-ink:var(--${s.color}-ink);">
+      <span class="dot"></span>${s.name}
+    </button>`).join('');
+  mount.querySelectorAll('.coord-chip').forEach(btn=> btn.addEventListener('click', ()=> setViewSeason(btn.getAttribute('data-key'))));
+  const backLink = document.getElementById('coord-back-today');
+  if(backLink) backLink.style.display = viewSeasonKey === SEASONS[currentSeasonIndex].key ? 'none' : 'inline';
+}
+function renderCoordList(){
+  const s = SEASONS.find(x=>x.key===viewSeasonKey);
+  document.getElementById('coord-season-info').innerHTML = `<b>${s.piece}</b> — ${s.blurb}<span class="meta-line">${s.metaDetail}</span>`;
+  const mount = document.getElementById('coord-list');
+  mount.innerHTML = COORD_LABELS.map((label,i)=>`
+    <div class="coord-row${i===featuredCoordIndex?' spotlight':''}" style="--coord-color:var(--${s.color})">
+      <div class="coord-index">${String(i+1).padStart(2,'0')}</div>
+      <div class="coord-main">
+        <div class="coord-label">${label}${i===featuredCoordIndex?' <span class=\"coord-week-badge\">this week</span>':''}</div>
+        <div class="coord-value">${s.values[i]}</div>
+      </div>
+    </div>`).join('');
+}
+function renderCoordWheel(){
+  const s = SEASONS.find(x=>x.key===viewSeasonKey);
+  const cx=190, cy=170, r=105, dotR=17, hubR=52;
+  const colorVar = `var(--${s.color})`;
+  const pts = COORD_LABELS.map((label,i)=>{
+    const angle = (-90 + i*36) * Math.PI/180;
+    return { x:+(cx + r*Math.cos(angle)).toFixed(1), y:+(cy + r*Math.sin(angle)).toFixed(1), i };
+  });
+  const spokes = pts.map(p=>{
+    const featured = p.i===featuredCoordIndex;
+    return `<line x1="${cx}" y1="${cy}" x2="${p.x}" y2="${p.y}" stroke="${featured?colorVar:'var(--line)'}" stroke-width="${featured?1.5:1}"></line>`;
+  }).join('');
+  const dots = pts.map(p=>{
+    const featured = p.i===featuredCoordIndex;
+    const rr = featured ? dotR+3 : dotR;
+    return `<g class="wheel-dot" data-idx="${p.i}">
+      <circle cx="${p.x}" cy="${p.y}" r="${rr}" fill="${featured?colorVar:'var(--paper-raised)'}" stroke="var(--line)" stroke-width="1"></circle>
+      <text x="${p.x}" y="${p.y}" text-anchor="middle" dominant-baseline="central" font-family="'IBM Plex Mono',monospace" font-size="11" fill="${featured?'var(--paper)':'var(--ink-soft)'}">${String(p.i+1).padStart(2,'0')}</text>
+    </g>`;
+  }).join('');
+  document.getElementById('coord-wheel-wrap').innerHTML = `
+    <svg viewBox="0 0 380 340" style="width:100%; max-width:290px; display:block;">
+      <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="var(--line)" stroke-width="1"></circle>
+      ${spokes}
+      <circle cx="${cx}" cy="${cy}" r="${hubR}" fill="var(--ink)"></circle>
+      <text x="${cx}" y="${cy-8}" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" letter-spacing="1" fill="var(--paper)" opacity="0.6">THIS WEEK</text>
+      <text x="${cx}" y="${cy+12}" text-anchor="middle" font-family="'Cormorant Garamond',serif" font-size="15" font-weight="500" fill="var(--paper)">${COORD_LABELS[featuredCoordIndex]}</text>
+      ${dots}
+    </svg>`;
+  document.querySelectorAll('.wheel-dot').forEach(el=>{
+    el.style.cursor = 'pointer';
+    el.addEventListener('click', ()=> jumpToCoordRow(parseInt(el.getAttribute('data-idx'))));
+  });
+}
+function jumpToCoordRow(idx){
+  const rows = document.querySelectorAll('#coord-list .coord-row');
+  const row = rows[idx];
+  if(!row) return;
+  row.scrollIntoView({ behavior:'smooth', block:'center' });
+  row.classList.add('flash');
+  setTimeout(()=> row.classList.remove('flash'), 900);
+}
+function setViewSeason(key){
+  viewSeasonKey = key;
+  renderCompassState(); renderCoordChips(); renderCoordList(); renderCoordWheel();
+}
+
+function renderToday(){
+  const s = SEASONS[currentSeasonIndex];
+  const w = WEEKS.find(x=>x.w===nowWeek);
+  const streak = computeStreak();
+  const mount = document.getElementById('today-card');
+  mount.innerHTML = `
+    <div class="today-eyebrow">${today.toLocaleDateString(undefined,{weekday:'long', month:'long', day:'numeric'})} · Week ${String(nowWeek).padStart(2,'0')} of 52</div>
+    <div class="today-heading">${w.t}</div>
+    <div class="today-season-meta">${s.name} · ${s.piece} — ${s.blurb}</div>
+    <div class="today-coord">This week's coordinate — <b>${COORD_LABELS[featuredCoordIndex]}</b>: ${s.values[featuredCoordIndex]}</div>
+    <div class="today-q">${s.values[8]}</div>
+    ${streak > 1 ? `<div class="today-streak">${streak}-week reading streak</div>` : ''}`;
+  document.getElementById('journal-prompt').textContent = `This season's question — "${s.values[8]}" — write toward it, or wherever it leads.`;
+}
+function computeStreak(){
+  let streak = 0;
+  for(let w = nowWeek; w >= 1; w--){
+    if(completedWeeks.includes(w)) streak++; else break;
+  }
+  return streak;
+}
+
+function bibleGatewayHref(ref){ return 'https://www.biblegateway.com/passage/?search=' + encodeURIComponent(ref) + '&version=NKJV'; }
+const verseTextCache = {};
+async function fetchVerseText(ref){
+  if(verseTextCache[ref]) return verseTextCache[ref];
+  let cache = {};
+  try{ cache = JSON.parse(LS.get('seasons-verse-cache') || '{}'); }catch(e){}
+  if(cache[ref]){ verseTextCache[ref] = cache[ref]; return cache[ref]; }
+  const res = await fetch('https://bible-api.com/' + encodeURIComponent(ref) + '?translation=kjv');
+  if(!res.ok) throw new Error('fetch failed');
+  const data = await res.json();
+  const text = (data.text || '').trim().replace(/\n+/g,' ');
+  verseTextCache[ref] = text; cache[ref] = text;
+  try{ LS.set('seasons-verse-cache', JSON.stringify(cache)); }catch(e){}
+  return text;
+}
+function attachVerseButtons(container){
+  container.querySelectorAll('.verse-show-btn').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const ref = btn.getAttribute('data-ref');
+      const box = container.querySelector('.verse-text-box[data-box="'+CSS.escape(ref)+'"]');
+      const open = box.classList.toggle('open');
+      btn.textContent = open ? 'Hide' : 'Read';
+      if(open && !box.dataset.loaded){
+        box.innerHTML = '<span class="verse-loading">Loading…</span>';
+        try{
+          const text = await fetchVerseText(ref);
+          box.innerHTML = `<p class="verse-text">${text}</p><div class="verse-source">King James Version · public domain — <a href="${bibleGatewayHref(ref)}" target="_blank" rel="noopener">compare NKJV wording ↗</a></div>`;
+          box.dataset.loaded = '1';
+        }catch(e){
+          box.innerHTML = `<span class="verse-error">Couldn't load text — <a href="${bibleGatewayHref(ref)}" target="_blank" rel="noopener">read on Bible Gateway ↗</a></span>`;
+        }
+      }
+    });
+  });
+}
+
+const COMPLETED_KEY = 'seasons-completed-weeks';
+function loadCompleted(){ try{ return JSON.parse(LS.get(COMPLETED_KEY) || '[]'); }catch(e){ return []; } }
+function saveCompleted(list){ return LS.set(COMPLETED_KEY, JSON.stringify(list)); }
+let completedWeeks = loadCompleted();
+
+function renderProgress(){
+  const row = document.getElementById('progress-row');
+  row.innerHTML = SEASONS.map((s,i)=>{
+    const weekNums = WEEKS.filter(w=>seasonIndexForWeek(w.w)===i).map(w=>w.w);
+    const done = weekNums.filter(n=>completedWeeks.includes(n)).length;
+    return `<div class="progress-chip" style="background:var(--${s.color}-bg); color:var(--${s.color}-ink);">
+      <div class="pc-name">${s.name}</div><div class="pc-count">${done} / ${weekNums.length}</div></div>`;
+  }).join('');
+}
+function renderWeekGrid(){
+  const grid = document.getElementById('week-grid');
+  grid.innerHTML = WEEKS.map(w=>{
+    const s = SEASONS[seasonIndexForWeek(w.w)];
+    const isCurrent = w.w === nowWeek;
+    const isDone = completedWeeks.includes(w.w);
+    const bg = isDone ? `var(--${s.color})` : `var(--${s.color}-bg)`;
+    const col = isDone ? '' : `color:var(--${s.color}-ink);`;
+    return `<div class="week-pill${isCurrent?' current':''}${isDone?' done':''}" data-week="${w.w}" style="background:${bg};${col}" title="W${String(w.w).padStart(2,'0')} — ${w.t}">${w.w}</div>`;
+  }).join('');
+  grid.querySelectorAll('.week-pill').forEach(el=> el.addEventListener('click', ()=>{ activeWeek = parseInt(el.getAttribute('data-week')); renderWeekDetail(); }));
+  document.getElementById('weekly-sub').textContent = `Week ${nowWeek} of 52 this plan-year — tap any week to preview it.`;
+}
+function renderWeekDetail(){
+  const w = WEEKS.find(x=>x.w===activeWeek);
+  const s = SEASONS[seasonIndexForWeek(w.w)];
+  const isDone = completedWeeks.includes(w.w);
+  const mount = document.getElementById('week-detail');
+  const verseRow = (label, ref)=>`
+    <div class="wd-verse">
+      <div class="wd-verse-head"><b>${label}</b><span class="verse-ref">${ref}</span><button class="verse-show-btn" data-ref="${ref}">Read</button></div>
+      <div class="verse-text-box" data-box="${ref}"></div>
+    </div>`;
+  mount.innerHTML = `
+    <div class="wd-head"><h4>${w.t}</h4><span class="wd-week">W${String(w.w).padStart(2,'0')} · ${s.name}</span></div>
+    ${w.g ? `<div class="wd-subgroup">${w.g}</div>` : ''}
+    <div class="wd-verses">${verseRow('Reveal', w.r)}${verseRow('Reframe', w.f)}${verseRow('Respond', w.s)}</div>
+    <div class="wd-mark">
+      <div class="wd-actions">
+        <button class="share-btn" id="share-toggle-btn">↗ Share</button>
+        <button class="mark-btn${isDone?' done':''}" id="mark-btn">${isDone ? 'Marked as read' : 'Mark as read'}</button>
+      </div>
+    </div>
+    <div class="share-panel" id="share-panel">
+      <div class="photo-row">
+        <button class="photo-btn" id="photo-add-btn">📷 Add photo background</button>
+        <img class="photo-thumb" id="photo-thumb" alt="">
+        <button class="photo-remove" id="photo-remove-btn">remove</button>
+        <input type="file" accept="image/*" id="photo-input" style="display:none;">
+      </div>
+      <div class="stage-quick" id="stage-quick">
+        <button data-stage="reveal">Reveal only</button>
+        <button data-stage="reframe">Reframe only</button>
+        <button data-stage="respond">Respond only</button>
+        <button data-stage="all">All three</button>
+      </div>
+      <div class="format-quick" id="format-quick">
+        <button data-format="square">◻ Square</button>
+        <button data-format="story">▯ Story</button>
+      </div>
+      <p class="stage-suggest" id="stage-suggest"></p>
+      <div class="share-toggles">
+        <label class="share-toggle"><input type="checkbox" id="inc-title" checked> Title</label>
+        <label class="share-toggle"><input type="checkbox" id="inc-reveal" checked> Reveal</label>
+        <label class="share-toggle"><input type="checkbox" id="inc-reframe" checked> Reframe</label>
+        <label class="share-toggle"><input type="checkbox" id="inc-respond" checked> Respond</label>
+        <label class="share-toggle"><input type="checkbox" id="inc-fulltext" checked> Full text (KJV)</label>
+      </div>
+      <textarea class="share-note" id="share-personal-note" placeholder="Add a personal note (optional)…"></textarea>
+      <div class="share-card-wrap"><canvas class="share-card-canvas" id="share-canvas" width="1080" height="1080"></canvas></div>
+      <div class="share-actions">
+        <button class="share-action-btn primary" id="share-native-btn">Share image</button>
+        <button class="share-action-btn secondary" id="share-download-btn">Download</button>
+        <button class="share-action-btn secondary" id="share-copy-btn">Copy text</button>
+        <button class="share-action-btn secondary" id="share-caption-btn">Copy caption</button>
+      </div>
+      <div class="share-status" id="share-status"></div>
+    </div>`;
+  document.getElementById('mark-btn').addEventListener('click', ()=>{
+    const idx = completedWeeks.indexOf(w.w);
+    if(idx>=0){ completedWeeks.splice(idx,1); } else { completedWeeks.push(w.w); }
+    saveCompleted(completedWeeks);
+    renderProgress(); renderWeekGrid(); renderWeekDetail(); renderToday();
+  });
+  attachVerseButtons(mount);
+  initShare(w, s);
+}
+
+let sharePhotoImg = null;
+let selectedFormat = 'square';
+const PHOTO_KEY = 'seasons-share-bg-photo';
+function getColorHex(varName){ return getComputedStyle(document.documentElement).getPropertyValue(varName).trim() || '#000000'; }
+function wrapCanvasText(ctx, text, maxWidth){
+  const words = text.split(' '); let lines = []; let line = '';
+  for(const word of words){
+    const test = line ? line + ' ' + word : word;
+    if(ctx.measureText(test).width > maxWidth && line){ lines.push(line); line = word; } else { line = test; }
+  }
+  if(line) lines.push(line);
+  return lines;
+}
+async function buildShareText(w, s){
+  const lines = [];
+  if(document.getElementById('inc-title').checked) lines.push(`${w.t} — Week ${String(w.w).padStart(2,'0')}, ${s.name}`);
+  const includeFullText = document.getElementById('inc-fulltext').checked;
+  const verseRows = [];
+  if(document.getElementById('inc-reveal').checked) verseRows.push(['Reveal', w.r]);
+  if(document.getElementById('inc-reframe').checked) verseRows.push(['Reframe', w.f]);
+  if(document.getElementById('inc-respond').checked) verseRows.push(['Respond', w.s]);
+  for(const [label, ref] of verseRows){
+    if(includeFullText){
+      let text = null;
+      try{ text = await fetchVerseText(ref); }catch(e){}
+      lines.push(`${label}: ${ref}${text ? ' — "' + text + '"' : ''}`);
+    } else {
+      lines.push(`${label}: ${ref}`);
+    }
+  }
+  const note = document.getElementById('share-personal-note').value.trim();
+  if(note) lines.push('', note);
+  lines.push('', '— Seasons, by EiMAGiNE');
+  return lines.join('\n');
+}
+function paintCard(ctx, W, H, w, s, rows, includeFullText, hasPhoto, measureOnly, topY){
+  const seasonColor = getColorHex('--'+s.color), seasonBg = getColorHex('--'+s.color+'-bg'), seasonInk = getColorHex('--'+s.color+'-ink');
+  const ink = getColorHex('--ink'), inkFaint = getColorHex('--ink-faint');
+  const coordLabel = COORD_LABELS[coordIndexForWeek(w.w)].toUpperCase();
+  const pad = 90;
+  if(!measureOnly){
+    ctx.clearRect(0,0,W,H);
+    ctx.save();
+    const radius = 36;
+    ctx.beginPath();
+    ctx.moveTo(radius,0); ctx.arcTo(W,0,W,H,radius); ctx.arcTo(W,H,0,H,radius);
+    ctx.arcTo(0,H,0,0,radius); ctx.arcTo(0,0,W,0,radius); ctx.closePath();
+    ctx.clip();
+    if(hasPhoto){
+      const iw = sharePhotoImg.width, ih = sharePhotoImg.height;
+      const scale = Math.max(W/iw, H/ih);
+      const dw = iw*scale, dh = ih*scale;
+      ctx.drawImage(sharePhotoImg, (W-dw)/2, (H-dh)/2, dw, dh);
+      const grad = ctx.createLinearGradient(0,0,0,H);
+      grad.addColorStop(0,'rgba(20,18,14,0.35)'); grad.addColorStop(0.55,'rgba(20,18,14,0.55)'); grad.addColorStop(1,'rgba(20,18,14,0.82)');
+      ctx.fillStyle = grad; ctx.fillRect(0,0,W,H);
+    } else { ctx.fillStyle = seasonBg; ctx.fillRect(0,0,W,H); }
+    ctx.fillStyle = seasonColor; ctx.fillRect(0,0,W,16);
+    ctx.restore();
+    if(rows.length===1){
+      const stageMap = { REVEAL:0, REFRAME:1, RESPOND:2 };
+      const activeIdx = stageMap[rows[0].label];
+      const dotR = 8, gap = 26, dotY = 62;
+      const startX = W - pad - gap*2;
+      for(let i=0;i<3;i++){
+        ctx.beginPath();
+        ctx.arc(startX + i*gap, dotY, dotR, 0, Math.PI*2);
+        ctx.fillStyle = i===activeIdx ? (hasPhoto ? '#FFFFFF' : seasonColor) : (hasPhoto ? 'rgba(255,255,255,0.35)' : 'rgba(43,42,37,0.15)');
+        ctx.fill();
+      }
+    }
+  }
+  const textMain = hasPhoto ? '#FFFFFF' : ink;
+  const textFaint = hasPhoto ? 'rgba(255,255,255,0.65)' : inkFaint;
+  const textAccent = hasPhoto ? '#FFFFFF' : seasonColor;
+  const textLabel = hasPhoto ? 'rgba(255,255,255,0.8)' : seasonInk;
+  let y = topY || 170;
+  ctx.textBaseline = 'alphabetic';
+  ctx.fillStyle = textLabel; ctx.font = '500 32px "IBM Plex Mono", monospace';
+  if(!measureOnly) ctx.fillText(`WEEK ${String(w.w).padStart(2,'0')} · ${coordLabel}`, pad, y);
+  y += 90;
+  if(document.getElementById('inc-title').checked){
+    ctx.fillStyle = textMain; ctx.font = '500 62px Georgia, serif';
+    wrapCanvasText(ctx, w.t, W - pad*2).forEach(line=>{ if(!measureOnly) ctx.fillText(line, pad, y); y += 72; });
+    y += 26;
+  }
+  rows.forEach(row=>{
+    ctx.fillStyle = textAccent; ctx.font = '500 22px "IBM Plex Mono", monospace';
+    if(!measureOnly) ctx.fillText(row.label, pad, y);
+    y += 42;
+    ctx.fillStyle = textMain; ctx.font = '400 36px Georgia, serif';
+    wrapCanvasText(ctx, row.ref, W - pad*2).forEach(line=>{ if(!measureOnly) ctx.fillText(line, pad, y); y += 46; });
+    y += includeFullText ? 12 : 20;
+    if(includeFullText){
+      ctx.fillStyle = textMain; ctx.font = '400 32px Georgia, serif';
+      const bodyText = row.text ? row.text : (row.error ? 'Text unavailable — see reference above' : '');
+      const fontStyle = row.text ? '400 32px Georgia, serif' : 'italic 26px Georgia, serif';
+      ctx.font = fontStyle;
+      if(!row.text) ctx.fillStyle = textFaint;
+      wrapCanvasText(ctx, bodyText, W - pad*2).forEach(line=>{ if(!measureOnly) ctx.fillText(line, pad, y); y += row.text ? 44 : 36; });
+      y += 22;
+    }
+  });
+  const note = document.getElementById('share-personal-note').value.trim();
+  if(note){
+    y += 16; ctx.fillStyle = textFaint; ctx.font = 'italic 28px Georgia, serif';
+    wrapCanvasText(ctx, '\u201C' + note + '\u201D', W - pad*2).forEach(line=>{ if(!measureOnly) ctx.fillText(line, pad, y); y += 38; });
+  }
+  y += 30;
+  const footerReserve = 76;
+  const contentBottom = y;
+  const finalHeight = measureOnly ? (contentBottom + footerReserve) : H;
+  if(!measureOnly){
+    ctx.fillStyle = textFaint;
+    ctx.globalAlpha = 0.4;
+    ctx.font = '500 19px "IBM Plex Mono", monospace';
+    ctx.fillText('SEASONS · BY EiMAGiNE', pad, finalHeight - 40);
+    ctx.globalAlpha = 1;
+  }
+  return contentBottom + footerReserve;
+}
+async function drawShareCard(w, s){
+  const canvas = document.getElementById('share-canvas');
+  const W = 1080;
+  const isStory = selectedFormat === 'story';
+  const includeFullText = document.getElementById('inc-fulltext').checked;
+  const rows = getCurrentRows(w);
+  const status = document.getElementById('share-status');
+  if(includeFullText){
+    canvas.width = W; canvas.height = isStory ? 1920 : 1080;
+    const placeholderCtx = canvas.getContext('2d');
+    paintCard(placeholderCtx, W, canvas.height, w, s, rows, false, !!sharePhotoImg, false);
+    status.textContent = 'Loading verse text…';
+    for(const row of rows){
+      try{
+        row.text = await fetchVerseText(row.ref);
+      }catch(e){
+        row.text = null;
+        row.error = true;
+      }
+    }
+    status.textContent = rows.some(r=>r.error) ? 'Some verse text couldn\'t be loaded — check your connection' : '';
+  }
+  const hasPhoto = !!sharePhotoImg;
+  canvas.width = W; canvas.height = isStory ? 1920 : 1080;
+  let ctx = canvas.getContext('2d');
+  const contentHeight = paintCard(ctx, W, canvas.height, w, s, rows, includeFullText, hasPhoto, true, 170);
+  let finalHeight, startY;
+  if(isStory){
+    finalHeight = 1920;
+    startY = Math.max(120, Math.round((170 + finalHeight - contentHeight) / 2));
+  } else {
+    finalHeight = Math.max(1080, Math.ceil(contentHeight));
+    startY = 170;
+  }
+  canvas.height = finalHeight;
+  ctx = canvas.getContext('2d');
+  paintCard(ctx, W, finalHeight, w, s, rows, includeFullText, hasPhoto, false, startY);
+}
+function getCurrentRows(w){
+  const rows = [];
+  if(document.getElementById('inc-reveal').checked) rows.push({label:'REVEAL', ref:w.r});
+  if(document.getElementById('inc-reframe').checked) rows.push({label:'REFRAME', ref:w.f});
+  if(document.getElementById('inc-respond').checked) rows.push({label:'RESPOND', ref:w.s});
+  return rows;
+}
+function buildCaption(w){
+  const rows = getCurrentRows(w);
+  const coordLabel = COORD_LABELS[coordIndexForWeek(w.w)];
+  let stagePart = '';
+  if(rows.length===1){
+    const stageMap = { REVEAL:'1/3', REFRAME:'2/3', RESPOND:'3/3' };
+    const niceLabel = rows[0].label[0] + rows[0].label.slice(1).toLowerCase();
+    stagePart = ` — ${niceLabel} (${stageMap[rows[0].label]})`;
+  }
+  return `Week ${String(w.w).padStart(2,'0')} · ${coordLabel}${stagePart}`;
+}
+function downloadImage(w){
+  const canvas = document.getElementById('share-canvas');
+  const link = document.createElement('a');
+  link.download = `eimagine-week-${String(w.w).padStart(2,'0')}.png`;
+  link.href = canvas.toDataURL('image/png'); link.click();
+}
+async function shareImage(w, s){
+  const status = document.getElementById('share-status');
+  const canvas = document.getElementById('share-canvas');
+  try{
+    const blob = await new Promise(res=> canvas.toBlob(res, 'image/png'));
+    const file = new File([blob], `seasons-week-${String(w.w).padStart(2,'0')}.png`, { type:'image/png' });
+    if(navigator.canShare && navigator.canShare({ files:[file] })){
+      await navigator.share({ files:[file], title: w.t, text: await buildShareText(w,s) }); status.textContent = 'Shared';
+    } else if(navigator.share){
+      await navigator.share({ title: w.t, text: await buildShareText(w,s) }); status.textContent = 'Shared';
+    } else { downloadImage(w); status.textContent = 'Sharing not supported here — image downloaded instead'; }
+  }catch(e){ if(e.name !== 'AbortError'){ status.textContent = 'Could not share'; } }
+  setTimeout(()=>{ status.textContent=''; }, 2500);
+}
+async function copyShareText(w, s){
+  const status = document.getElementById('share-status');
+  try{ await navigator.clipboard.writeText(await buildShareText(w, s)); status.textContent = 'Copied to clipboard'; }
+  catch(e){ status.textContent = 'Could not copy'; }
+  setTimeout(()=>{ status.textContent=''; }, 2000);
+}
+function loadImageFromDataUrl(dataUrl){
+  return new Promise((resolve, reject)=>{ const img = new Image(); img.onload = ()=>resolve(img); img.onerror = reject; img.src = dataUrl; });
+}
+function downscaleToDataUrl(img, maxSide){
+  const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
+  const w = Math.round(img.width*scale), h = Math.round(img.height*scale);
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  c.getContext('2d').drawImage(img, 0, 0, w, h);
+  return c.toDataURL('image/jpeg', 0.72);
+}
+function loadStoredPhoto(){
+  const val = LS.get(PHOTO_KEY);
+  if(!val) return Promise.resolve();
+  return loadImageFromDataUrl(val).then(img=>{ sharePhotoImg = img; }).catch(()=>{ LS.remove(PHOTO_KEY); });
+}
+function initShare(w, s){
+  const panel = document.getElementById('share-panel');
+  if(sharePhotoImg){
+    const thumb = document.getElementById('photo-thumb');
+    thumb.src = sharePhotoImg.src; thumb.style.display = 'inline-block';
+    document.getElementById('photo-remove-btn').style.display = 'inline-block';
+  }
+  const suggest = suggestedPostingDays(w.w);
+  document.getElementById('stage-suggest').textContent = `Suggested cadence — Reveal ${suggest.reveal} · Reframe ${suggest.reframe} · Respond ${suggest.respond}`;
+  const defaultBtn = document.querySelector('#stage-quick button[data-stage="all"]');
+  if(defaultBtn) defaultBtn.classList.add('active');
+  function setStage(stage){
+    const map = { reveal:[true,false,false], reframe:[false,true,false], respond:[false,false,true], all:[true,true,true] };
+    const [r,f,resp] = map[stage];
+    document.getElementById('inc-reveal').checked = r;
+    document.getElementById('inc-reframe').checked = f;
+    document.getElementById('inc-respond').checked = resp;
+    document.querySelectorAll('#stage-quick button').forEach(b=> b.classList.toggle('active', b.getAttribute('data-stage')===stage));
+    drawShareCard(w, s);
+  }
+  document.querySelectorAll('#stage-quick button').forEach(btn=>{
+    btn.addEventListener('click', ()=> setStage(btn.getAttribute('data-stage')));
+  });
+  document.querySelector('#format-quick button[data-format="square"]').classList.add('active');
+  document.querySelectorAll('#format-quick button').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      selectedFormat = btn.getAttribute('data-format');
+      document.querySelectorAll('#format-quick button').forEach(b=> b.classList.toggle('active', b===btn));
+      drawShareCard(w, s);
+    });
+  });
+  document.getElementById('share-caption-btn').addEventListener('click', async ()=>{
+    const status = document.getElementById('share-status');
+    try{ await navigator.clipboard.writeText(buildCaption(w)); status.textContent = 'Caption copied'; }
+    catch(e){ status.textContent = 'Could not copy'; }
+    setTimeout(()=>{ status.textContent=''; }, 2000);
+  });
+  document.getElementById('share-toggle-btn').addEventListener('click', ()=>{
+    panel.classList.toggle('open');
+    if(panel.classList.contains('open')) drawShareCard(w, s);
+  });
+  ['inc-title','inc-reveal','inc-reframe','inc-respond','inc-fulltext'].forEach(id=> document.getElementById(id).addEventListener('change', ()=>drawShareCard(w, s)));
+  document.getElementById('share-personal-note').addEventListener('input', ()=>drawShareCard(w, s));
+  document.getElementById('share-native-btn').addEventListener('click', ()=>shareImage(w, s));
+  document.getElementById('share-download-btn').addEventListener('click', ()=>downloadImage(w));
+  document.getElementById('share-copy-btn').addEventListener('click', ()=>copyShareText(w, s));
+  const status = document.getElementById('share-status');
+  document.getElementById('photo-add-btn').addEventListener('click', ()=> document.getElementById('photo-input').click());
+  document.getElementById('photo-input').addEventListener('change', async (e)=>{
+    const file = e.target.files[0];
+    if(!file) return;
+    try{
+      status.textContent = 'Processing photo…';
+      const reader = new FileReader();
+      const rawDataUrl = await new Promise((res,rej)=>{ reader.onload = ()=>res(reader.result); reader.onerror = rej; reader.readAsDataURL(file); });
+      const rawImg = await loadImageFromDataUrl(rawDataUrl);
+      const smallDataUrl = downscaleToDataUrl(rawImg, 1080);
+      sharePhotoImg = await loadImageFromDataUrl(smallDataUrl);
+      const thumb = document.getElementById('photo-thumb');
+      thumb.src = smallDataUrl; thumb.style.display = 'inline-block';
+      document.getElementById('photo-remove-btn').style.display = 'inline-block';
+      const ok = LS.set(PHOTO_KEY, smallDataUrl);
+      drawShareCard(w, s);
+      status.textContent = ok ? 'Photo added' : 'Photo added (too large to remember for next time)';
+    }catch(err){ status.textContent = 'Could not use that photo — try a different image'; }
+    setTimeout(()=>{ status.textContent=''; }, 2500);
+  });
+  document.getElementById('photo-remove-btn').addEventListener('click', ()=>{
+    sharePhotoImg = null;
+    document.getElementById('photo-thumb').style.display = 'none';
+    document.getElementById('photo-remove-btn').style.display = 'none';
+    LS.remove(PHOTO_KEY);
+    drawShareCard(w, s);
+  });
+}
+
+const ENTRIES_KEY = 'seasons-journal-entries';
+function loadEntries(){ try{ return JSON.parse(LS.get(ENTRIES_KEY) || '[]'); }catch(e){ return []; } }
+function saveEntries(entries){ return LS.set(ENTRIES_KEY, JSON.stringify(entries)); }
+function seasonBadgeStyle(colorKey){ return `background:var(--${colorKey}-bg); color:var(--${colorKey}-ink);`; }
+let journalFilterQuery = '';
+function renderEntries(){
+  let entries = loadEntries();
+  if(journalFilterQuery){
+    const q = journalFilterQuery.toLowerCase();
+    entries = entries.filter(e => e.text.toLowerCase().includes(q));
+  }
+  const mount = document.getElementById('entries');
+  if(!entries.length){ mount.innerHTML = `<div class="empty-note">${journalFilterQuery ? 'No matching entries.' : 'No entries yet — your reflections will appear here.'}</div>`; return; }
+  const sorted = entries.slice().sort((a,b)=> b.ts - a.ts);
+  mount.innerHTML = sorted.map(e=>{
+    const season = SEASONS.find(s=>s.key===e.seasonKey) || SEASONS[0];
+    const date = new Date(e.ts).toLocaleDateString(undefined, { year:'numeric', month:'short', day:'numeric' });
+    return `<div class="entry">
+      <div class="entry-meta"><span>${date}</span><span class="entry-tag" style="${seasonBadgeStyle(season.color)}">${season.name}</span><button class="entry-del" data-id="${e.id}">delete</button></div>
+      <div class="entry-text">${e.text.replace(/</g,'&lt;')}</div></div>`;
+  }).join('');
+  mount.querySelectorAll('.entry-del').forEach(btn=> btn.addEventListener('click', ()=>{
+    saveEntries(loadEntries().filter(e=>e.id !== btn.getAttribute('data-id'))); renderEntries();
+  }));
+}
+document.getElementById('journal-filter').addEventListener('input', (e)=>{ journalFilterQuery = e.target.value.trim(); renderEntries(); });
+document.getElementById('save-btn').addEventListener('click', ()=>{
+  const input = document.getElementById('journal-input');
+  const text = input.value.trim();
+  if(!text) return;
+  const status = document.getElementById('save-status'), btn = document.getElementById('save-btn');
+  btn.disabled = true; status.textContent = 'Saving…';
+  const entries = loadEntries();
+  entries.push({ id:'e'+Date.now()+Math.random().toString(36).slice(2,7), seasonKey: SEASONS[currentSeasonIndex].key, ts: Date.now(), text });
+  const ok = saveEntries(entries);
+  status.textContent = ok ? 'Saved' : 'Could not save';
+  btn.disabled = false;
+  if(ok){ input.value=''; renderEntries(); renderSoulOverview(); }
+  setTimeout(()=>{ status.textContent=''; }, 2000);
+});
+
+const DOMAINS = [ { key:'family', name:'Family' }, { key:'education', name:'Education' }, { key:'entertainment', name:'Entertainment' } ];
+const DOMAIN_TASKS_KEY = 'seasons-domain-tasks';
+function loadDomainTasks(){ try{ return JSON.parse(LS.get(DOMAIN_TASKS_KEY) || '{}'); }catch(e){ return {}; } }
+function saveDomainTasks(){ LS.set(DOMAIN_TASKS_KEY, JSON.stringify(domainTasks)); }
+let domainTasks = Object.assign({ family:[], education:[], entertainment:[] }, loadDomainTasks());
+function renderDomains(){
+  const mount = document.getElementById('domain-cols');
+  mount.innerHTML = DOMAINS.map(d=>{
+    const tasks = (domainTasks[d.key] || []).slice().sort((a,b)=>{
+      if(!!b.priority !== !!a.priority) return (b.priority?1:0) - (a.priority?1:0);
+      if(a.due && b.due) return a.due < b.due ? -1 : 1;
+      if(a.due) return -1; if(b.due) return 1;
+      return 0;
+    });
+    const done = tasks.filter(t=>t.done).length;
+    const rows = tasks.map(t=>`
+      <div class="domain-task${t.done?' done':''}" data-id="${t.id}" data-domain="${d.key}">
+        <input type="checkbox" ${t.done?'checked':''}>
+        <span>${t.text.replace(/</g,'&lt;')}${t.due ? ` <span style="color:var(--ink-faint); font-size:10.5px;">· ${t.due}</span>` : ''}</span>
+        <button class="domain-task-star" data-id="${t.id}" data-domain="${d.key}" title="Priority" style="background:none; border:none; cursor:pointer; font-size:11px; color:${t.priority?'var(--accent-ink)':'var(--ink-faint)'}; padding:0 2px;">${t.priority?'★':'☆'}</button>
+        <button class="domain-task-del" data-id="${t.id}" data-domain="${d.key}">✕</button></div>`).join('');
+    return `<div class="domain-col">
+      <div class="domain-head"><span class="domain-name">${d.name}</span><span class="domain-count">${done}/${tasks.length}</span></div>
+      <div class="domain-tasks">${rows}</div>
+      <div class="domain-add"><input type="text" placeholder="Add a task…" data-domain="${d.key}" class="domain-add-input"><input type="date" data-domain="${d.key}" class="domain-add-date" style="width:auto; font-size:10px; padding:6px 4px;"><button class="domain-add-btn" data-domain="${d.key}">+</button></div>
+    </div>`;
+  }).join('');
+  mount.querySelectorAll('.domain-task input[type=checkbox]').forEach(cb=>{
+    cb.addEventListener('change', (e)=>{
+      const row = e.target.closest('.domain-task');
+      const t = domainTasks[row.getAttribute('data-domain')].find(x=>x.id===row.getAttribute('data-id'));
+      if(t){ t.done = e.target.checked; saveDomainTasks(); renderDomains(); }
+    });
+  });
+  mount.querySelectorAll('.domain-task-star').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const t = domainTasks[btn.getAttribute('data-domain')].find(x=>x.id===btn.getAttribute('data-id'));
+      if(t){ t.priority = !t.priority; saveDomainTasks(); renderDomains(); }
+    });
+  });
+  mount.querySelectorAll('.domain-task-del').forEach(btn=> btn.addEventListener('click', ()=>{
+    const dk = btn.getAttribute('data-domain');
+    domainTasks[dk] = domainTasks[dk].filter(x=>x.id!==btn.getAttribute('data-id'));
+    saveDomainTasks(); renderDomains();
+  }));
+  const addTask = (dk, input, dateInput)=>{
+    const text = input.value.trim(); if(!text) return;
+    domainTasks[dk] = domainTasks[dk] || [];
+    domainTasks[dk].push({ id:'t'+Date.now()+Math.random().toString(36).slice(2,6), text, done:false, due: dateInput.value || null, priority:false });
+    input.value = ''; dateInput.value = ''; saveDomainTasks(); renderDomains();
+  };
+  mount.querySelectorAll('.domain-add-btn').forEach(btn=> btn.addEventListener('click', ()=> addTask(btn.getAttribute('data-domain'), mount.querySelector(`.domain-add-input[data-domain="${btn.getAttribute('data-domain')}"]`), mount.querySelector(`.domain-add-date[data-domain="${btn.getAttribute('data-domain')}"]`))));
+  mount.querySelectorAll('.domain-add-input').forEach(input=> input.addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ addTask(input.getAttribute('data-domain'), input, mount.querySelector(`.domain-add-date[data-domain="${input.getAttribute('data-domain')}"]`)); } }));
+}
+
+const LEARNING_ENTRIES_KEY = 'seasons-learning-entries';
+const LEARNING_WEEKLY_KEY = 'seasons-learning-weekly';
+const LEARNING_SEASON_KEY = 'seasons-learning-season';
+let learningLane = 'sharpen';
+let learningPendingPhoto = null;
+function renderLearningForm(){
+  const mount = document.getElementById('learning-form-mount');
+  const isSharpen = learningLane === 'sharpen';
+  mount.innerHTML = `
+    <div style="display:grid; gap:8px; margin:1rem 0;">
+      <input type="text" id="learning-source" placeholder="${isSharpen ? 'Source — e.g. Law Society Gazette' : 'Source — e.g. Morning devotional'}" style="border:1px solid var(--line); border-radius:9px; padding:9px 12px; font-size:13.5px; background:var(--paper-raised); color:var(--ink);">
+      <input type="text" id="learning-takeaway" placeholder="Takeaway — what did you learn or notice?" style="border:1px solid var(--line); border-radius:9px; padding:9px 12px; font-size:13.5px; background:var(--paper-raised); color:var(--ink);">
+      <input type="text" id="learning-action" placeholder="${isSharpen ? 'Action — e.g. apply to a live matter' : 'Action — e.g. revisit this on Sunday'}" style="border:1px solid var(--line); border-radius:9px; padding:9px 12px; font-size:13.5px; background:var(--paper-raised); color:var(--ink);">
+      <div style="display:flex; align-items:center; gap:10px;">
+        <button type="button" id="learning-photo-btn" style="font-size:12px; padding:8px 12px; border:1px solid var(--line); border-radius:9px; background:var(--paper-raised); color:var(--ink-soft); cursor:pointer;">📷 Add photo</button>
+        <img id="learning-photo-thumb" style="width:34px; height:34px; border-radius:7px; object-fit:cover; border:1px solid var(--line); display:none;" alt="">
+        <button type="button" id="learning-photo-remove" style="display:none; background:none; border:none; color:var(--ink-faint); text-decoration:underline; font-size:11px; cursor:pointer;">remove</button>
+        <input type="file" accept="image/*" id="learning-photo-input" style="display:none;">
+      </div>
+      <div class="journal-actions"><span></span><button class="save-btn" id="learning-add-btn">Add entry</button></div>
+    </div>`;
+  document.getElementById('learning-photo-btn').addEventListener('click', ()=> document.getElementById('learning-photo-input').click());
+  document.getElementById('learning-photo-input').addEventListener('change', async (e)=>{
+    const file = e.target.files[0]; if(!file) return;
+    try{
+      const reader = new FileReader();
+      const rawDataUrl = await new Promise((res,rej)=>{ reader.onload=()=>res(reader.result); reader.onerror=rej; reader.readAsDataURL(file); });
+      const rawImg = await loadImageFromDataUrl(rawDataUrl);
+      learningPendingPhoto = downscaleToDataUrl(rawImg, 480);
+      const thumb = document.getElementById('learning-photo-thumb');
+      thumb.src = learningPendingPhoto; thumb.style.display = 'inline-block';
+      document.getElementById('learning-photo-remove').style.display = 'inline-block';
+    }catch(err){}
+  });
+  document.getElementById('learning-photo-remove').addEventListener('click', ()=>{
+    learningPendingPhoto = null;
+    document.getElementById('learning-photo-thumb').style.display = 'none';
+    document.getElementById('learning-photo-remove').style.display = 'none';
+  });
+  document.getElementById('learning-add-btn').addEventListener('click', ()=>{
+    const source = document.getElementById('learning-source').value.trim();
+    const takeaway = document.getElementById('learning-takeaway').value.trim();
+    const action = document.getElementById('learning-action').value.trim();
+    if(!source || !takeaway || !action) return;
+    const entries = loadLearningEntries();
+    entries.unshift({ id:'l'+Date.now()+Math.random().toString(36).slice(2,7), lane: learningLane, ts: Date.now(), source, takeaway, action, weekNum: nowWeek, seasonKey: SEASONS[currentSeasonIndex].key, photo: learningPendingPhoto || null });
+    saveLearningEntries(entries);
+    learningPendingPhoto = null;
+    renderLearningForm();
+    renderLearningEntries();
+    renderSoulOverview();
+  });
+}
+function loadLearningEntries(){ try{ return JSON.parse(LS.get(LEARNING_ENTRIES_KEY) || '[]'); }catch(e){ return []; } }
+function saveLearningEntries(list){ return LS.set(LEARNING_ENTRIES_KEY, JSON.stringify(list)); }
+function loadLearningWeekly(){ try{ return JSON.parse(LS.get(LEARNING_WEEKLY_KEY) || '{}'); }catch(e){ return {}; } }
+function saveLearningWeekly(obj){ return LS.set(LEARNING_WEEKLY_KEY, JSON.stringify(obj)); }
+function loadLearningSeason(){ try{ return JSON.parse(LS.get(LEARNING_SEASON_KEY) || '{}'); }catch(e){ return {}; } }
+function saveLearningSeason(obj){ return LS.set(LEARNING_SEASON_KEY, JSON.stringify(obj)); }
+
+let learningFilterQuery = '';
+function renderLearningEntries(){
+  let entries = loadLearningEntries().filter(e=>e.lane===learningLane);
+  if(learningFilterQuery){
+    const q = learningFilterQuery.toLowerCase();
+    entries = entries.filter(e => (e.source+' '+e.takeaway+' '+e.action).toLowerCase().includes(q));
+  }
+  const mount = document.getElementById('learning-entries');
+  if(!entries.length){ mount.innerHTML = `<div class="empty-note">${learningFilterQuery ? 'No matching entries.' : `No ${learningLane} entries yet.`}</div>`; return; }
+  mount.innerHTML = entries.map(e=>{
+    const date = new Date(e.ts).toLocaleDateString(undefined, { month:'short', day:'numeric' });
+    const season = SEASONS.find(s=>s.key===e.seasonKey) || SEASONS[currentSeasonIndex];
+    const tagStyle = learningLane === 'root' ? seasonBadgeStyle(season.color) : 'background:var(--paper); color:var(--ink-soft); border:1px solid var(--line);';
+    return `<div class="entry">
+      <div class="entry-meta"><span>${date}</span><span class="entry-tag" style="${tagStyle}">${e.source.replace(/</g,'&lt;')}</span><button class="entry-del" data-id="${e.id}">delete</button></div>
+      <div class="entry-text">${e.takeaway.replace(/</g,'&lt;')}</div>
+      <div class="entry-text" style="color:var(--ink-faint); font-size:12px;">→ ${e.action.replace(/</g,'&lt;')}</div>
+      ${e.photo ? `<img class="learning-photo-view" data-src="${e.photo}" src="${e.photo}" style="width:56px; height:56px; object-fit:cover; border-radius:7px; border:1px solid var(--line); margin-top:6px; cursor:pointer;" alt="attached photo">` : ''}
+    </div>`;
+  }).join('');
+  mount.querySelectorAll('.learning-photo-view').forEach(img=> img.addEventListener('click', ()=> window.open(img.dataset.src, '_blank')));
+  mount.querySelectorAll('.entry-del').forEach(btn=> btn.addEventListener('click', ()=>{
+    saveLearningEntries(loadLearningEntries().filter(x=>x.id!==btn.getAttribute('data-id')));
+    renderLearningEntries();
+  }));
+}
+function renderLearningReview(){
+  document.getElementById('learning-review-week').textContent = `W${String(nowWeek).padStart(2,'0')}`;
+  const weekly = loadLearningWeekly();
+  const wk = weekly[nowWeek] || {};
+  document.getElementById('learning-week-sharpen').value = wk.sharpen || '';
+  document.getElementById('learning-week-root').value = wk.root || '';
+  document.getElementById('learning-week-save').onclick = ()=>{
+    const all = loadLearningWeekly();
+    all[nowWeek] = { sharpen: document.getElementById('learning-week-sharpen').value.trim(), root: document.getElementById('learning-week-root').value.trim() };
+    saveLearningWeekly(all);
+    const status = document.getElementById('learning-week-status');
+    status.textContent = 'Saved'; setTimeout(()=>{ status.textContent=''; }, 1500);
+  };
+  const s = SEASONS[currentSeasonIndex];
+  document.getElementById('learning-review-season').textContent = s.name;
+  const seasonData = loadLearningSeason();
+  const sd = seasonData[s.key] || {};
+  document.getElementById('learning-season-sharpen').value = sd.sharpen || '';
+  document.getElementById('learning-season-root').value = sd.root || '';
+  document.getElementById('learning-season-save').onclick = ()=>{
+    const all = loadLearningSeason();
+    all[s.key] = { sharpen: document.getElementById('learning-season-sharpen').value.trim(), root: document.getElementById('learning-season-root').value.trim() };
+    saveLearningSeason(all);
+    const status = document.getElementById('learning-season-status');
+    status.textContent = 'Saved'; setTimeout(()=>{ status.textContent=''; }, 1500);
+  };
+}
+function initLearningLaneSwitch(){
+  const filterInput = document.getElementById('learning-filter');
+  if(filterInput) filterInput.addEventListener('input', ()=>{ learningFilterQuery = filterInput.value.trim(); renderLearningEntries(); });
+  document.querySelectorAll('#learning-lane-switch button').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      learningLane = btn.getAttribute('data-lane');
+      document.querySelectorAll('#learning-lane-switch button').forEach(b=> b.classList.toggle('active', b===btn));
+      renderLearningForm();
+      renderLearningEntries();
+    });
+  });
+}
+
+const PT_EXERCISES = {
+  pushups: { label: 'Push-ups', unit: 'reps' },
+  situps:  { label: 'Sit-ups',  unit: 'reps' },
+  squats:  { label: 'Squats',   unit: 'reps' },
+  plank:   { label: 'Plank',    unit: 'sec'  },
+  pullups: { label: 'Pull-ups', unit: 'reps' },
+  run:     { label: 'Run',      unit: 'min'  }
+};
+const PT_LEVELS = {
+  beginner: { label: 'Beginner', tagline: 'Building a base' },
+  intermediate: { label: 'Intermediate', tagline: 'General conditioning' },
+  advanced: { label: 'Advanced', tagline: 'Toward PFT standards' }
+};
+const PT_TARGETS_BY_LEVEL = {
+  beginner: [
+    { pushups:{sets:3,target:8},  situps:{sets:3,target:12}, squats:{sets:3,target:15}, plank:{sets:3,target:20}, pullups:{sets:3,target:2}, run:{sets:1,target:12} },
+    { pushups:{sets:3,target:10}, situps:{sets:3,target:15}, squats:{sets:3,target:18}, plank:{sets:3,target:25}, pullups:{sets:3,target:3}, run:{sets:1,target:14} },
+    { pushups:{sets:3,target:12}, situps:{sets:3,target:18}, squats:{sets:3,target:20}, plank:{sets:3,target:30}, pullups:{sets:3,target:4}, run:{sets:1,target:16} },
+    { pushups:{sets:3,target:15}, situps:{sets:3,target:20}, squats:{sets:3,target:25}, plank:{sets:3,target:40}, pullups:{sets:3,target:5}, run:{sets:1,target:18} }
+  ],
+  intermediate: [
+    { pushups:{sets:3,target:15}, situps:{sets:3,target:20}, squats:{sets:3,target:20}, plank:{sets:3,target:30}, pullups:{sets:3,target:5}, run:{sets:1,target:15} },
+    { pushups:{sets:3,target:18}, situps:{sets:3,target:25}, squats:{sets:3,target:25}, plank:{sets:3,target:40}, pullups:{sets:3,target:6}, run:{sets:1,target:18} },
+    { pushups:{sets:3,target:20}, situps:{sets:3,target:28}, squats:{sets:3,target:28}, plank:{sets:3,target:45}, pullups:{sets:3,target:7}, run:{sets:1,target:20} },
+    { pushups:{sets:3,target:25}, situps:{sets:3,target:32}, squats:{sets:3,target:35}, plank:{sets:3,target:60}, pullups:{sets:3,target:9}, run:{sets:1,target:22} }
+  ],
+  advanced: [
+    { pushups:{sets:4,target:25}, situps:{sets:4,target:30}, squats:{sets:4,target:30}, plank:{sets:3,target:45}, pullups:{sets:4,target:8},  run:{sets:1,target:20} },
+    { pushups:{sets:4,target:30}, situps:{sets:4,target:35}, squats:{sets:4,target:35}, plank:{sets:3,target:60}, pullups:{sets:4,target:10}, run:{sets:1,target:22} },
+    { pushups:{sets:4,target:35}, situps:{sets:4,target:40}, squats:{sets:4,target:40}, plank:{sets:3,target:75}, pullups:{sets:4,target:12}, run:{sets:1,target:25} },
+    { pushups:{sets:4,target:40}, situps:{sets:4,target:45}, squats:{sets:4,target:50}, plank:{sets:3,target:90}, pullups:{sets:4,target:15}, run:{sets:1,target:28} }
+  ]
+};
+const PT_DAY_PATTERN_BY_LEVEL = {
+  beginner: ['A','B','C','R','A','B','R'],
+  intermediate: ['A','B','C','A','B','C','R'],
+  advanced: ['A','B','C','A','B','C','R']
+};
+const PT_DAY_TYPE_INFO = {
+  A: { name: 'Push & core', exercises: ['pushups','situps','plank'] },
+  B: { name: 'Legs & cardio', exercises: ['squats','run','plank'] },
+  C: { name: 'Full body', exercises: ['pushups','situps','squats','pullups'] },
+  R: { name: 'Rest / recovery', exercises: [] }
+};
+const PT_WARMUP = [
+  '2–3 min light cardio (marching in place or jumping jacks) to raise heart rate',
+  'Arm circles and leg swings, 10 each side',
+  'Bodyweight squats x10 at an easy pace'
+];
+const PT_WARMUP_VIDEO = 'LKSC_KujZ4g';
+const PT_COOLDOWN = [
+  'Standing quad stretch, 20 sec each side',
+  'Seated hamstring stretch, 20 sec each side',
+  'Chest and shoulder stretch, 20 sec each side',
+  'A few slow, deep breaths before you finish up'
+];
+const PT_COOLDOWN_VIDEO = 'QF7pYMrGeCY';
+function ptVideoEmbedBlock(videoId, label){
+  if(!videoId) return '';
+  return `<div class="pt-video-embed"><iframe width="100%" height="200" src="https://www.youtube.com/embed/${videoId}" title="${label} video" frameborder="0" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div>`;
+}
+function ptCurrentLevel(){ return (ptState && ptState.level) || 'beginner'; }
+function ptCurrentTargets(){ return PT_TARGETS_BY_LEVEL[ptCurrentLevel()]; }
+function ptCurrentPattern(){ return PT_DAY_PATTERN_BY_LEVEL[ptCurrentLevel()]; }
+function ptCustomTargets(){ if(!ptState.customTargets) ptState.customTargets = {}; return ptState.customTargets; }
+function ptCustomExercises(){ if(!ptState.customExercises) ptState.customExercises = {}; return ptState.customExercises; }
+function ptExerciseDef(exId){ return PT_EXERCISES[exId] || ptCustomExercises()[exId]; }
+function ptGetTarget(exId, autoTarget){ const custom = ptCustomTargets()[exId]; return custom || autoTarget; }
+function ptGetTrend(exId){
+  const dates = Object.keys(ptState.logs).filter(d => ptState.logs[d].complete && ptState.logs[d].entries[exId]).sort();
+  if(dates.length < 2) return null;
+  const totals = dates.map(d => ptState.logs[d].entries[exId].reduce((a,b)=>a+(Number(b)||0),0));
+  return totals[totals.length-1] - totals[totals.length-2];
+}
+function ptTotalFor(exId, dateStr){
+  const entries = ptState.logs[dateStr] && ptState.logs[dateStr].entries[exId];
+  if(!entries) return null;
+  return entries.reduce((a,b)=>a+(Number(b)||0),0);
+}
+function ptIsPR(exId, dateStr){
+  const total = ptTotalFor(exId, dateStr);
+  if(total === null || total <= 0) return false;
+  const otherMax = Object.keys(ptState.logs).filter(d => d !== dateStr && ptState.logs[d].complete)
+    .reduce((max,d) => { const t = ptTotalFor(exId, d); return t !== null && t > max ? t : max; }, 0);
+  return total > otherMax;
+}
+let ptAudioCtx = null;
+function ptPlayBeep(){
+  try{
+    if(!ptAudioCtx) ptAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ptAudioCtx.createOscillator(); const gain = ptAudioCtx.createGain();
+    osc.type = 'sine'; osc.frequency.value = 880;
+    gain.gain.setValueAtTime(0.15, ptAudioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ptAudioCtx.currentTime + 0.4);
+    osc.connect(gain); gain.connect(ptAudioCtx.destination);
+    osc.start(); osc.stop(ptAudioCtx.currentTime + 0.4);
+  }catch(e){}
+}
+function ptMissedSessionsCount(){
+  const pattern = ptCurrentPattern();
+  let missed = 0;
+  const start = new Date(ptState.startDate + 'T00:00:00');
+  const yesterday = new Date(); yesterday.setDate(yesterday.getDate()-1);
+  let cursor = new Date(start);
+  while(cursor <= yesterday){
+    const ds = ptFmtDate(cursor);
+    const idx = Math.floor((cursor - start) / 86400000);
+    if(pattern[idx % 7] !== 'R'){ if(!(ptState.logs[ds] && ptState.logs[ds].complete)) missed++; }
+    cursor.setDate(cursor.getDate()+1);
+  }
+  return missed;
+}
+const PT_LEVEL_ORDER = ['beginner','intermediate','advanced'];
+function ptNextLevel(){ const i = PT_LEVEL_ORDER.indexOf(ptCurrentLevel()); return i < PT_LEVEL_ORDER.length - 1 ? PT_LEVEL_ORDER[i+1] : null; }
+function ptProgramComplete(){ return ptDayIndexFor(ptTodayStr()) >= 28; }
+
+const PT_GUIDES = {
+  pushups: { youtubeId: 'WDIpL0pjun0', tempo: '2 sec down, 1 sec pause, 1 sec up',
+    cues: ['Hands under shoulders, body in a straight line', 'Lower until chest nears the floor', 'Drive up without flaring elbows past 45°'],
+    mistakes: ['Sagging hips', 'Elbows flaring straight out to the sides', 'Partial range of motion'],
+    svg: () => `<svg viewBox="0 0 160 100" width="100%" height="140"><line x1="10" y1="86" x2="150" y2="86" stroke="var(--line)" stroke-width="1"/><g fill="none" stroke="var(--ink)" stroke-width="4" stroke-linecap="round"><animateTransform attributeName="transform" type="translate" values="0,0;0,8;0,0" dur="1.6s" repeatCount="indefinite"/><circle cx="30" cy="40" r="8"/><line x1="37" y1="42" x2="120" y2="55"/><line x1="45" y1="46" x2="45" y2="78"/><line x1="120" y1="55" x2="140" y2="80"/></g></svg>` },
+  situps: { youtubeId: 'WuApqHGxhv4', tempo: '1 sec up, 2 sec down',
+    cues: ['Knees bent, feet flat or anchored', 'Curl chest toward knees, exhale on the way up', 'Lower with control, don\u2019t drop'],
+    mistakes: ['Pulling on the neck with the hands', 'Using momentum to swing up', 'Feet lifting off the ground'],
+    svg: () => `<svg viewBox="0 0 160 100" width="100%" height="140"><line x1="10" y1="86" x2="150" y2="86" stroke="var(--line)" stroke-width="1"/><g fill="none" stroke="var(--ink)" stroke-width="4" stroke-linecap="round"><line x1="80" y1="80" x2="110" y2="60"/><line x1="110" y1="60" x2="140" y2="80"/></g><g fill="none" stroke="var(--ink)" stroke-width="4" stroke-linecap="round"><animateTransform attributeName="transform" type="rotate" values="0 80 80; -55 80 80; 0 80 80" dur="1.8s" repeatCount="indefinite"/><line x1="80" y1="80" x2="30" y2="80"/><circle cx="22" cy="80" r="8"/></g></svg>` },
+  squats: { youtubeId: 'P-yaD24bUE8', tempo: '2 sec down, 1 sec up',
+    cues: ['Feet shoulder-width, toes slightly out', 'Sit hips back and down, chest up', 'Drive through the heels to stand'],
+    mistakes: ['Knees caving inward', 'Heels lifting off the ground', 'Rounding the lower back'],
+    svg: () => `<svg viewBox="0 0 160 100" width="100%" height="140"><line x1="10" y1="90" x2="150" y2="90" stroke="var(--line)" stroke-width="1"/><g fill="none" stroke="var(--ink)" stroke-width="4" stroke-linecap="round"><animateTransform attributeName="transform" type="translate" values="0,0;0,16;0,0" dur="1.8s" repeatCount="indefinite"/><circle cx="80" cy="20" r="8"/><line x1="80" y1="28" x2="80" y2="55"/><line x1="80" y1="55" x2="60" y2="90"/><line x1="80" y1="55" x2="100" y2="90"/><line x1="55" y1="35" x2="105" y2="35"/></g></svg>` },
+  plank: { youtubeId: 'mwlp75MS6Rg', tempo: 'Hold for the full set time',
+    cues: ['Forearms under shoulders, body in a straight line', 'Brace the core, squeeze the glutes', 'Neutral neck, eyes toward the floor'],
+    mistakes: ['Hips sagging or piking up', 'Holding the breath', 'Shoulders creeping toward the ears'],
+    svg: () => `<svg viewBox="0 0 160 100" width="100%" height="140"><line x1="10" y1="86" x2="150" y2="86" stroke="var(--line)" stroke-width="1"/><g fill="none" stroke="var(--ink)" stroke-width="4" stroke-linecap="round"><circle cx="30" cy="45" r="8"/><line x1="37" y1="47" x2="120" y2="52"/><line x1="45" y1="50" x2="45" y2="80"/><line x1="120" y1="52" x2="140" y2="80"/></g><ellipse cx="80" cy="66" rx="70" ry="14" fill="var(--accent)" opacity="0.08"><animate attributeName="opacity" values="0.05;0.18;0.05" dur="2s" repeatCount="indefinite"/></ellipse></svg>` },
+  pullups: { youtubeId: '1rRmIzEsl_4', tempo: '1 sec up, 2 sec down',
+    cues: ['Full hang to start, shoulder blades set', 'Pull the chin over the bar, elbows drive down', 'Lower under control to full extension'],
+    mistakes: ['Kipping or swinging for momentum', 'Only completing half reps', 'Shrugging instead of engaging the back'],
+    svg: () => `<svg viewBox="0 0 160 100" width="100%" height="140"><line x1="20" y1="15" x2="140" y2="15" stroke="var(--ink)" stroke-width="4"/><g fill="none" stroke="var(--ink)" stroke-width="4" stroke-linecap="round"><animateTransform attributeName="transform" type="translate" values="0,0;0,-16;0,0" dur="1.8s" repeatCount="indefinite"/><line x1="60" y1="15" x2="80" y2="35"/><line x1="100" y1="15" x2="80" y2="35"/><circle cx="80" cy="46" r="8"/><line x1="80" y1="54" x2="80" y2="85"/></g></svg>` },
+  run: { youtubeId: 'zSIDRHUWlVo', tempo: 'Steady, conversational pace for the full time',
+    cues: ['Relaxed shoulders, slight forward lean', 'Land midfoot under the hips', 'Breathe in a steady rhythm'],
+    mistakes: ['Overstriding out in front of the body', 'Starting too fast and fading', 'Tensed shoulders and clenched fists'],
+    svg: () => `<svg viewBox="0 0 160 100" width="100%" height="140"><line x1="10" y1="88" x2="150" y2="88" stroke="var(--line)" stroke-width="1"/><g fill="none" stroke="var(--ink)" stroke-width="4" stroke-linecap="round"><circle cx="80" cy="25" r="8"/><line x1="80" y1="33" x2="80" y2="60"/><g><animateTransform attributeName="transform" type="rotate" values="30 80 60;-30 80 60;30 80 60" dur="0.7s" repeatCount="indefinite"/><line x1="80" y1="60" x2="60" y2="88"/></g><g><animateTransform attributeName="transform" type="rotate" values="-30 80 60;30 80 60;-30 80 60" dur="0.7s" repeatCount="indefinite"/><line x1="80" y1="60" x2="100" y2="88"/></g></g></svg>` }
+};
+
+const PT_STORAGE_KEY = 'seasons-pt-state';
+let ptState = null;
+let ptActiveTab = 'today';
+let ptActiveMetric = 'pushups';
+let ptViewDate = null;
+let ptResetArmed = false;
+let ptEditingExId = null;
+let ptLevelUpDismissed = false;
+let ptAddingExercise = false;
+let ptOnboardLevel = 'beginner';
+const ptRestTimers = {};
+
+function ptFmtDate(d){ const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), day=String(d.getDate()).padStart(2,'0'); return `${y}-${m}-${day}`; }
+function ptTodayStr(){ return ptFmtDate(new Date()); }
+function ptDayIndexFor(dateStr){
+  const start = new Date(ptState.startDate + 'T00:00:00');
+  const cur = new Date(dateStr + 'T00:00:00');
+  return Math.floor((cur - start) / 86400000);
+}
+function ptProgramPositionFor(dateStr){
+  const idx = ptDayIndexFor(dateStr);
+  const clampedIdx = Math.max(0, idx);
+  const weekIndex = Math.min(3, Math.floor(clampedIdx / 7));
+  const dayInWeek = clampedIdx % 7;
+  return { idx, weekIndex, dayInWeek, dayType: ptCurrentPattern()[dayInWeek] };
+}
+async function ptLoadState(){
+  try{ const val = LS.get(PT_STORAGE_KEY); if(val) ptState = JSON.parse(val); }catch(e){ ptState = null; }
+}
+async function ptSaveState(){ return LS.set(PT_STORAGE_KEY, JSON.stringify(ptState)); }
+function ptGetLog(dateStr){ if(!ptState.logs[dateStr]){ ptState.logs[dateStr] = { entries:{}, complete:false }; } return ptState.logs[dateStr]; }
+
+function ptUpdateTagline(){
+  const tagline = document.getElementById('pt-tagline');
+  if(!tagline) return;
+  if(!ptState){ tagline.textContent = 'A 4-week bodyweight program — pick a level below to begin.'; return; }
+  const pos = ptProgramPositionFor(ptTodayStr());
+  const complete = pos.idx >= 28;
+  const weekLabel = pos.idx < 0 ? 'Not started yet' : complete ? `${PT_LEVELS[ptCurrentLevel()].label} cycle complete` : `Week ${pos.weekIndex+1} of 4`;
+  const dayLabel = pos.idx < 0 || complete ? '' : ` · Day ${pos.idx+1}`;
+  tagline.textContent = `${PT_LEVELS[ptCurrentLevel()].label} — ${weekLabel}${dayLabel}`;
+}
+
+function ptLevelChips(selected, idPrefix){
+  return Object.keys(PT_LEVELS).map(lvl => `<button class="${selected===lvl?'active':''}" data-${idPrefix}-level="${lvl}">${PT_LEVELS[lvl].label}</button>`).join('');
+}
+
+function ptRenderOverview(){
+  const mount = document.getElementById('body-overview');
+  if(!mount) return;
+  if(!ptState){ mount.innerHTML = `<div class="empty-note">No program set up yet — choose a level below to begin.</div>`; return; }
+  const dates = Object.keys(ptState.logs).filter(d=>ptState.logs[d].complete).sort();
+  const latestDate = dates[dates.length-1];
+  const streak = ptComputeStreak();
+  let latestBlock = `<div class="empty-note">No sessions logged yet.</div>`;
+  if(latestDate){
+    const log = ptState.logs[latestDate];
+    const pos = ptProgramPositionFor(latestDate);
+    const info = PT_DAY_TYPE_INFO[pos.dayType];
+    latestBlock = `<div class="entry-meta" style="margin-bottom:2px;">Last session — ${latestDate} (${info.name})</div><div style="font-size:13.5px; color:var(--ink);">${log.note ? log.note.replace(/</g,'&lt;') : 'No note added.'}</div>`;
+  }
+  mount.innerHTML = `<div class="wd-head"><h4>Overview</h4><span class="wd-week">${streak} day streak</span></div>${latestBlock}`;
+}
+
+function ptRender(){
+  const mount = document.getElementById('pt-mount');
+  ptUpdateTagline();
+  ptRenderOverview();
+  if(!ptState){
+    mount.innerHTML = ptRenderOnboarding();
+    ptAttachOnboardHandlers();
+    return;
+  }
+  if(!ptViewDate) ptViewDate = ptTodayStr();
+  mount.innerHTML = ptRenderTabs() + ptRenderPanel();
+  ptAttachHandlers();
+}
+
+function ptRenderOnboarding(){
+  return `
+    <div class="pt-onboard">
+      <p>4-week program building push-ups, sit-ups, squats, plank hold, pull-ups and running toward a fitness standard. Pick the level that matches where you're starting from — you can change this later in Settings.</p>
+      <div class="stage-quick">${ptLevelChips(ptOnboardLevel, 'pt-onboard')}</div>
+      <p>Set your start date to open your card.</p>
+      <input type="date" id="pt-start-date-input" value="${ptTodayStr()}">
+      <button class="save-btn" id="pt-begin-btn">Open card</button>
+    </div>
+  `;
+}
+function ptAttachOnboardHandlers(){
+  document.querySelectorAll('[data-pt-onboard-level]').forEach(btn => { btn.onclick = () => { ptOnboardLevel = btn.dataset.ptOnboardLevel; ptRender(); }; });
+  document.getElementById('pt-begin-btn').onclick = async () => {
+    const val = document.getElementById('pt-start-date-input').value || ptTodayStr();
+    ptState = { startDate: val, level: ptOnboardLevel, logs: {}, customTargets: {} };
+    await ptSaveState();
+    ptRender();
+  };
+}
+
+function ptRenderTabs(){
+  const tabs = [['today','Today'],['calendar','Cal'],['program','Plan'],['progress','Stats'],['settings','Set']];
+  return `<div class="stage-quick" style="margin-bottom:1rem;">${tabs.map(([id,label]) => `<button data-pt-tab="${id}" class="${ptActiveTab===id?'active':''}">${label}</button>`).join('')}</div>`;
+}
+function ptRenderPanel(){
+  if(ptActiveTab === 'today') return ptRenderToday();
+  if(ptActiveTab === 'calendar') return ptRenderCalendar();
+  if(ptActiveTab === 'program') return ptRenderProgram();
+  if(ptActiveTab === 'settings') return ptRenderSettings();
+  return ptRenderStats();
+}
+
+function ptRenderToday(){
+  const dateStr = ptViewDate;
+  const pos = ptProgramPositionFor(dateStr);
+  const log = ptGetLog(dateStr);
+  const info = PT_DAY_TYPE_INFO[pos.dayType];
+  const targets = ptCurrentTargets()[pos.weekIndex];
+  const isToday = dateStr === ptTodayStr();
+
+  if(pos.idx < 0){
+    return `<div class="week-detail"><div class="empty-note">Your program starts ${ptState.startDate}. Come back then to log your first session.</div></div>`;
+  }
+
+  const dateRow = `<div class="pt-date-row"><span>${isToday ? 'Logging today' : 'Logging for'}</span><input type="date" id="pt-view-date-input" value="${dateStr}" min="${ptState.startDate}" max="${ptTodayStr()}"></div>`;
+  const missed = isToday ? ptMissedSessionsCount() : 0;
+  const nudge = missed > 0 ? `<div class="pt-banner nudge">You have ${missed} missed session${missed===1?'':'s'} this program. Pick a date above to back-log one, or keep moving forward.</div>` : '';
+
+  let levelUp = '';
+  if(isToday && ptProgramComplete() && !ptLevelUpDismissed){
+    const nl = ptNextLevel();
+    levelUp = nl
+      ? `<div class="pt-banner levelup"><div>4 weeks complete. Ready to move up to <b>${PT_LEVELS[nl].label}</b>?</div><div class="pt-levelup-actions"><button class="save-btn" id="pt-levelup-btn" style="margin-top:0;">Move to ${PT_LEVELS[nl].label}</button><button class="mark-btn" id="pt-levelup-dismiss">Not yet</button></div></div>`
+      : `<div class="pt-banner levelup"><div>4-week ${PT_LEVELS[ptCurrentLevel()].label} cycle complete. Restart the cycle to keep building?</div><div class="pt-levelup-actions"><button class="save-btn" id="pt-restart-cycle-btn" style="margin-top:0;">Restart week 1</button><button class="mark-btn" id="pt-levelup-dismiss">Not yet</button></div></div>`;
+  }
+
+  let body = '';
+  if(pos.dayType === 'R'){
+    body = `<div class="empty-note">Rest day. Light stretching or an easy walk is fine — no PT logging required today. Recovery is part of the program.</div>`;
+  }else{
+    const warmup = `<details class="stretch-block" style="border:1px solid var(--line); border-radius:9px; padding:8px 10px; margin-bottom:14px;"><summary style="font-family:'Fraunces',serif; font-size:12.5px; font-weight:500; color:var(--ink); cursor:pointer;">Warm-up (before you start)</summary><ul style="margin:8px 0 0; padding-left:18px; font-size:12px; line-height:1.6; color:var(--ink-soft);">${PT_WARMUP.map(w => `<li>${w}</li>`).join('')}</ul>${ptVideoEmbedBlock(PT_WARMUP_VIDEO, 'Warm-up')}</details>`;
+
+    const exercises = info.exercises.map(exId => {
+      const ex = PT_EXERCISES[exId];
+      const t = ptGetTarget(exId, targets[exId]);
+      const isCustom = !!ptCustomTargets()[exId];
+      const saved = log.entries[exId] || [];
+      const inputs = Array.from({length: t.sets}).map((_,i) => `<div class="pt-set-input"><label>SET ${i+1}</label><input type="number" min="0" inputmode="numeric" data-ex="${exId}" data-set="${i}" value="${saved[i] !== undefined ? saved[i] : ''}" placeholder="${t.target}"></div>`).join('');
+      const restSeconds = exId === 'plank' ? 30 : 60;
+      const activeTimer = ptRestTimers[exId];
+      const restLabel = activeTimer ? `${activeTimer.remaining}s left` : `Rest ${restSeconds}s`;
+      const restCls = activeTimer ? 'pt-rest-btn running' : 'pt-rest-btn';
+      const trend = ptGetTrend(exId);
+      const trendHtml = trend === null ? '' : trend > 0 ? `<span class="pt-trend up">▲ +${trend} vs last session</span>` : trend < 0 ? `<span class="pt-trend down">▼ ${trend} vs last session</span>` : `<span class="pt-trend flat">— same as last session</span>`;
+      const prBadge = (log.complete && ptIsPR(exId, dateStr)) ? `<span class="pt-pr-badge">🏅 New PR</span>` : '';
+      const editRow = ptEditingExId === exId ? `<div class="pt-edit-row"><div class="pt-set-input"><label>SETS</label><input type="number" min="1" id="pt-edit-sets-input" value="${t.sets}"></div><div class="pt-set-input"><label>TARGET</label><input type="number" min="1" id="pt-edit-target-input" value="${t.target}"></div><button class="save-btn" id="pt-save-target-btn" data-ex="${exId}" style="margin-top:0; width:auto; padding:8px 12px;">Save</button>${isCustom ? `<button class="mark-btn" id="pt-reset-target-btn" data-ex="${exId}">Reset</button>` : ''}</div>` : '';
+
+      return `<div class="pt-exercise">
+        <div class="pt-ex-top">
+          <div class="pt-ex-name-wrap" data-guide="${exId}"><span class="pt-ex-name">${ex.label}</span><span class="pt-info-dot">i</span></div>
+          <span class="pt-ex-target">TARGET ${t.sets} × ${t.target} ${ex.unit}${isCustom ? ' *' : ''}<span class="pt-edit-toggle" data-edit-target="${exId}">✎</span></span>
+        </div>
+        ${editRow}
+        ${trendHtml || prBadge ? `<div class="pt-trend-row">${trendHtml}${prBadge}</div>` : ''}
+        <div class="pt-sets-row">${inputs}<button class="${restCls}" data-rest-ex="${exId}" data-rest-sec="${restSeconds}">${restLabel}</button></div>
+      </div>`;
+    }).join('');
+
+    const extraDefs = ptCustomExercises();
+    const extraRows = Object.keys(extraDefs).map(exId => {
+      const ex = extraDefs[exId];
+      const saved = (log.entries[exId] || [])[0];
+      const trend = ptGetTrend(exId);
+      const trendHtml = trend === null ? '' : trend > 0 ? `<span class="pt-trend up">▲ +${trend} vs last session</span>` : trend < 0 ? `<span class="pt-trend down">▼ ${trend} vs last session</span>` : `<span class="pt-trend flat">— same as last session</span>`;
+      const prBadge = (log.complete && ptIsPR(exId, dateStr)) ? `<span class="pt-pr-badge">🏅 New PR</span>` : '';
+      return `<div class="pt-exercise"><div class="pt-ex-top"><span class="pt-ex-name">${ex.label}</span><span class="pt-ex-target">${ex.unit}<span class="pt-edit-toggle" data-remove-extra="${exId}" title="Remove exercise">✕</span></span></div>${trendHtml || prBadge ? `<div class="pt-trend-row">${trendHtml}${prBadge}</div>` : ''}<div class="pt-sets-row"><div class="pt-set-input"><label>TOTAL</label><input type="number" min="0" inputmode="numeric" data-ex="${exId}" data-set="0" value="${saved !== undefined ? saved : ''}" placeholder="0"></div></div></div>`;
+    }).join('');
+
+    const addExerciseForm = ptAddingExercise ? `<div class="pt-edit-row"><div class="pt-set-input" style="flex:1 1 140px;"><label>NAME</label><input type="text" id="pt-new-ex-name" placeholder="e.g. Dips"></div><div class="pt-set-input"><label>UNIT</label><select id="pt-new-ex-unit" style="border:1px solid var(--line); border-radius:7px; padding:7px 6px; background:var(--paper-raised); color:var(--ink); font-family:'IBM Plex Mono',monospace; font-size:13px;"><option value="reps">reps</option><option value="sec">sec</option><option value="min">min</option></select></div><button class="save-btn" id="pt-confirm-add-exercise-btn" style="margin-top:0; width:auto; padding:8px 12px;">Add</button><button class="mark-btn" id="pt-cancel-add-exercise-btn">Cancel</button></div>` : `<button class="mark-btn" id="pt-add-exercise-btn">+ Add exercise</button>`;
+
+    const extraWork = `<div class="pt-extra-block"><h4>Extra work</h4>${extraRows}${addExerciseForm}</div>`;
+    const cooldown = `<details class="stretch-block" style="border:1px solid var(--line); border-radius:9px; padding:8px 10px; margin-top:14px;"><summary style="font-family:'Fraunces',serif; font-size:12.5px; font-weight:500; color:var(--ink); cursor:pointer;">Cool-down (after your last set)</summary><ul style="margin:8px 0 0; padding-left:18px; font-size:12px; line-height:1.6; color:var(--ink-soft);">${PT_COOLDOWN.map(w => `<li>${w}</li>`).join('')}</ul>${ptVideoEmbedBlock(PT_COOLDOWN_VIDEO, 'Cool-down')}</details>`;
+    body = warmup + exercises + extraWork + cooldown;
+  }
+
+  const noteBlock = `<div style="margin:1rem 0;"><div class="entry-meta" style="margin-bottom:4px;">Session note</div><textarea class="journal-input" id="pt-session-note" style="min-height:56px;" placeholder="How did it feel? Anything to remember for next time...">${log.note || ''}</textarea></div>`;
+  const streak = ptComputeStreak();
+
+  return `
+    <div class="week-detail">
+      <div class="pt-day-banner"><span class="pt-dt-name">${info.name}</span><span class="pt-dt-tag">TYPE ${pos.dayType}</span></div>
+      ${dateRow}${nudge}${levelUp}${body}${noteBlock}
+      <button class="save-btn" id="pt-save-day-btn">${pos.dayType !== 'R' ? (log.complete ? 'Session logged ✓ — update' : 'Log session') : 'Mark rest day taken'}</button>
+      <div class="save-status" id="pt-saved-flag" style="text-align:center; margin-top:8px;"></div>
+      <div class="pt-streak-line"><span>Current streak: ${streak} day${streak===1?'':'s'}</span><span>Started ${ptState.startDate}</span></div>
+    </div>
+  `;
+}
+
+function ptRenderCalendar(){
+  const pattern = ptCurrentPattern();
+  const start = new Date(ptState.startDate + 'T00:00:00');
+  const today = ptTodayStr();
+  const cells = [];
+  for(let i=0; i<28; i++){
+    const dt = new Date(start); dt.setDate(dt.getDate() + i);
+    const ds = ptFmtDate(dt);
+    const dayType = pattern[i % 7];
+    const log = ptState.logs[ds];
+    const isFuture = ds > today, isPast = ds < today;
+    let cls = 'pt-cal-cell', mark = '';
+    if(dayType === 'R'){ cls += ' rest'; mark = '–'; }
+    else if(log && log.complete){ cls += ' done'; mark = '✓'; }
+    else if(isPast){ cls += ' missed'; mark = '✕'; }
+    else if(isFuture){ cls += ' future'; }
+    else{ cls += ' today'; }
+    const clickable = !isFuture;
+    cells.push(`<div class="${cls}${clickable?' clickable':''}" ${clickable ? `data-cal-date="${ds}"` : ''}><span>${i+1}</span><span style="font-size:13px; font-weight:600;">${mark}</span></div>`);
+  }
+  const legend = `<div class="pt-cal-legend"><span><span class="dot done"></span>Logged</span><span><span class="dot missed"></span>Missed</span><span><span class="dot rest"></span>Rest</span></div>`;
+  return `<div class="week-detail"><div class="pt-day-banner"><span class="pt-dt-name">${PT_LEVELS[ptCurrentLevel()].label} — 4 week program</span></div><div class="pt-cal-grid">${cells.join('')}</div>${legend}</div>`;
+}
+
+function ptRenderProgram(){
+  const pattern = ptCurrentPattern();
+  const weeks = ptCurrentTargets().map((wk, wi) => {
+    const rows = Object.keys(PT_EXERCISES).map(exId => `<tr><td>${PT_EXERCISES[exId].label}</td><td>${wk[exId].sets} × ${wk[exId].target} ${PT_EXERCISES[exId].unit}</td></tr>`).join('');
+    const weekStart = new Date(ptState.startDate + 'T00:00:00'); weekStart.setDate(weekStart.getDate() + wi*7);
+    let ptDaysTotal = 0, ptDaysDone = 0;
+    for(let d=0; d<7; d++){
+      const dt = new Date(weekStart); dt.setDate(dt.getDate() + d);
+      const ds = ptFmtDate(dt);
+      if(pattern[d] !== 'R'){ ptDaysTotal++; if(ptState.logs[ds] && ptState.logs[ds].complete) ptDaysDone++; }
+    }
+    return `<div style="margin-bottom:1.2rem;"><div class="wd-head"><h4>Week ${wi+1}</h4><span class="wd-week">${ptDaysDone} / ${ptDaysTotal} sessions</span></div><table class="pt-prog-table"><tr><th>Exercise</th><th>Target</th></tr>${rows}</table></div>`;
+  }).join('');
+  const cycle = `<div style="margin-bottom:1.2rem;"><div class="wd-head"><h4>Weekly pattern — ${PT_LEVELS[ptCurrentLevel()].label}</h4></div><table class="pt-prog-table"><tr><th>Day</th><th>Type</th></tr>${pattern.map((d,i)=>`<tr><td>Day ${i+1}</td><td>${PT_DAY_TYPE_INFO[d].name} (${d})</td></tr>`).join('')}</table></div>`;
+  return `<div class="week-detail">${cycle}${weeks}</div>`;
+}
+
+function ptRenderStats(){
+  const dates = Object.keys(ptState.logs).filter(d => ptState.logs[d].complete).sort();
+  if(dates.length === 0) return `<div class="week-detail"><div class="empty-note">No sessions logged yet. Complete a PT day to start tracking progress here.</div></div>`;
+  const trackable = Object.keys(PT_EXERCISES).concat(Object.keys(ptCustomExercises()));
+  if(!trackable.includes(ptActiveMetric)) ptActiveMetric = 'pushups';
+  const chips = trackable.map(exId => `<button class="${ptActiveMetric===exId?'active':''}" data-pt-metric="${exId}">${ptExerciseDef(exId).label}</button>`).join('');
+  const points = dates.map(d => { const entries = ptState.logs[d].entries[ptActiveMetric]; if(!entries) return null; return { date: d, total: entries.reduce((a,b)=>a+(Number(b)||0),0) }; }).filter(Boolean);
+  let pbLine = '', chart = `<div class="empty-note">No logged sets for ${ptExerciseDef(ptActiveMetric).label} yet.</div>`;
+  if(points.length > 0){
+    const best = points.reduce((a,b) => b.total > a.total ? b : a, points[0]);
+    pbLine = `<div class="pt-pb-line">Personal best — <b>${best.total} ${ptExerciseDef(ptActiveMetric).unit}</b> on ${best.date}</div>`;
+    chart = ptRenderChart(points);
+  }
+  return `<div class="week-detail"><div class="stage-quick" style="margin-bottom:1rem;">${chips}</div>${pbLine}<div class="pt-chart-box">${chart}</div></div>`;
+}
+function ptRenderChart(points){
+  const w = 460, h = 180, pad = 30;
+  const maxVal = Math.max(...points.map(p=>p.total), 1);
+  const stepX = points.length > 1 ? (w - pad*2) / (points.length - 1) : 0;
+  const coords = points.map((p,i) => ({ x: pad + i * stepX, y: h - pad - (p.total / maxVal) * (h - pad*2), ...p }));
+  const pathD = coords.map((c,i) => `${i===0?'M':'L'} ${c.x.toFixed(1)} ${c.y.toFixed(1)}`).join(' ');
+  const dots = coords.map(c => `<circle cx="${c.x.toFixed(1)}" cy="${c.y.toFixed(1)}" r="3.5" fill="var(--accent)" />`).join('');
+  const lastLabel = coords[coords.length-1];
+  return `<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}"><line x1="${pad}" y1="${h-pad}" x2="${w-pad}" y2="${h-pad}" stroke="var(--line)" stroke-width="1"/><line x1="${pad}" y1="${pad*0.3}" x2="${pad}" y2="${h-pad}" stroke="var(--line)" stroke-width="1"/><text x="${pad}" y="${pad*0.3-4}" font-size="10" fill="var(--ink-faint)" font-family="'IBM Plex Mono',monospace">max ${maxVal}</text><path d="${pathD}" fill="none" stroke="var(--ink)" stroke-width="2"/>${dots}<text x="${lastLabel.x}" y="${h-6}" font-size="9" fill="var(--ink-faint)" text-anchor="end" font-family="'IBM Plex Mono',monospace">${lastLabel.date.slice(5)}</text><text x="${coords[0].x}" y="${h-6}" font-size="9" fill="var(--ink-faint)" font-family="'IBM Plex Mono',monospace">${coords[0].date.slice(5)}</text></svg>`;
+}
+
+function ptRenderSettings(){
+  return `<div class="week-detail">
+    <div class="review-block"><h3>Fitness level</h3><p class="lane-sub">${PT_LEVELS[ptCurrentLevel()].tagline} — switching levels restarts the 4-week cycle from today. Your logged history is kept, just not counted toward the new cycle.</p><div class="stage-quick">${ptLevelChips(ptCurrentLevel(), 'pt-settings')}</div></div>
+    <div class="review-block"><h3>Program start date</h3><p class="lane-sub">Adjusting this shifts which week/day your program is currently on.</p><input type="date" id="pt-settings-start-date" value="${ptState.startDate}" style="border:1px solid var(--line); border-radius:9px; padding:9px; background:var(--paper-raised); color:var(--ink); font-family:'IBM Plex Mono',monospace; width:100%; margin-bottom:8px;"><button class="save-btn" id="pt-save-start-date-btn" style="margin-top:0;">Save start date</button></div>
+    <div class="review-block"><h3>Export / backup</h3><p class="lane-sub">Save a copy of your log history — useful before clearing browser data, or to keep your own record.</p><button class="mark-btn" id="pt-export-csv-btn" style="width:100%; margin-bottom:6px;">Download log (CSV)</button><button class="mark-btn" id="pt-export-json-btn" style="width:100%;">Download full backup (JSON)</button></div>
+    <div class="review-block"><h3>Reset data</h3><p class="lane-sub">Clears all logged sessions and program history. This cannot be undone.</p><button class="mark-btn" id="pt-reset-btn" style="width:100%; border-color:var(--accent); color:var(--accent-ink);">${ptResetArmed ? 'Tap again to confirm reset' : 'Reset all data'}</button></div>
+  </div>`;
+}
+
+function ptOpenGuide(exId){
+  const g = PT_GUIDES[exId];
+  const ex = ptExerciseDef(exId);
+  const overlay = document.getElementById('pt-guide-overlay');
+  overlay.innerHTML = `<div class="pt-guide-sheet">
+    <div class="m-head"><h2>${ex.label}</h2><button class="pt-modal-close" id="pt-close-guide">✕</button></div>
+    <div class="pt-demo-box">${g.svg(exId)}</div>
+    <div class="pt-tempo-line">TEMPO — ${g.tempo}</div>
+    <div class="pt-guide-section"><h4>Form cues</h4><ul>${g.cues.map(c => `<li>${c}</li>`).join('')}</ul></div>
+    <div class="pt-guide-section mistakes"><h4>Common mistakes</h4><ul>${g.mistakes.map(c => `<li>${c}</li>`).join('')}</ul></div>
+    ${g.youtubeId ? `<details class="pt-video-block"><summary>Watch a video demo</summary><div class="pt-video-embed"><iframe width="100%" height="220" src="https://www.youtube.com/embed/${g.youtubeId}" title="${ex.label} demo" frameborder="0" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div></details>` : ''}
+  </div>`;
+  overlay.classList.add('open');
+  document.getElementById('pt-close-guide').onclick = ptCloseGuide;
+  overlay.onclick = (e) => { if(e.target === overlay) ptCloseGuide(); };
+  document.addEventListener('keydown', ptEscCloseGuide);
+}
+function ptEscCloseGuide(e){ if(e.key === 'Escape') ptCloseGuide(); }
+function ptCloseGuide(){ document.getElementById('pt-guide-overlay').classList.remove('open'); document.removeEventListener('keydown', ptEscCloseGuide); }
+
+function ptToggleRestTimer(btn, exId, seconds){
+  if(ptRestTimers[exId] && ptRestTimers[exId].interval){
+    clearInterval(ptRestTimers[exId].interval); delete ptRestTimers[exId];
+    btn.textContent = `Rest ${seconds}s`; btn.classList.remove('running'); return;
+  }
+  let remaining = seconds;
+  btn.textContent = `${remaining}s left`; btn.classList.add('running');
+  const interval = setInterval(() => {
+    remaining--; ptRestTimers[exId].remaining = remaining;
+    if(remaining <= 0){
+      clearInterval(interval); delete ptRestTimers[exId];
+      btn.textContent = 'Rest done ✓'; btn.classList.remove('running'); ptPlayBeep();
+      setTimeout(() => { if(document.body.contains(btn)) btn.textContent = `Rest ${seconds}s`; }, 1500);
+    }else{ btn.textContent = `${remaining}s left`; }
+  }, 1000);
+  ptRestTimers[exId] = { interval, remaining, seconds };
+}
+
+function ptDownloadFile(filename, content, mime){
+  const blob = new Blob([content], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+function ptExportCsv(){
+  const rows = [['date','exercise','set','value','unit']];
+  Object.keys(ptState.logs).sort().forEach(d => {
+    const entries = ptState.logs[d].entries;
+    Object.keys(entries).forEach(exId => {
+      const def = ptExerciseDef(exId) || { label: exId, unit: '' };
+      entries[exId].forEach((v,i) => rows.push([d, def.label, i+1, v, def.unit]));
+    });
+    if(ptState.logs[d].note) rows.push([d, 'NOTE', '', `"${ptState.logs[d].note.replace(/"/g,'""')}"`, '']);
+  });
+  ptDownloadFile('pt-log.csv', rows.map(r => r.join(',')).join('\n'), 'text/csv');
+}
+function ptExportJson(){ ptDownloadFile('pt-backup.json', JSON.stringify(ptState, null, 2), 'application/json'); }
+
+function ptComputeStreak(){
+  let streak = 0; let cursor = new Date();
+  while(true){
+    const ds = ptFmtDate(cursor);
+    const pos = ptProgramPositionFor(ds);
+    if(pos.idx < 0) break;
+    const log = ptState.logs[ds];
+    if(log && log.complete){ streak++; cursor.setDate(cursor.getDate()-1); } else break;
+  }
+  return streak;
+}
+
+function ptAttachHandlers(){
+  document.querySelectorAll('[data-pt-tab]').forEach(t => { t.onclick = () => { ptActiveTab = t.dataset.ptTab; ptResetArmed = false; ptEditingExId = null; ptAddingExercise = false; ptRender(); }; });
+  document.querySelectorAll('[data-pt-metric]').forEach(c => { c.onclick = () => { ptActiveMetric = c.dataset.ptMetric; ptRender(); }; });
+  document.querySelectorAll('[data-guide]').forEach(elm => { elm.onclick = () => ptOpenGuide(elm.dataset.guide); });
+  document.querySelectorAll('[data-pt-settings-level]').forEach(btn => {
+    btn.onclick = async () => {
+      if(btn.dataset.ptSettingsLevel !== ptState.level){
+        ptState.level = btn.dataset.ptSettingsLevel; ptState.startDate = ptTodayStr();
+        await ptSaveState(); ptViewDate = ptTodayStr(); ptRender();
+      }
+    };
+  });
+  document.querySelectorAll('[data-rest-ex]').forEach(btn => { btn.onclick = () => ptToggleRestTimer(btn, btn.dataset.restEx, Number(btn.dataset.restSec)); });
+  document.querySelectorAll('[data-edit-target]').forEach(elm => { elm.onclick = (e) => { e.stopPropagation(); ptEditingExId = ptEditingExId === elm.dataset.editTarget ? null : elm.dataset.editTarget; ptRender(); }; });
+  document.querySelectorAll('[data-remove-extra]').forEach(elm => { elm.onclick = async (e) => { e.stopPropagation(); delete ptCustomExercises()[elm.dataset.removeExtra]; await ptSaveState(); ptRender(); }; });
+  document.querySelectorAll('[data-cal-date]').forEach(elm => { elm.onclick = () => { ptViewDate = elm.dataset.calDate; ptActiveTab = 'today'; ptRender(); }; });
+  const addBtn = document.getElementById('pt-add-exercise-btn'); if(addBtn) addBtn.onclick = () => { ptAddingExercise = true; ptRender(); };
+  const cancelBtn = document.getElementById('pt-cancel-add-exercise-btn'); if(cancelBtn) cancelBtn.onclick = () => { ptAddingExercise = false; ptRender(); };
+  const confirmBtn = document.getElementById('pt-confirm-add-exercise-btn');
+  if(confirmBtn){
+    confirmBtn.onclick = async () => {
+      const name = document.getElementById('pt-new-ex-name').value.trim();
+      const unit = document.getElementById('pt-new-ex-unit').value;
+      if(name){ ptCustomExercises()['custom_' + Date.now()] = { label: name, unit }; ptAddingExercise = false; await ptSaveState(); ptRender(); }
+    };
+  }
+  const saveTargetBtn = document.getElementById('pt-save-target-btn');
+  if(saveTargetBtn){
+    saveTargetBtn.onclick = async () => {
+      const exId = saveTargetBtn.dataset.ex;
+      const sets = Number(document.getElementById('pt-edit-sets-input').value) || 1;
+      const target = Number(document.getElementById('pt-edit-target-input').value) || 1;
+      ptCustomTargets()[exId] = { sets, target }; ptEditingExId = null; await ptSaveState(); ptRender();
+    };
+  }
+  const resetTargetBtn = document.getElementById('pt-reset-target-btn');
+  if(resetTargetBtn){ resetTargetBtn.onclick = async () => { delete ptCustomTargets()[resetTargetBtn.dataset.ex]; ptEditingExId = null; await ptSaveState(); ptRender(); }; }
+  const levelupBtn = document.getElementById('pt-levelup-btn');
+  if(levelupBtn){ levelupBtn.onclick = async () => { ptState.level = ptNextLevel(); ptState.startDate = ptTodayStr(); await ptSaveState(); ptRender(); }; }
+  const restartBtn = document.getElementById('pt-restart-cycle-btn');
+  if(restartBtn){ restartBtn.onclick = async () => { ptState.startDate = ptTodayStr(); await ptSaveState(); ptRender(); }; }
+  const levelupDismiss = document.getElementById('pt-levelup-dismiss');
+  if(levelupDismiss){ levelupDismiss.onclick = () => { ptLevelUpDismissed = true; ptRender(); }; }
+  const exportCsvBtn = document.getElementById('pt-export-csv-btn'); if(exportCsvBtn) exportCsvBtn.onclick = ptExportCsv;
+  const exportJsonBtn = document.getElementById('pt-export-json-btn'); if(exportJsonBtn) exportJsonBtn.onclick = ptExportJson;
+  const dateInput = document.getElementById('pt-view-date-input');
+  if(dateInput){ dateInput.onchange = () => { ptViewDate = dateInput.value; ptRender(); }; }
+  const saveBtn = document.getElementById('pt-save-day-btn');
+  if(saveBtn){
+    saveBtn.onclick = async () => {
+      const dateStr = ptViewDate; const log = ptGetLog(dateStr);
+      document.querySelectorAll('input[data-ex]').forEach(inp => {
+        const exId = inp.dataset.ex, setIdx = Number(inp.dataset.set);
+        if(!log.entries[exId]) log.entries[exId] = [];
+        log.entries[exId][setIdx] = inp.value === '' ? 0 : Number(inp.value);
+      });
+      const noteInput = document.getElementById('pt-session-note'); if(noteInput) log.note = noteInput.value;
+      log.complete = true;
+      const ok = await ptSaveState();
+      ptRender();
+      const flag = document.getElementById('pt-saved-flag');
+      if(flag) flag.textContent = ok ? 'Saved to your record card.' : 'Could not save just now — your entries are still on screen.';
+    };
+  }
+  const saveStartBtn = document.getElementById('pt-save-start-date-btn');
+  if(saveStartBtn){
+    saveStartBtn.onclick = async () => {
+      const val = document.getElementById('pt-settings-start-date').value;
+      if(val){ ptState.startDate = val; await ptSaveState(); ptViewDate = ptTodayStr(); ptRender(); }
+    };
+  }
+  const resetBtn = document.getElementById('pt-reset-btn');
+  if(resetBtn){
+    resetBtn.onclick = async () => {
+      if(!ptResetArmed){ ptResetArmed = true; ptRender(); return; }
+      ptState = null; ptViewDate = null; ptResetArmed = false;
+      LS.remove(PT_STORAGE_KEY);
+      ptRender();
+    };
+  }
+}
+
+const NOTES = [
+  { badge:'Added', title:'Body module',
+    body:'The PT Record Card is now a section here, reskinned to match Seasons\u2019 palette and type (previously its own olive/military look). Storage switched from the Claude-artifact window.storage API to plain localStorage, matching everything else in this file \u2014 the old version only saved data while running inside Claude\u2019s viewer, not as a standalone bookmarked page.' },
+  { badge:'Added', title:'Learning module',
+    body:'New section between Journal and Domains \u2014 two lanes (Sharpen for professional growth, Root for soul and mind), each capturing Source / Takeaway / Action. Rolls up into a weekly synthesis (tied to the existing week number) and a season synthesis (tied to the existing Autumn/Winter/Spring/Summer cycle).' },
+  { badge:'Applied', title:'Duplicate verses swapped',
+    body:'Week 43\u2019s reframe verse was Jeremiah 29:11, duplicating Week 04 \u2014 changed to Proverbs 19:21. Week 50\u2019s reveal verse was Hebrews 11:6, duplicating Week 34 \u2014 changed to 1 Corinthians 15:58.' },
+  { badge:'Applied', title:'A joy week added',
+    body:'Week 45 was a second peace week, echoing Week 41. Reworked into \u201CJoy as Strength\u201D so Summer\u2019s full virtue (Peace \u2014 Joy) has its own dedicated week.' },
+  { badge:'Applied', title:'Shine language moved into Summer',
+    body:'Week 47 is now \u201CShine Through Discipline,\u201D opening with Daniel 12:3, giving Summer\u2019s doctrine \u2014 Obedience \u2014 Shine \u2014 an explicit anchor within the season.' },
+  { badge:'Applied', title:'Bishop phase renamed',
+    body:'The Spring sub-phase label changed from \u201Cinfluence territory\u201D to \u201Cequipping\u201D \u2014 a closer match to what those four weeks are actually about.' },
+  { badge:'Resolved', title:'Wording unified',
+    body:'Spring\u2019s reflection question is standardized to \u201CWhat do I do?\u201D throughout.' }
+];
+function renderNotes(){
+  const mount = document.getElementById('notes-list');
+  mount.innerHTML = NOTES.map(n=>`
+    <div class="note-item">
+      <div class="note-head"><div class="note-head-title"><span class="note-badge">${n.badge}</span>${n.title}</div><span class="note-chevron">⌄</span></div>
+      <div class="note-body"><div class="note-body-inner">${n.body}</div></div>
+    </div>`).join('');
+  mount.querySelectorAll('.note-item').forEach(el=> el.querySelector('.note-head').addEventListener('click', ()=> el.classList.toggle('open')));
+}
+document.getElementById('notes-tuck-btn').addEventListener('click', ()=> document.getElementById('notes-panel').classList.toggle('open'));
+
+const EXPORT_KEY_GROUPS = {
+  spirit: ['seasons-completed-weeks','seasons-share-bg-photo','seasons-verse-cache'],
+  soul: ['seasons-journal-entries','seasons-learning-entries','seasons-domain-tasks'],
+  body: ['seasons-pt-state']
+};
+function exportData(scope){
+  const keys = scope === 'all'
+    ? ['seasons-completed-weeks','seasons-journal-entries','seasons-domain-tasks','seasons-share-bg-photo','seasons-section-state','seasons-verse-cache','seasons-learning-entries','seasons-pt-state','seasons-active-page']
+    : (EXPORT_KEY_GROUPS[scope] || []);
+  const data = {};
+  keys.forEach(k=>{ const v = LS.get(k); if(v!==null) data[k]=v; });
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type:'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = `seasons-backup-${scope}.json`; a.click();
+  URL.revokeObjectURL(url);
+}
+function importDataFile(file){
+  const reader = new FileReader();
+  reader.onload = ()=>{
+    try{
+      const data = JSON.parse(reader.result);
+      Object.keys(data).forEach(k=> LS.set(k, data[k]));
+      location.reload();
+    }catch(e){ alert('Could not read that backup file.'); }
+  };
+  reader.readAsText(file);
+}
+document.querySelectorAll('#export-scope button').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('#export-scope button').forEach(b=> b.classList.toggle('active', b===btn));
+    exportData(btn.dataset.scope);
+  });
+});
+document.getElementById('import-btn').addEventListener('click', ()=> document.getElementById('import-input').click());
+document.getElementById('import-input').addEventListener('change', (e)=>{ if(e.target.files[0]) importDataFile(e.target.files[0]); });
+
+function init(){
+  initCompass();
+  renderCompassState();
+  renderCoordChips();
+  renderCoordList();
+  renderCoordWheel();
+  renderToday();
+  renderProgress();
+  renderWeekGrid();
+  renderWeekDetail();
+  renderEntries();
+  renderDomains();
+  initLearningLaneSwitch();
+  renderLearningForm();
+  renderLearningEntries();
+  ptLoadState().then(ptRender);
+  renderNotes();
+  initCollapsibles();
+  applySectionStates();
+  initPageSwitch();
+  renderCoordCallouts();
+  renderSoulOverview();
+  loadStoredPhoto();
+}
+init();
+</script>
+</body>
+</html>
