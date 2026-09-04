@@ -123,17 +123,6 @@
   .coord-label{font-family:'Fraunces',serif; font-size:14px; color:var(--ink-soft); margin-bottom:2px;}
   .coord-value{font-family:'Cormorant Garamond',serif; font-weight:500; font-size:22px; color:var(--ink); line-height:1.35;}
 
-  .compass-row{display:flex; justify-content:center; margin:0 0 1.3rem;}
-  .compass{width:170px; height:170px;}
-  .compass svg{width:100%; height:100%; overflow:visible;}
-  .wedge{cursor:pointer; opacity:.5; transition:opacity .15s ease;}
-  .wedge:hover{opacity:.75;}
-  .wedge.active{opacity:1;}
-  .wedge-sub{font-family:'Inter',sans-serif; font-size:8px; fill:var(--ink-faint); letter-spacing:.04em;}
-  .compass-center{fill:var(--paper); stroke:var(--line); stroke-width:1;}
-  .compass-center-text{font-family:'IBM Plex Mono',monospace; font-size:8px; fill:var(--ink-faint); text-anchor:middle;}
-  .compass-center-season{font-family:'Fraunces',serif; font-size:11px; fill:var(--ink); text-anchor:middle; font-weight:500;}
-
   .progress-row{display:flex; gap:8px; margin-bottom:1.1rem; flex-wrap:wrap;}
   .progress-chip{flex:1; min-width:120px; padding:.55rem .75rem; border-radius:10px; font-size:11.5px;}
   .progress-chip .pc-name{font-weight:500; text-transform:uppercase; letter-spacing:.03em; font-size:9.5px; opacity:.7;}
@@ -226,7 +215,10 @@
   .domain-task input[type=checkbox]{margin-top:3px; accent-color:var(--ink); flex-shrink:0;}
   .domain-task.done span{text-decoration:line-through; color:var(--ink-faint);}
   .domain-task-del{background:none; border:none; color:var(--ink-faint); cursor:pointer; font-size:10.5px; margin-left:auto; flex-shrink:0;}
-  .domain-add{display:flex; gap:6px;}
+  .domain-add{display:flex; flex-wrap:wrap; gap:6px;}
+  .domain-add .domain-add-input{flex:1 1 100%;}
+  .domain-add .domain-add-date{flex:1 1 auto;}
+  .domain-add .domain-add-btn{flex:0 0 auto;}
   .domain-add input{flex:1; min-width:0; border:1px solid var(--line); border-radius:7px; padding:6px 8px; font-size:12px; background:var(--paper-raised); color:var(--ink);}
   .domain-add button{border:none; background:var(--ink); color:var(--paper); border-radius:7px; padding:6px 10px; font-size:12.5px; cursor:pointer;}
   @media (max-width:600px){ .domain-cols{grid-template-columns:1fr;} }
@@ -341,29 +333,13 @@
   <div class="today-card" id="today-card"></div>
 
   <div class="group-label" data-group="spirit">Spirit</div>
+  <div class="week-detail" id="spirit-overview" style="margin:0 1.3rem 1.2rem;"></div>
   <section class="csec open" id="sec-coordinates" data-key="coordinates" data-group="spirit">
     <button class="csec-head">
       <div class="csec-head-left"><span class="csec-title">Coordinates</span></div>
       <span class="csec-chevron">⌄</span>
     </button>
     <div class="csec-body">
-      <div class="compass-row">
-        <div class="compass">
-          <svg viewBox="0 0 300 300">
-            <path id="wedge-0" class="wedge" d="M150,150 L65.15,65.15 A120,120 0 0,1 234.85,65.15 Z"></path>
-            <path id="wedge-3" class="wedge" d="M150,150 L234.85,65.15 A120,120 0 0,1 234.85,234.85 Z"></path>
-            <path id="wedge-1" class="wedge" d="M150,150 L234.85,234.85 A120,120 0 0,1 65.15,234.85 Z"></path>
-            <path id="wedge-2" class="wedge" d="M150,150 L65.15,234.85 A120,120 0 0,1 65.15,65.15 Z"></path>
-            <text x="150" y="42" text-anchor="middle" class="wedge-sub">north</text>
-            <text x="278" y="153" text-anchor="middle" class="wedge-sub">east</text>
-            <text x="150" y="268" text-anchor="middle" class="wedge-sub">south</text>
-            <text x="24" y="153" text-anchor="middle" class="wedge-sub">west</text>
-            <circle cx="150" cy="150" r="42" class="compass-center"></circle>
-            <text x="150" y="145" class="compass-center-text">viewing</text>
-            <text id="center-season" x="150" y="163" class="compass-center-season"></text>
-          </svg>
-        </div>
-      </div>
       <div class="coord-picker">
         <span class="coord-picker-label">View</span>
         <div class="coord-chips" id="coord-chips"></div>
@@ -397,11 +373,7 @@
       <span class="csec-chevron">⌄</span>
     </button>
     <div class="csec-body">
-      <p class="journal-sub">Two lanes — Sharpen for professional growth, Root for soul and mind. Capture what you read, then distill it by week and by season.</p>
-      <div class="stage-quick" id="learning-lane-switch">
-        <button data-lane="sharpen" class="active">Sharpen</button>
-        <button data-lane="root">Root</button>
-      </div>
+      <p class="journal-sub">Capture what you read — books, articles, sermons, anything worth remembering.</p>
       <div id="learning-form-mount"></div>
       <input type="text" id="learning-filter" placeholder="Search notes…" style="width:100%; border:1px solid var(--line); border-radius:9px; padding:9px 12px; font-size:13px; background:var(--paper-raised); color:var(--ink); margin-bottom:6px;">
       <div class="entries" id="learning-entries"></div>
@@ -494,8 +466,6 @@ const SEASONS = [
     values:['Alignment — stewardship','Resilience — governance','Mandate — govern','Plan / predict — process','Peace — joy','Obedience — shine','Wind — will','East — sustain','How long do I sustain?','Life stewarded with peace and authority']
   }
 ];
-
-const DIRECTION_WEDGE = { autumn:0, winter:2, spring:1, summer:3 };
 
 const WEEKS = [
   {w:1,t:'Created Identity',r:'Genesis 1:27',f:'Psalm 139:14',s:'Psalm 8:4-5'},
@@ -628,16 +598,23 @@ function goToCoordinate(){
   applySectionStates();
   requestAnimationFrame(()=> requestAnimationFrame(()=> jumpToCoordRow(featuredCoordIndex)));
 }
+function soulComputeStreak(){
+  const dates = new Set();
+  loadLearningEntries().forEach(e => dates.add(ptFmtDate(new Date(e.ts))));
+  loadEntries().forEach(e => dates.add(ptFmtDate(new Date(e.ts))));
+  let streak = 0;
+  let cursor = new Date();
+  while(dates.has(ptFmtDate(cursor))){ streak++; cursor.setDate(cursor.getDate()-1); }
+  return streak;
+}
 function renderSoulOverview(){
   const mount = document.getElementById('soul-overview');
   if(!mount) return;
   const learning = loadLearningEntries();
-  const sharpenEntries = learning.filter(e=>e.lane==='sharpen');
-  const rootEntries = learning.filter(e=>e.lane==='root');
   const journal = loadEntries().slice().sort((a,b)=>b.ts-a.ts);
-  const latestSharpen = sharpenEntries[0];
-  const latestRoot = rootEntries[0];
+  const latestLearning = learning[0];
   const latestJournal = journal[0];
+  const streak = soulComputeStreak();
 
   const block = (label, item, textFn) => item ? `
     <div style="margin-bottom:12px;">
@@ -646,11 +623,10 @@ function renderSoulOverview(){
     </div>` : '';
 
   mount.innerHTML = `
-    <div class="wd-head"><h4>Overview</h4><span class="wd-week">${sharpenEntries.length} Sharpen · ${rootEntries.length} Root · ${journal.length} journal</span></div>
-    ${block('Latest from Sharpen', latestSharpen, e=>`${e.takeaway.replace(/</g,'&lt;')} <span style="color:var(--ink-faint);">→ ${e.action.replace(/</g,'&lt;')}</span>`)}
-    ${block('Latest from Root', latestRoot, e=>`${e.takeaway.replace(/</g,'&lt;')} <span style="color:var(--ink-faint);">→ ${e.action.replace(/</g,'&lt;')}</span>`)}
+    <div class="wd-head"><h4>Overview</h4><span class="wd-week">${streak} day streak · ${learning.length} learning · ${journal.length} journal</span></div>
+    ${block('Latest learning note', latestLearning, e=>`${e.takeaway.replace(/</g,'&lt;')} <span style="color:var(--ink-faint);">→ ${e.action.replace(/</g,'&lt;')}</span>`)}
     ${block('Latest journal entry', latestJournal, e=>`${e.text.replace(/</g,'&lt;').slice(0,180)}${e.text.length>180?'…':''}`)}
-    ${(!latestSharpen && !latestRoot && !latestJournal) ? `<div class="empty-note">Nothing logged yet — add a note in Learning or write a line in Points taken to see it here.</div>` : ''}
+    ${(!latestLearning && !latestJournal) ? `<div class="empty-note">Nothing logged yet — add a note in Learning or write a line in Points taken to see it here.</div>` : ''}
   `;
 }
 
@@ -692,18 +668,9 @@ function initCollapsibles(){
   });
 }
 
-function initCompass(){
-  SEASONS.forEach((s)=>{
-    const wedge = document.getElementById('wedge-'+DIRECTION_WEDGE[s.key]);
-    wedge.style.fill = `var(--${s.color})`;
-    wedge.addEventListener('click', ()=> setViewSeason(s.key));
-  });
+function initCoordBackLink(){
   const backLink = document.getElementById('coord-back-today');
   backLink.addEventListener('click', (e)=>{ e.preventDefault(); setViewSeason(SEASONS[currentSeasonIndex].key); });
-}
-function renderCompassState(){
-  SEASONS.forEach((s)=> document.getElementById('wedge-'+DIRECTION_WEDGE[s.key]).classList.toggle('active', s.key===viewSeasonKey));
-  document.getElementById('center-season').textContent = SEASONS.find(s=>s.key===viewSeasonKey).name;
 }
 function renderCoordChips(){
   const mount = document.getElementById('coord-chips');
@@ -773,9 +740,19 @@ function jumpToCoordRow(idx){
 }
 function setViewSeason(key){
   viewSeasonKey = key;
-  renderCompassState(); renderCoordChips(); renderCoordList(); renderCoordWheel();
+  renderCoordChips(); renderCoordList(); renderCoordWheel();
 }
 
+function renderSpiritOverview(){
+  const mount = document.getElementById('spirit-overview');
+  if(!mount) return;
+  const w = WEEKS.find(x=>x.w===nowWeek);
+  const streak = computeStreak();
+  const isDone = completedWeeks.includes(nowWeek);
+  mount.innerHTML = `<div class="wd-head"><h4>Overview</h4><span class="wd-week">${streak} week streak</span></div>
+    <div class="entry-meta" style="margin-bottom:2px;">This week — ${w.t}</div>
+    <div style="font-size:13.5px; color:var(--ink);">${isDone ? 'Marked as read.' : 'Not yet marked as read this week.'}</div>`;
+}
 function renderToday(){
   const s = SEASONS[currentSeasonIndex];
   const w = WEEKS.find(x=>x.w===nowWeek);
@@ -920,7 +897,7 @@ function renderWeekDetail(){
     const idx = completedWeeks.indexOf(w.w);
     if(idx>=0){ completedWeeks.splice(idx,1); } else { completedWeeks.push(w.w); }
     saveCompleted(completedWeeks);
-    renderProgress(); renderWeekGrid(); renderWeekDetail(); renderToday();
+    renderProgress(); renderWeekGrid(); renderWeekDetail(); renderToday(); renderSpiritOverview();
   });
   attachVerseButtons(mount);
   initShare(w, s);
@@ -1319,16 +1296,14 @@ function renderDomains(){
 const LEARNING_ENTRIES_KEY = 'seasons-learning-entries';
 const LEARNING_WEEKLY_KEY = 'seasons-learning-weekly';
 const LEARNING_SEASON_KEY = 'seasons-learning-season';
-let learningLane = 'sharpen';
 let learningPendingPhoto = null;
 function renderLearningForm(){
   const mount = document.getElementById('learning-form-mount');
-  const isSharpen = learningLane === 'sharpen';
   mount.innerHTML = `
     <div style="display:grid; gap:8px; margin:1rem 0;">
-      <input type="text" id="learning-source" placeholder="${isSharpen ? 'Source — e.g. Law Society Gazette' : 'Source — e.g. Morning devotional'}" style="border:1px solid var(--line); border-radius:9px; padding:9px 12px; font-size:13.5px; background:var(--paper-raised); color:var(--ink);">
+      <input type="text" id="learning-source" placeholder="Source — e.g. book, article, sermon" style="border:1px solid var(--line); border-radius:9px; padding:9px 12px; font-size:13.5px; background:var(--paper-raised); color:var(--ink);">
       <input type="text" id="learning-takeaway" placeholder="Takeaway — what did you learn or notice?" style="border:1px solid var(--line); border-radius:9px; padding:9px 12px; font-size:13.5px; background:var(--paper-raised); color:var(--ink);">
-      <input type="text" id="learning-action" placeholder="${isSharpen ? 'Action — e.g. apply to a live matter' : 'Action — e.g. revisit this on Sunday'}" style="border:1px solid var(--line); border-radius:9px; padding:9px 12px; font-size:13.5px; background:var(--paper-raised); color:var(--ink);">
+      <input type="text" id="learning-action" placeholder="Action — what will you do with it?" style="border:1px solid var(--line); border-radius:9px; padding:9px 12px; font-size:13.5px; background:var(--paper-raised); color:var(--ink);">
       <div style="display:flex; align-items:center; gap:10px;">
         <button type="button" id="learning-photo-btn" style="font-size:12px; padding:8px 12px; border:1px solid var(--line); border-radius:9px; background:var(--paper-raised); color:var(--ink-soft); cursor:pointer;">📷 Add photo</button>
         <img id="learning-photo-thumb" style="width:34px; height:34px; border-radius:7px; object-fit:cover; border:1px solid var(--line); display:none;" alt="">
@@ -1361,7 +1336,7 @@ function renderLearningForm(){
     const action = document.getElementById('learning-action').value.trim();
     if(!source || !takeaway || !action) return;
     const entries = loadLearningEntries();
-    entries.unshift({ id:'l'+Date.now()+Math.random().toString(36).slice(2,7), lane: learningLane, ts: Date.now(), source, takeaway, action, weekNum: nowWeek, seasonKey: SEASONS[currentSeasonIndex].key, photo: learningPendingPhoto || null });
+    entries.unshift({ id:'l'+Date.now()+Math.random().toString(36).slice(2,7), ts: Date.now(), source, takeaway, action, weekNum: nowWeek, seasonKey: SEASONS[currentSeasonIndex].key, photo: learningPendingPhoto || null });
     saveLearningEntries(entries);
     learningPendingPhoto = null;
     renderLearningForm();
@@ -1378,17 +1353,16 @@ function saveLearningSeason(obj){ return LS.set(LEARNING_SEASON_KEY, JSON.string
 
 let learningFilterQuery = '';
 function renderLearningEntries(){
-  let entries = loadLearningEntries().filter(e=>e.lane===learningLane);
+  let entries = loadLearningEntries();
   if(learningFilterQuery){
     const q = learningFilterQuery.toLowerCase();
     entries = entries.filter(e => (e.source+' '+e.takeaway+' '+e.action).toLowerCase().includes(q));
   }
   const mount = document.getElementById('learning-entries');
-  if(!entries.length){ mount.innerHTML = `<div class="empty-note">${learningFilterQuery ? 'No matching entries.' : `No ${learningLane} entries yet.`}</div>`; return; }
+  if(!entries.length){ mount.innerHTML = `<div class="empty-note">${learningFilterQuery ? 'No matching entries.' : 'No entries yet.'}</div>`; return; }
   mount.innerHTML = entries.map(e=>{
     const date = new Date(e.ts).toLocaleDateString(undefined, { month:'short', day:'numeric' });
-    const season = SEASONS.find(s=>s.key===e.seasonKey) || SEASONS[currentSeasonIndex];
-    const tagStyle = learningLane === 'root' ? seasonBadgeStyle(season.color) : 'background:var(--paper); color:var(--ink-soft); border:1px solid var(--line);';
+    const tagStyle = 'background:var(--paper); color:var(--ink-soft); border:1px solid var(--line);';
     return `<div class="entry">
       <div class="entry-meta"><span>${date}</span><span class="entry-tag" style="${tagStyle}">${e.source.replace(/</g,'&lt;')}</span><button class="entry-del" data-id="${e.id}">delete</button></div>
       <div class="entry-text">${e.takeaway.replace(/</g,'&lt;')}</div>
@@ -1400,46 +1374,12 @@ function renderLearningEntries(){
   mount.querySelectorAll('.entry-del').forEach(btn=> btn.addEventListener('click', ()=>{
     saveLearningEntries(loadLearningEntries().filter(x=>x.id!==btn.getAttribute('data-id')));
     renderLearningEntries();
+    renderSoulOverview();
   }));
-}
-function renderLearningReview(){
-  document.getElementById('learning-review-week').textContent = `W${String(nowWeek).padStart(2,'0')}`;
-  const weekly = loadLearningWeekly();
-  const wk = weekly[nowWeek] || {};
-  document.getElementById('learning-week-sharpen').value = wk.sharpen || '';
-  document.getElementById('learning-week-root').value = wk.root || '';
-  document.getElementById('learning-week-save').onclick = ()=>{
-    const all = loadLearningWeekly();
-    all[nowWeek] = { sharpen: document.getElementById('learning-week-sharpen').value.trim(), root: document.getElementById('learning-week-root').value.trim() };
-    saveLearningWeekly(all);
-    const status = document.getElementById('learning-week-status');
-    status.textContent = 'Saved'; setTimeout(()=>{ status.textContent=''; }, 1500);
-  };
-  const s = SEASONS[currentSeasonIndex];
-  document.getElementById('learning-review-season').textContent = s.name;
-  const seasonData = loadLearningSeason();
-  const sd = seasonData[s.key] || {};
-  document.getElementById('learning-season-sharpen').value = sd.sharpen || '';
-  document.getElementById('learning-season-root').value = sd.root || '';
-  document.getElementById('learning-season-save').onclick = ()=>{
-    const all = loadLearningSeason();
-    all[s.key] = { sharpen: document.getElementById('learning-season-sharpen').value.trim(), root: document.getElementById('learning-season-root').value.trim() };
-    saveLearningSeason(all);
-    const status = document.getElementById('learning-season-status');
-    status.textContent = 'Saved'; setTimeout(()=>{ status.textContent=''; }, 1500);
-  };
 }
 function initLearningLaneSwitch(){
   const filterInput = document.getElementById('learning-filter');
   if(filterInput) filterInput.addEventListener('input', ()=>{ learningFilterQuery = filterInput.value.trim(); renderLearningEntries(); });
-  document.querySelectorAll('#learning-lane-switch button').forEach(btn=>{
-    btn.addEventListener('click', ()=>{
-      learningLane = btn.getAttribute('data-lane');
-      document.querySelectorAll('#learning-lane-switch button').forEach(b=> b.classList.toggle('active', b===btn));
-      renderLearningForm();
-      renderLearningEntries();
-    });
-  });
 }
 
 const PT_EXERCISES = {
@@ -2013,6 +1953,8 @@ function ptAttachHandlers(){
 }
 
 const NOTES = [
+  { badge:'Simplified', title:'Learning: Sharpen/Root removed',
+    body:'Learning is now a single unified list \u2014 Source / Takeaway / Action, with search and an optional photo, no lane split. The This week / This season synthesis blocks were also removed as duplicating what Learning and Points taken already capture.' },
   { badge:'Added', title:'Body module',
     body:'The PT Record Card is now a section here, reskinned to match Seasons\u2019 palette and type (previously its own olive/military look). Storage switched from the Claude-artifact window.storage API to plain localStorage, matching everything else in this file \u2014 the old version only saved data while running inside Claude\u2019s viewer, not as a standalone bookmarked page.' },
   { badge:'Added', title:'Learning module',
@@ -2076,12 +2018,12 @@ document.getElementById('import-btn').addEventListener('click', ()=> document.ge
 document.getElementById('import-input').addEventListener('change', (e)=>{ if(e.target.files[0]) importDataFile(e.target.files[0]); });
 
 function init(){
-  initCompass();
-  renderCompassState();
+  initCoordBackLink();
   renderCoordChips();
   renderCoordList();
   renderCoordWheel();
   renderToday();
+  renderSpiritOverview();
   renderProgress();
   renderWeekGrid();
   renderWeekDetail();
