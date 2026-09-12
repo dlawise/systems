@@ -167,7 +167,7 @@
   .photo-remove{background:none; border:none; color:var(--ink-faint); text-decoration:underline; cursor:pointer; font-size:11.5px; display:none;}
   .stage-quick{display:flex; gap:6px; flex-wrap:wrap; margin-bottom:.7rem;}
   .stage-quick button{
-    font-size:12px; font-weight:500; padding:6px 12px; border-radius:14px; border:1px solid var(--line);
+    font-size:12px; font-weight:500; padding:9px 14px; border-radius:14px; border:1px solid var(--line);
     background:var(--paper); color:var(--ink-soft); cursor:pointer;
   }
   .stage-quick button.active{background:var(--ink); color:var(--paper); border-color:var(--ink);}
@@ -202,7 +202,7 @@
   .entry-meta{display:flex; gap:10px; align-items:center; font-family:'IBM Plex Mono',monospace; font-size:10px; color:var(--ink-faint);}
   .entry-tag{padding:2px 8px; border-radius:10px; font-size:9.5px;}
   .entry-text{font-size:13.5px; white-space:pre-wrap;}
-  .entry-del{margin-left:auto; background:none; border:none; color:var(--ink-faint); cursor:pointer; font-size:11px; text-decoration:underline;}
+  .entry-del{margin-left:auto; background:none; border:none; color:var(--ink-faint); cursor:pointer; font-size:11px; text-decoration:underline; padding:6px 4px;}
   .empty-note{color:var(--ink-faint); font-size:12.5px; font-style:italic; padding:.3rem 0;}
 
   .domains-sub{color:var(--ink-faint); font-size:12.5px; margin:-.4rem 0 1rem; font-style:italic;}
@@ -215,7 +215,7 @@
   .domain-task{display:flex; align-items:flex-start; gap:7px; font-size:12.5px;}
   .domain-task input[type=checkbox]{margin-top:3px; accent-color:var(--ink); flex-shrink:0;}
   .domain-task.done span{text-decoration:line-through; color:var(--ink-faint);}
-  .domain-task-del{background:none; border:none; color:var(--ink-faint); cursor:pointer; font-size:10.5px; margin-left:auto; flex-shrink:0;}
+  .domain-task-del{background:none; border:none; color:var(--ink-faint); cursor:pointer; font-size:10.5px; margin-left:auto; flex-shrink:0; padding:6px 4px;}
   .domain-add{display:flex; flex-wrap:wrap; gap:6px;}
   .domain-add .domain-add-input{flex:1 1 100%;}
   .domain-add .domain-add-date{flex:1 1 auto;}
@@ -256,9 +256,9 @@
   .pt-ex-top{display:flex; justify-content:space-between; align-items:baseline; gap:8px; margin-bottom:8px;}
   .pt-ex-name-wrap{display:flex; align-items:center; gap:6px; cursor:pointer;}
   .pt-ex-name{font-family:'Fraunces',serif; font-size:15px; font-weight:500; color:var(--ink);}
-  .pt-info-dot{width:16px; height:16px; border-radius:50%; border:1px solid var(--ink-faint); color:var(--ink-faint); font-size:10px; font-family:'IBM Plex Mono',monospace; display:flex; align-items:center; justify-content:center; flex-shrink:0;}
+  .pt-info-dot{width:20px; height:20px; border-radius:50%; border:1px solid var(--ink-faint); color:var(--ink-faint); font-size:11px; font-family:'IBM Plex Mono',monospace; display:flex; align-items:center; justify-content:center; flex-shrink:0;}
   .pt-ex-target{font-family:'IBM Plex Mono',monospace; font-size:10.5px; color:var(--ink-faint); white-space:nowrap; display:flex; align-items:center; gap:6px;}
-  .pt-edit-toggle{cursor:pointer; color:var(--ink-faint); border:1px solid var(--ink-faint); border-radius:50%; width:16px; height:16px; font-size:9px; display:inline-flex; align-items:center; justify-content:center;}
+  .pt-edit-toggle{cursor:pointer; color:var(--ink-faint); border:1px solid var(--ink-faint); border-radius:50%; width:22px; height:22px; font-size:10px; display:inline-flex; align-items:center; justify-content:center;}
   .pt-edit-row{display:flex; gap:8px; align-items:flex-end; flex-wrap:wrap; margin-bottom:10px; padding:8px; border:1px dashed var(--ink-faint); border-radius:9px; background:var(--paper);}
   .pt-trend-row{margin-bottom:8px; font-family:'IBM Plex Mono',monospace; font-size:11px;}
   .pt-trend.up{color:var(--spring-ink);}
@@ -1258,7 +1258,7 @@ function renderDomains(){
       <div class="domain-task${t.done?' done':''}" data-id="${t.id}" data-domain="${d.key}">
         <input type="checkbox" ${t.done?'checked':''}>
         <span>${t.text.replace(/</g,'&lt;')}${t.due ? ` <span style="color:var(--ink-faint); font-size:10.5px;">· ${t.due}</span>` : ''}</span>
-        <button class="domain-task-star" data-id="${t.id}" data-domain="${d.key}" title="Priority" style="background:none; border:none; cursor:pointer; font-size:11px; color:${t.priority?'var(--accent-ink)':'var(--ink-faint)'}; padding:0 2px;">${t.priority?'★':'☆'}</button>
+        <button class="domain-task-star" data-id="${t.id}" data-domain="${d.key}" title="Priority" style="background:none; border:none; cursor:pointer; font-size:13px; color:${t.priority?'var(--accent-ink)':'var(--ink-faint)'}; padding:6px 4px;">${t.priority?'★':'☆'}</button>
         <button class="domain-task-del" data-id="${t.id}" data-domain="${d.key}">✕</button></div>`).join('');
     return `<div class="domain-col">
       <div class="domain-head"><span class="domain-name">${d.name}</span><span class="domain-count">${done}/${tasks.length}</span></div>
@@ -1418,16 +1418,19 @@ const PT_TARGETS_BY_LEVEL = {
     { pushups:{sets:4,target:40}, situps:{sets:4,target:45}, squats:{sets:4,target:50}, lunges:{sets:4,target:32}, plank:{sets:3,target:90}, burpees:{sets:4,target:20}, pullups:{sets:4,target:15}, run:{sets:1,target:28} }
   ]
 };
-const PT_DAY_PATTERN_BY_LEVEL = {
-  beginner: ['A','B','C','R','A','B','R'],
-  intermediate: ['A','B','C','A','B','C','R'],
-  advanced: ['A','B','C','A','B','C','R']
+// Indexed by JS getDay(): 0=Sun,1=Mon,2=Tue,3=Wed,4=Thu,5=Fri,6=Sat
+// X = Catch-up (flexible — pick any session you missed, or a bonus one)
+const PT_WEEKDAY_PATTERN_BY_LEVEL = {
+  beginner:     ['R','A','R','B','R','C','X'],
+  intermediate: ['R','A','B','C','A','B','X'],
+  advanced:     ['R','A','B','C','A','B','X']
 };
 const PT_DAY_TYPE_INFO = {
   A: { name: 'Push & core', exercises: ['pushups','situps','plank'] },
   B: { name: 'Legs & cardio', exercises: ['squats','lunges','run','plank'] },
   C: { name: 'Full body', exercises: ['pushups','squats','burpees','pullups'] },
-  R: { name: 'Rest / recovery', exercises: [] }
+  R: { name: 'Rest / recovery', exercises: [] },
+  X: { name: 'Catch-up', exercises: [] }
 };
 const PT_WARMUP = [
   '2–3 min light cardio (marching in place or jumping jacks) to raise heart rate',
@@ -1448,7 +1451,8 @@ function ptVideoEmbedBlock(videoId, label){
 }
 function ptCurrentLevel(){ return (ptState && ptState.level) || 'beginner'; }
 function ptCurrentTargets(){ return PT_TARGETS_BY_LEVEL[ptCurrentLevel()]; }
-function ptCurrentPattern(){ return PT_DAY_PATTERN_BY_LEVEL[ptCurrentLevel()]; }
+function ptWeekdayPattern(){ return PT_WEEKDAY_PATTERN_BY_LEVEL[ptCurrentLevel()]; }
+function ptDayTypeForDate(dateStr){ return ptWeekdayPattern()[new Date(dateStr + 'T00:00:00').getDay()]; }
 function ptCustomTargets(){ if(!ptState.customTargets) ptState.customTargets = {}; return ptState.customTargets; }
 function ptCustomExercises(){ if(!ptState.customExercises) ptState.customExercises = {}; return ptState.customExercises; }
 function ptExerciseDef(exId){ return PT_EXERCISES[exId] || ptCustomExercises()[exId]; }
@@ -1484,22 +1488,46 @@ function ptPlayBeep(){
   }catch(e){}
 }
 function ptMissedSessionsCount(){
-  const pattern = ptCurrentPattern();
   let missed = 0;
   const start = new Date(ptState.startDate + 'T00:00:00');
   const yesterday = new Date(); yesterday.setDate(yesterday.getDate()-1);
   let cursor = new Date(start);
   while(cursor <= yesterday){
     const ds = ptFmtDate(cursor);
-    const idx = Math.floor((cursor - start) / 86400000);
-    if(pattern[idx % 7] !== 'R'){ if(!(ptState.logs[ds] && ptState.logs[ds].complete)) missed++; }
+    const type = ptDayTypeForDate(ds);
+    if(type !== 'R' && type !== 'X'){ if(!(ptState.logs[ds] && ptState.logs[ds].complete)) missed++; }
     cursor.setDate(cursor.getDate()+1);
   }
   return missed;
 }
 const PT_LEVEL_ORDER = ['beginner','intermediate','advanced'];
 function ptNextLevel(){ const i = PT_LEVEL_ORDER.indexOf(ptCurrentLevel()); return i < PT_LEVEL_ORDER.length - 1 ? PT_LEVEL_ORDER[i+1] : null; }
-function ptProgramComplete(){ return ptDayIndexFor(ptTodayStr()) >= 28; }
+function ptMondayOf(dateStr){
+  const d = new Date(dateStr + 'T00:00:00');
+  const diff = (d.getDay() === 0 ? -6 : 1 - d.getDay());
+  d.setDate(d.getDate() + diff);
+  return d;
+}
+function ptWeekDiff(dateStr){
+  const anchor = ptMondayOf(ptState.startDate);
+  const cur = ptMondayOf(dateStr);
+  return Math.round((cur - anchor) / (7*86400000));
+}
+function ptProgramComplete(){ return ptWeekDiff(ptTodayStr()) >= 4; }
+function ptCatchUpOptions(dateStr){
+  const monday = ptMondayOf(dateStr);
+  const options = [];
+  for(let i=0;i<5;i++){
+    const d = new Date(monday); d.setDate(monday.getDate()+i);
+    const ds = ptFmtDate(d);
+    if(ds >= dateStr) break;
+    const type = ptDayTypeForDate(ds);
+    if(type === 'R' || type === 'X') continue;
+    const done = ptState.logs[ds] && ptState.logs[ds].complete;
+    options.push({ date: ds, type, done, dayName: d.toLocaleDateString(undefined,{weekday:'short'}) });
+  }
+  return options;
+}
 
 const PT_GUIDES = {
   pushups: { youtubeId: 'WDIpL0pjun0', tempo: '2 sec down, 1 sec pause, 1 sec up',
@@ -1547,6 +1575,7 @@ let ptResetArmed = false;
 let ptEditingExId = null;
 let ptLevelUpDismissed = false;
 let ptAddingExercise = false;
+let ptCatchUpChoice = null;
 let ptOnboardLevel = 'beginner';
 const ptRestTimers = {};
 
@@ -1559,10 +1588,8 @@ function ptDayIndexFor(dateStr){
 }
 function ptProgramPositionFor(dateStr){
   const idx = ptDayIndexFor(dateStr);
-  const clampedIdx = Math.max(0, idx);
-  const weekIndex = Math.min(3, Math.floor(clampedIdx / 7));
-  const dayInWeek = clampedIdx % 7;
-  return { idx, weekIndex, dayInWeek, dayType: ptCurrentPattern()[dayInWeek] };
+  const weekIndex = Math.max(0, Math.min(3, ptWeekDiff(dateStr)));
+  return { idx, weekIndex, dayType: ptDayTypeForDate(dateStr) };
 }
 async function ptLoadState(){
   try{ const val = LS.get(PT_STORAGE_KEY); if(val) ptState = JSON.parse(val); }catch(e){ ptState = null; }
@@ -1649,34 +1676,7 @@ function ptRenderPanel(){
   return ptRenderStats();
 }
 
-function ptRenderToday(){
-  const dateStr = ptViewDate;
-  const pos = ptProgramPositionFor(dateStr);
-  const log = ptGetLog(dateStr);
-  const info = PT_DAY_TYPE_INFO[pos.dayType];
-  const targets = ptCurrentTargets()[pos.weekIndex];
-  const isToday = dateStr === ptTodayStr();
-
-  if(pos.idx < 0){
-    return `<div class="week-detail"><div class="empty-note">Your program starts ${ptState.startDate}. Come back then to log your first session.</div></div>`;
-  }
-
-  const dateRow = `<div class="pt-date-row"><span>${isToday ? 'Logging today' : 'Logging for'}</span><input type="date" id="pt-view-date-input" value="${dateStr}" min="${ptState.startDate}" max="${ptTodayStr()}"></div>`;
-  const missed = isToday ? ptMissedSessionsCount() : 0;
-  const nudge = missed > 0 ? `<div class="pt-banner nudge">You have ${missed} missed session${missed===1?'':'s'} this program. Pick a date above to back-log one, or keep moving forward.</div>` : '';
-
-  let levelUp = '';
-  if(isToday && ptProgramComplete() && !ptLevelUpDismissed){
-    const nl = ptNextLevel();
-    levelUp = nl
-      ? `<div class="pt-banner levelup"><div>4 weeks complete. Ready to move up to <b>${PT_LEVELS[nl].label}</b>?</div><div class="pt-levelup-actions"><button class="save-btn" id="pt-levelup-btn" style="margin-top:0;">Move to ${PT_LEVELS[nl].label}</button><button class="mark-btn" id="pt-levelup-dismiss">Not yet</button></div></div>`
-      : `<div class="pt-banner levelup"><div>4-week ${PT_LEVELS[ptCurrentLevel()].label} cycle complete. Restart the cycle to keep building?</div><div class="pt-levelup-actions"><button class="save-btn" id="pt-restart-cycle-btn" style="margin-top:0;">Restart week 1</button><button class="mark-btn" id="pt-levelup-dismiss">Not yet</button></div></div>`;
-  }
-
-  let body = '';
-  if(pos.dayType === 'R'){
-    body = `<div class="empty-note">Rest day. Light stretching or an easy walk is fine — no PT logging required today. Recovery is part of the program.</div>`;
-  }else{
+function ptBuildSessionBody(info, targets, log, dateStr){
     const warmup = `<details class="stretch-block" style="border:1px solid var(--line); border-radius:9px; padding:8px 10px; margin-bottom:14px;"><summary style="font-family:'Fraunces',serif; font-size:12.5px; font-weight:500; color:var(--ink); cursor:pointer;">Warm-up (before you start)</summary><ul style="margin:8px 0 0; padding-left:18px; font-size:12px; line-height:1.6; color:var(--ink-soft);">${PT_WARMUP.map(w => `<li>${w}</li>`).join('')}</ul>${ptVideoEmbedBlock(PT_WARMUP_VIDEO, 'Warm-up')}</details>`;
 
     const exercises = info.exercises.map(exId => {
@@ -1719,7 +1719,48 @@ function ptRenderToday(){
 
     const extraWork = `<div class="pt-extra-block"><h4>Extra work</h4>${extraRows}${addExerciseForm}</div>`;
     const cooldown = `<details class="stretch-block" style="border:1px solid var(--line); border-radius:9px; padding:8px 10px; margin-top:14px;"><summary style="font-family:'Fraunces',serif; font-size:12.5px; font-weight:500; color:var(--ink); cursor:pointer;">Cool-down (after your last set)</summary><ul style="margin:8px 0 0; padding-left:18px; font-size:12px; line-height:1.6; color:var(--ink-soft);">${PT_COOLDOWN.map(w => `<li>${w}</li>`).join('')}</ul>${ptVideoEmbedBlock(PT_COOLDOWN_VIDEO, 'Cool-down')}</details>`;
-    body = warmup + exercises + extraWork + cooldown;
+    return warmup + exercises + extraWork + cooldown;
+}
+
+function ptRenderToday(){
+  const dateStr = ptViewDate;
+  const pos = ptProgramPositionFor(dateStr);
+  const log = ptGetLog(dateStr);
+  const info = PT_DAY_TYPE_INFO[pos.dayType];
+  const targets = ptCurrentTargets()[pos.weekIndex];
+  const isToday = dateStr === ptTodayStr();
+
+  if(pos.idx < 0){
+    return `<div class="week-detail"><div class="empty-note">Your program starts ${ptState.startDate}. Come back then to log your first session.</div></div>`;
+  }
+
+  const dateRow = `<div class="pt-date-row"><span>${isToday ? 'Logging today' : 'Logging for'}</span><input type="date" id="pt-view-date-input" value="${dateStr}" min="${ptState.startDate}" max="${ptTodayStr()}"></div>`;
+  const missed = isToday ? ptMissedSessionsCount() : 0;
+  const nudge = missed > 0 ? `<div class="pt-banner nudge">You have ${missed} missed session${missed===1?'':'s'} this week — Saturday's Catch-up day is there for exactly this.</div>` : '';
+
+  let levelUp = '';
+  if(isToday && ptProgramComplete() && !ptLevelUpDismissed){
+    const nl = ptNextLevel();
+    levelUp = nl
+      ? `<div class="pt-banner levelup"><div>4 weeks complete. Ready to move up to <b>${PT_LEVELS[nl].label}</b>?</div><div class="pt-levelup-actions"><button class="save-btn" id="pt-levelup-btn" style="margin-top:0;">Move to ${PT_LEVELS[nl].label}</button><button class="mark-btn" id="pt-levelup-dismiss">Not yet</button></div></div>`
+      : `<div class="pt-banner levelup"><div>4-week ${PT_LEVELS[ptCurrentLevel()].label} cycle complete. Restart the cycle to keep building?</div><div class="pt-levelup-actions"><button class="save-btn" id="pt-restart-cycle-btn" style="margin-top:0;">Restart week 1</button><button class="mark-btn" id="pt-levelup-dismiss">Not yet</button></div></div>`;
+  }
+
+  let body = '';
+  if(pos.dayType === 'R'){
+    body = `<div class="empty-note">Rest day. Light stretching or an easy walk is fine — no PT logging required today. Recovery is part of the program.</div>`;
+  }else if(pos.dayType === 'X'){
+    const options = ptCatchUpOptions(dateStr);
+    const anyMissed = options.some(o => !o.done);
+    const pickerButtons = ['A','B','C'].map(t=>{
+      const missedThisWeek = options.find(o => o.type===t && !o.done);
+      const label = `${PT_DAY_TYPE_INFO[t].name}${missedThisWeek ? ' · missed ' + missedThisWeek.dayName : ''}`;
+      return `<button data-catchup-type="${t}" class="${ptCatchUpChoice===t?'active':''}">${label}</button>`;
+    }).join('');
+    const picker = `<div class="entry-meta" style="margin-bottom:6px;">Catch-up day — ${anyMissed ? 'pick a session you missed this week, or use it as a bonus day' : 'nothing missed this week — pick a bonus session, or rest'}.</div><div class="stage-quick" id="pt-catchup-picker" style="margin-bottom:14px;">${pickerButtons}</div>`;
+    body = picker + (ptCatchUpChoice ? ptBuildSessionBody(PT_DAY_TYPE_INFO[ptCatchUpChoice], targets, log, dateStr) : `<div class="empty-note">Pick a session above to log it, or leave it as a rest day.</div>`);
+  }else{
+    body = ptBuildSessionBody(info, targets, log, dateStr);
   }
 
   const noteBlock = `<div style="margin:1rem 0;"><div class="entry-meta" style="margin-bottom:4px;">Session note</div><textarea class="journal-input" id="pt-session-note" style="min-height:56px;" placeholder="How did it feel? Anything to remember for next time...">${log.note || ''}</textarea></div>`;
@@ -1737,43 +1778,45 @@ function ptRenderToday(){
 }
 
 function ptRenderCalendar(){
-  const pattern = ptCurrentPattern();
   const start = new Date(ptState.startDate + 'T00:00:00');
   const today = ptTodayStr();
   const cells = [];
   for(let i=0; i<28; i++){
     const dt = new Date(start); dt.setDate(dt.getDate() + i);
     const ds = ptFmtDate(dt);
-    const dayType = pattern[i % 7];
+    const dayType = ptDayTypeForDate(ds);
     const log = ptState.logs[ds];
     const isFuture = ds > today, isPast = ds < today;
     let cls = 'pt-cal-cell', mark = '';
     if(dayType === 'R'){ cls += ' rest'; mark = '–'; }
     else if(log && log.complete){ cls += ' done'; mark = '✓'; }
+    else if(dayType === 'X' && isPast){ cls += ' rest'; mark = log && log.complete ? '✓' : '·'; }
     else if(isPast){ cls += ' missed'; mark = '✕'; }
     else if(isFuture){ cls += ' future'; }
     else{ cls += ' today'; }
     const clickable = !isFuture;
-    cells.push(`<div class="${cls}${clickable?' clickable':''}" ${clickable ? `data-cal-date="${ds}"` : ''}><span>${i+1}</span><span style="font-size:13px; font-weight:600;">${mark}</span></div>`);
+    cells.push(`<div class="${cls}${clickable?' clickable':''}" ${clickable ? `data-cal-date="${ds}"` : ''}><span>${dt.toLocaleDateString(undefined,{weekday:'narrow'})}</span><span style="font-size:13px; font-weight:600;">${mark}</span></div>`);
   }
-  const legend = `<div class="pt-cal-legend"><span><span class="dot done"></span>Logged</span><span><span class="dot missed"></span>Missed</span><span><span class="dot rest"></span>Rest</span></div>`;
+  const legend = `<div class="pt-cal-legend"><span><span class="dot done"></span>Logged</span><span><span class="dot missed"></span>Missed</span><span><span class="dot rest"></span>Rest / catch-up</span></div>`;
   return `<div class="week-detail"><div class="pt-day-banner"><span class="pt-dt-name">${PT_LEVELS[ptCurrentLevel()].label} — 4 week program</span></div><div class="pt-cal-grid">${cells.join('')}</div>${legend}</div>`;
 }
 
 function ptRenderProgram(){
-  const pattern = ptCurrentPattern();
+  const pattern = ptWeekdayPattern();
+  const weekdayLabels = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
   const weeks = ptCurrentTargets().map((wk, wi) => {
     const rows = Object.keys(PT_EXERCISES).map(exId => `<tr><td>${PT_EXERCISES[exId].label}</td><td>${wk[exId].sets} × ${wk[exId].target} ${PT_EXERCISES[exId].unit}</td></tr>`).join('');
-    const weekStart = new Date(ptState.startDate + 'T00:00:00'); weekStart.setDate(weekStart.getDate() + wi*7);
+    const weekStart = ptMondayOf(ptState.startDate); weekStart.setDate(weekStart.getDate() + wi*7);
     let ptDaysTotal = 0, ptDaysDone = 0;
     for(let d=0; d<7; d++){
       const dt = new Date(weekStart); dt.setDate(dt.getDate() + d);
       const ds = ptFmtDate(dt);
-      if(pattern[d] !== 'R'){ ptDaysTotal++; if(ptState.logs[ds] && ptState.logs[ds].complete) ptDaysDone++; }
+      const type = ptDayTypeForDate(ds);
+      if(type !== 'R' && type !== 'X'){ ptDaysTotal++; if(ptState.logs[ds] && ptState.logs[ds].complete) ptDaysDone++; }
     }
     return `<div style="margin-bottom:1.2rem;"><div class="wd-head"><h4>Week ${wi+1}</h4><span class="wd-week">${ptDaysDone} / ${ptDaysTotal} sessions</span></div><table class="pt-prog-table"><tr><th>Exercise</th><th>Target</th></tr>${rows}</table></div>`;
   }).join('');
-  const cycle = `<div style="margin-bottom:1.2rem;"><div class="wd-head"><h4>Weekly pattern — ${PT_LEVELS[ptCurrentLevel()].label}</h4></div><table class="pt-prog-table"><tr><th>Day</th><th>Type</th></tr>${pattern.map((d,i)=>`<tr><td>Day ${i+1}</td><td>${PT_DAY_TYPE_INFO[d].name} (${d})</td></tr>`).join('')}</table></div>`;
+  const cycle = `<div style="margin-bottom:1.2rem;"><div class="wd-head"><h4>Weekly schedule — ${PT_LEVELS[ptCurrentLevel()].label}</h4></div><table class="pt-prog-table"><tr><th>Day</th><th>Type</th></tr>${[1,2,3,4,5,6,0].map(i=>`<tr><td>${weekdayLabels[i]}</td><td>${PT_DAY_TYPE_INFO[pattern[i]].name} (${pattern[i]})</td></tr>`).join('')}</table></div>`;
   return `<div class="week-detail">${cycle}${weeks}</div>`;
 }
 
@@ -1930,7 +1973,8 @@ function ptAttachHandlers(){
   const exportCsvBtn = document.getElementById('pt-export-csv-btn'); if(exportCsvBtn) exportCsvBtn.onclick = ptExportCsv;
   const exportJsonBtn = document.getElementById('pt-export-json-btn'); if(exportJsonBtn) exportJsonBtn.onclick = ptExportJson;
   const dateInput = document.getElementById('pt-view-date-input');
-  if(dateInput){ dateInput.onchange = () => { ptViewDate = dateInput.value; ptRender(); }; }
+  if(dateInput){ dateInput.onchange = () => { ptViewDate = dateInput.value; ptCatchUpChoice = null; ptRender(); }; }
+  document.querySelectorAll('[data-catchup-type]').forEach(btn=>{ btn.onclick = () => { ptCatchUpChoice = btn.dataset.catchupType; ptRender(); }; });
   const saveBtn = document.getElementById('pt-save-day-btn');
   if(saveBtn){
     saveBtn.onclick = async () => {
