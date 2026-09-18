@@ -368,33 +368,34 @@
   <div class="group-label" data-group="soul">Soul</div>
   <div class="week-detail" id="soul-overview" style="margin:0 1.3rem 1.2rem;"></div>
   <div class="coord-callout" id="coord-callout-soul"></div>
-  <section class="csec" id="sec-learning" data-key="learning" data-group="soul">
+  <section class="csec" id="sec-notes" data-key="notes" data-group="soul">
     <button class="csec-head">
-      <div class="csec-head-left"><span class="csec-title">Learning</span></div>
+      <div class="csec-head-left"><span class="csec-title">Notes</span></div>
       <span class="csec-chevron">⌄</span>
     </button>
     <div class="csec-body">
-      <p class="journal-sub">Capture what you read — books, articles, sermons, anything worth remembering.</p>
-      <div id="learning-form-mount"></div>
-      <input type="text" id="learning-filter" placeholder="Search notes…" style="width:100%; border:1px solid var(--line); border-radius:9px; padding:9px 12px; font-size:13px; background:var(--paper-raised); color:var(--ink); margin-bottom:6px;">
-      <div class="entries" id="learning-entries"></div>
-    </div>
-  </section>
-
-  <section class="csec" id="sec-journal" data-key="journal" data-group="soul">
-    <button class="csec-head">
-      <div class="csec-head-left"><span class="csec-title">Points taken</span></div>
-      <span class="csec-chevron">⌄</span>
-    </button>
-    <div class="csec-body">
-      <p class="journal-sub" id="journal-prompt">Loading…</p>
-      <textarea class="journal-input" id="journal-input" placeholder="Write freely — a few lines or a few pages."></textarea>
-      <div class="journal-actions">
-        <span class="save-status" id="save-status"></span>
-        <button class="save-btn" id="save-btn">Save entry</button>
+      <div class="stage-quick" id="notes-tab-switch">
+        <button data-notes-tab="learning" class="active">Learning</button>
+        <button data-notes-tab="journal">Points taken</button>
       </div>
-      <input type="text" id="journal-filter" placeholder="Search entries…" style="width:100%; border:1px solid var(--line); border-radius:9px; padding:9px 12px; font-size:13px; background:var(--paper-raised); color:var(--ink); margin:10px 0 6px;">
-      <div class="entries" id="entries"></div>
+
+      <div id="notes-panel-learning">
+        <p class="journal-sub">Capture what you read — books, articles, sermons, anything worth remembering.</p>
+        <div id="learning-form-mount"></div>
+        <input type="text" id="learning-filter" placeholder="Search notes…" style="width:100%; border:1px solid var(--line); border-radius:9px; padding:9px 12px; font-size:13px; background:var(--paper-raised); color:var(--ink); margin-bottom:6px;">
+        <div class="entries" id="learning-entries"></div>
+      </div>
+
+      <div id="notes-panel-journal" style="display:none;">
+        <p class="journal-sub" id="journal-prompt">Loading…</p>
+        <textarea class="journal-input" id="journal-input" placeholder="Write freely — a few lines or a few pages."></textarea>
+        <div class="journal-actions">
+          <span class="save-status" id="save-status"></span>
+          <button class="save-btn" id="save-btn">Save entry</button>
+        </div>
+        <input type="text" id="journal-filter" placeholder="Search entries…" style="width:100%; border:1px solid var(--line); border-radius:9px; padding:9px 12px; font-size:13px; background:var(--paper-raised); color:var(--ink); margin:10px 0 6px;">
+        <div class="entries" id="entries"></div>
+      </div>
     </div>
   </section>
 
@@ -578,7 +579,7 @@ const LS = {
 };
 
 const SECTION_STATE_KEY = 'seasons-section-state';
-let sectionState = Object.assign({ coordinates:true, weekly:true, journal:false, learning:false, domains:false, body:false }, (()=>{ try{ return JSON.parse(LS.get(SECTION_STATE_KEY)||'{}'); }catch(e){ return {}; } })());
+let sectionState = Object.assign({ coordinates:true, weekly:true, notes:false, domains:false, body:false }, (()=>{ try{ return JSON.parse(LS.get(SECTION_STATE_KEY)||'{}'); }catch(e){ return {}; } })());
 function applySectionStates(){
   document.querySelectorAll('.csec').forEach(sec=>{
     sec.classList.toggle('open', sectionState[sec.getAttribute('data-key')] !== false);
@@ -637,6 +638,16 @@ function setActivePage(page){
   document.querySelectorAll('.group-label[data-group]').forEach(el=>{ el.style.display = el.dataset.group === page ? '' : 'none'; });
   document.querySelectorAll('#page-switch button').forEach(b=> b.classList.toggle('active', b.dataset.group === page));
   LS.set(PAGE_KEY, page);
+}
+function initNotesTabSwitch(){
+  document.querySelectorAll('#notes-tab-switch button').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const tab = btn.dataset.notesTab;
+      document.querySelectorAll('#notes-tab-switch button').forEach(b=> b.classList.toggle('active', b===btn));
+      document.getElementById('notes-panel-learning').style.display = tab === 'learning' ? '' : 'none';
+      document.getElementById('notes-panel-journal').style.display = tab === 'journal' ? '' : 'none';
+    });
+  });
 }
 function initPageSwitch(){
   document.querySelectorAll('#page-switch button').forEach(b=>{
@@ -1203,6 +1214,20 @@ function loadEntries(){ try{ return JSON.parse(LS.get(ENTRIES_KEY) || '[]'); }ca
 function saveEntries(entries){ return LS.set(ENTRIES_KEY, JSON.stringify(entries)); }
 function seasonBadgeStyle(colorKey){ return `background:var(--${colorKey}-bg); color:var(--${colorKey}-ink);`; }
 let journalFilterQuery = '';
+let journalUndo = null;
+function wireJournalUndo(){
+  const btn = document.getElementById('journal-undo-btn');
+  if(btn) btn.onclick = () => {
+    if(!journalUndo) return;
+    clearTimeout(journalUndo.timer);
+    const all = loadEntries();
+    all.splice(journalUndo.index, 0, journalUndo.item);
+    saveEntries(all);
+    journalUndo = null;
+    renderEntries();
+    renderSoulOverview();
+  };
+}
 function renderEntries(){
   let entries = loadEntries();
   if(journalFilterQuery){
@@ -1210,9 +1235,10 @@ function renderEntries(){
     entries = entries.filter(e => e.text.toLowerCase().includes(q));
   }
   const mount = document.getElementById('entries');
-  if(!entries.length){ mount.innerHTML = `<div class="empty-note">${journalFilterQuery ? 'No matching entries.' : 'No entries yet — your reflections will appear here.'}</div>`; return; }
+  const undoBanner = journalUndo ? `<div class="pt-banner nudge" style="margin-bottom:10px;">Entry deleted. <button id="journal-undo-btn" style="background:none; border:none; text-decoration:underline; color:inherit; cursor:pointer; font:inherit; padding:0;">Undo</button></div>` : '';
+  if(!entries.length){ mount.innerHTML = undoBanner + `<div class="empty-note">${journalFilterQuery ? 'No matching entries.' : 'No entries yet — your reflections will appear here.'}</div>`; wireJournalUndo(); return; }
   const sorted = entries.slice().sort((a,b)=> b.ts - a.ts);
-  mount.innerHTML = sorted.map(e=>{
+  mount.innerHTML = undoBanner + sorted.map(e=>{
     const season = SEASONS.find(s=>s.key===e.seasonKey) || SEASONS[0];
     const date = new Date(e.ts).toLocaleDateString(undefined, { year:'numeric', month:'short', day:'numeric' });
     return `<div class="entry">
@@ -1220,8 +1246,17 @@ function renderEntries(){
       <div class="entry-text">${e.text.replace(/</g,'&lt;')}</div></div>`;
   }).join('');
   mount.querySelectorAll('.entry-del').forEach(btn=> btn.addEventListener('click', ()=>{
-    saveEntries(loadEntries().filter(e=>e.id !== btn.getAttribute('data-id'))); renderEntries();
+    const all = loadEntries();
+    const idx = all.findIndex(x=>x.id===btn.getAttribute('data-id'));
+    if(idx<0) return;
+    const [removed] = all.splice(idx,1);
+    saveEntries(all);
+    if(journalUndo && journalUndo.timer) clearTimeout(journalUndo.timer);
+    journalUndo = { item: removed, index: idx, timer: setTimeout(()=>{ journalUndo=null; renderEntries(); }, 6000) };
+    renderEntries();
+    renderSoulOverview();
   }));
+  wireJournalUndo();
 }
 document.getElementById('journal-filter').addEventListener('input', (e)=>{ journalFilterQuery = e.target.value.trim(); renderEntries(); });
 document.getElementById('save-btn').addEventListener('click', ()=>{
@@ -1353,6 +1388,20 @@ function loadLearningSeason(){ try{ return JSON.parse(LS.get(LEARNING_SEASON_KEY
 function saveLearningSeason(obj){ return LS.set(LEARNING_SEASON_KEY, JSON.stringify(obj)); }
 
 let learningFilterQuery = '';
+let learningUndo = null;
+function wireLearningUndo(){
+  const btn = document.getElementById('learning-undo-btn');
+  if(btn) btn.onclick = () => {
+    if(!learningUndo) return;
+    clearTimeout(learningUndo.timer);
+    const all = loadLearningEntries();
+    all.splice(learningUndo.index, 0, learningUndo.item);
+    saveLearningEntries(all);
+    learningUndo = null;
+    renderLearningEntries();
+    renderSoulOverview();
+  };
+}
 function renderLearningEntries(){
   let entries = loadLearningEntries();
   if(learningFilterQuery){
@@ -1360,8 +1409,9 @@ function renderLearningEntries(){
     entries = entries.filter(e => (e.source+' '+e.takeaway+' '+e.action).toLowerCase().includes(q));
   }
   const mount = document.getElementById('learning-entries');
-  if(!entries.length){ mount.innerHTML = `<div class="empty-note">${learningFilterQuery ? 'No matching entries.' : 'No entries yet.'}</div>`; return; }
-  mount.innerHTML = entries.map(e=>{
+  const undoBanner = learningUndo ? `<div class="pt-banner nudge" style="margin-bottom:10px;">Entry deleted. <button id="learning-undo-btn" style="background:none; border:none; text-decoration:underline; color:inherit; cursor:pointer; font:inherit; padding:0;">Undo</button></div>` : '';
+  if(!entries.length){ mount.innerHTML = undoBanner + `<div class="empty-note">${learningFilterQuery ? 'No matching entries.' : 'No entries yet.'}</div>`; wireLearningUndo(); return; }
+  mount.innerHTML = undoBanner + entries.map(e=>{
     const date = new Date(e.ts).toLocaleDateString(undefined, { month:'short', day:'numeric' });
     const tagStyle = 'background:var(--paper); color:var(--ink-soft); border:1px solid var(--line);';
     return `<div class="entry">
@@ -1373,10 +1423,17 @@ function renderLearningEntries(){
   }).join('');
   mount.querySelectorAll('.learning-photo-view').forEach(img=> img.addEventListener('click', ()=> window.open(img.dataset.src, '_blank')));
   mount.querySelectorAll('.entry-del').forEach(btn=> btn.addEventListener('click', ()=>{
-    saveLearningEntries(loadLearningEntries().filter(x=>x.id!==btn.getAttribute('data-id')));
+    const all = loadLearningEntries();
+    const idx = all.findIndex(x=>x.id===btn.getAttribute('data-id'));
+    if(idx<0) return;
+    const [removed] = all.splice(idx,1);
+    saveLearningEntries(all);
+    if(learningUndo && learningUndo.timer) clearTimeout(learningUndo.timer);
+    learningUndo = { item: removed, index: idx, timer: setTimeout(()=>{ learningUndo=null; renderLearningEntries(); }, 6000) };
     renderLearningEntries();
     renderSoulOverview();
   }));
+  wireLearningUndo();
 }
 function initLearningLaneSwitch(){
   const filterInput = document.getElementById('learning-filter');
@@ -1455,6 +1512,10 @@ function ptWeekdayPattern(){ return PT_WEEKDAY_PATTERN_BY_LEVEL[ptCurrentLevel()
 function ptDayTypeForDate(dateStr){ return ptWeekdayPattern()[new Date(dateStr + 'T00:00:00').getDay()]; }
 function ptCustomTargets(){ if(!ptState.customTargets) ptState.customTargets = {}; return ptState.customTargets; }
 function ptCustomExercises(){ if(!ptState.customExercises) ptState.customExercises = {}; return ptState.customExercises; }
+function ptExercisesForType(type){
+  if(ptState.customDayExercises && ptState.customDayExercises[type]) return ptState.customDayExercises[type];
+  return PT_DAY_TYPE_INFO[type].exercises;
+}
 function ptExerciseDef(exId){ return PT_EXERCISES[exId] || ptCustomExercises()[exId]; }
 function ptGetTarget(exId, autoTarget){ const custom = ptCustomTargets()[exId]; return custom || autoTarget; }
 function ptGetTrend(exId){
@@ -1676,12 +1737,13 @@ function ptRenderPanel(){
   return ptRenderStats();
 }
 
-function ptBuildSessionBody(info, targets, log, dateStr){
+function ptBuildSessionBody(dayType, targets, log, dateStr){
     const warmup = `<details class="stretch-block" style="border:1px solid var(--line); border-radius:9px; padding:8px 10px; margin-bottom:14px;"><summary style="font-family:'Fraunces',serif; font-size:12.5px; font-weight:500; color:var(--ink); cursor:pointer;">Warm-up (before you start)</summary><ul style="margin:8px 0 0; padding-left:18px; font-size:12px; line-height:1.6; color:var(--ink-soft);">${PT_WARMUP.map(w => `<li>${w}</li>`).join('')}</ul>${ptVideoEmbedBlock(PT_WARMUP_VIDEO, 'Warm-up')}</details>`;
 
-    const exercises = info.exercises.map(exId => {
-      const ex = PT_EXERCISES[exId];
-      const t = ptGetTarget(exId, targets[exId]);
+    const exercises = ptExercisesForType(dayType).map(exId => {
+      const ex = PT_EXERCISES[exId] || ptCustomExercises()[exId];
+      if(!ex) return '';
+      const t = ptGetTarget(exId, targets[exId] || { sets:3, target:10 });
       const isCustom = !!ptCustomTargets()[exId];
       const saved = log.entries[exId] || [];
       const inputs = Array.from({length: t.sets}).map((_,i) => `<div class="pt-set-input"><label>SET ${i+1}</label><input type="number" min="0" inputmode="numeric" data-ex="${exId}" data-set="${i}" value="${saved[i] !== undefined ? saved[i] : ''}" placeholder="${t.target}"></div>`).join('');
@@ -1758,9 +1820,9 @@ function ptRenderToday(){
       return `<button data-catchup-type="${t}" class="${ptCatchUpChoice===t?'active':''}">${label}</button>`;
     }).join('');
     const picker = `<div class="entry-meta" style="margin-bottom:6px;">Catch-up day — ${anyMissed ? 'pick a session you missed this week, or use it as a bonus day' : 'nothing missed this week — pick a bonus session, or rest'}.</div><div class="stage-quick" id="pt-catchup-picker" style="margin-bottom:14px;">${pickerButtons}</div>`;
-    body = picker + (ptCatchUpChoice ? ptBuildSessionBody(PT_DAY_TYPE_INFO[ptCatchUpChoice], targets, log, dateStr) : `<div class="empty-note">Pick a session above to log it, or leave it as a rest day.</div>`);
+    body = picker + (ptCatchUpChoice ? ptBuildSessionBody(ptCatchUpChoice, targets, log, dateStr) : `<div class="empty-note">Pick a session above to log it, or leave it as a rest day.</div>`);
   }else{
-    body = ptBuildSessionBody(info, targets, log, dateStr);
+    body = ptBuildSessionBody(pos.dayType, targets, log, dateStr);
   }
 
   const noteBlock = `<div style="margin:1rem 0;"><div class="entry-meta" style="margin-bottom:4px;">Session note</div><textarea class="journal-input" id="pt-session-note" style="min-height:56px;" placeholder="How did it feel? Anything to remember for next time...">${log.note || ''}</textarea></div>`;
@@ -1847,8 +1909,15 @@ function ptRenderChart(points){
 }
 
 function ptRenderSettings(){
+  const allExerciseIds = Object.keys(PT_EXERCISES).concat(Object.keys(ptCustomExercises()));
+  const daytypeBlock = ['A','B','C'].map(type => {
+    const current = ptExercisesForType(type);
+    const chips = allExerciseIds.map(exId => `<button class="pt-daytype-chip ${current.includes(exId)?'active':''}" data-daytype="${type}" data-ex="${exId}">${ptExerciseDef(exId).label}</button>`).join('');
+    return `<div style="margin-bottom:14px;"><div class="entry-meta" style="margin-bottom:6px;">${PT_DAY_TYPE_INFO[type].name} (${type})</div><div class="stage-quick">${chips}</div></div>`;
+  }).join('');
   return `<div class="week-detail">
     <div class="review-block"><h3>Fitness level</h3><p class="lane-sub">${PT_LEVELS[ptCurrentLevel()].tagline} — switching levels restarts the 4-week cycle from today. Your logged history is kept, just not counted toward the new cycle.</p><div class="stage-quick">${ptLevelChips(ptCurrentLevel(), 'pt-settings')}</div></div>
+    <div class="review-block"><h3>Customize workout exercises</h3><p class="lane-sub">Tap to add or remove which exercises appear on each day type — update your own program any time, no rebuild needed.</p>${daytypeBlock}<button class="mark-btn" id="pt-reset-daytypes-btn" style="width:100%;">Reset to defaults</button></div>
     <div class="review-block"><h3>Program start date</h3><p class="lane-sub">Adjusting this shifts which week/day your program is currently on.</p><input type="date" id="pt-settings-start-date" value="${ptState.startDate}" style="border:1px solid var(--line); border-radius:9px; padding:9px; background:var(--paper-raised); color:var(--ink); font-family:'IBM Plex Mono',monospace; width:100%; margin-bottom:8px;"><button class="save-btn" id="pt-save-start-date-btn" style="margin-top:0;">Save start date</button></div>
     <div class="review-block"><h3>Export / backup</h3><p class="lane-sub">Save a copy of your log history — useful before clearing browser data, or to keep your own record.</p><button class="mark-btn" id="pt-export-csv-btn" style="width:100%; margin-bottom:6px;">Download log (CSV)</button><button class="mark-btn" id="pt-export-json-btn" style="width:100%;">Download full backup (JSON)</button></div>
     <div class="review-block"><h3>Reset data</h3><p class="lane-sub">Clears all logged sessions and program history. This cannot be undone.</p><button class="mark-btn" id="pt-reset-btn" style="width:100%; border-color:var(--accent); color:var(--accent-ink);">${ptResetArmed ? 'Tap again to confirm reset' : 'Reset all data'}</button></div>
@@ -1971,6 +2040,20 @@ function ptAttachHandlers(){
   const levelupDismiss = document.getElementById('pt-levelup-dismiss');
   if(levelupDismiss){ levelupDismiss.onclick = () => { ptLevelUpDismissed = true; ptRender(); }; }
   const exportCsvBtn = document.getElementById('pt-export-csv-btn'); if(exportCsvBtn) exportCsvBtn.onclick = ptExportCsv;
+  document.querySelectorAll('.pt-daytype-chip').forEach(btn=>{
+    btn.onclick = async () => {
+      const type = btn.dataset.daytype, exId = btn.dataset.ex;
+      if(!ptState.customDayExercises) ptState.customDayExercises = {};
+      if(!ptState.customDayExercises[type]) ptState.customDayExercises[type] = ptExercisesForType(type).slice();
+      const list = ptState.customDayExercises[type];
+      const idx = list.indexOf(exId);
+      if(idx >= 0) list.splice(idx,1); else list.push(exId);
+      await ptSaveState();
+      ptRender();
+    };
+  });
+  const resetDaytypesBtn = document.getElementById('pt-reset-daytypes-btn');
+  if(resetDaytypesBtn){ resetDaytypesBtn.onclick = async () => { ptState.customDayExercises = {}; await ptSaveState(); ptRender(); }; }
   const exportJsonBtn = document.getElementById('pt-export-json-btn'); if(exportJsonBtn) exportJsonBtn.onclick = ptExportJson;
   const dateInput = document.getElementById('pt-view-date-input');
   if(dateInput){ dateInput.onchange = () => { ptViewDate = dateInput.value; ptCatchUpChoice = null; ptRender(); }; }
@@ -2097,6 +2180,7 @@ function init(){
   initCollapsibles();
   applySectionStates();
   initPageSwitch();
+  initNotesTabSwitch();
   renderCoordCallouts();
   renderSoulOverview();
   loadStoredPhoto();
