@@ -335,6 +335,13 @@
 
   <div class="group-label" data-group="spirit">Spirit</div>
   <div class="week-detail" id="spirit-overview" style="margin:0 1.3rem 1.2rem;"></div>
+  <section class="csec" id="sec-goals-spirit" data-key="goals-spirit" data-group="spirit">
+    <button class="csec-head">
+      <div class="csec-head-left"><span class="csec-title">Goals</span></div>
+      <span class="csec-chevron">⌄</span>
+    </button>
+    <div class="csec-body"><div id="goals-mount-spirit"></div></div>
+  </section>
   <section class="csec open" id="sec-coordinates" data-key="coordinates" data-group="spirit">
     <button class="csec-head">
       <div class="csec-head-left"><span class="csec-title">Coordinates</span></div>
@@ -368,6 +375,13 @@
   <div class="group-label" data-group="soul">Soul</div>
   <div class="week-detail" id="soul-overview" style="margin:0 1.3rem 1.2rem;"></div>
   <div class="coord-callout" id="coord-callout-soul"></div>
+  <section class="csec" id="sec-goals-soul" data-key="goals-soul" data-group="soul">
+    <button class="csec-head">
+      <div class="csec-head-left"><span class="csec-title">Goals</span></div>
+      <span class="csec-chevron">⌄</span>
+    </button>
+    <div class="csec-body"><div id="goals-mount-soul"></div></div>
+  </section>
   <section class="csec" id="sec-notes" data-key="notes" data-group="soul">
     <button class="csec-head">
       <div class="csec-head-left"><span class="csec-title">Notes</span></div>
@@ -413,6 +427,13 @@
   <div class="group-label" data-group="body">Body</div>
   <div class="week-detail" id="body-overview" style="margin:0 1.3rem 1.2rem;"></div>
   <div class="coord-callout" id="coord-callout-body"></div>
+  <section class="csec" id="sec-goals-body" data-key="goals-body" data-group="body">
+    <button class="csec-head">
+      <div class="csec-head-left"><span class="csec-title">Goals</span></div>
+      <span class="csec-chevron">⌄</span>
+    </button>
+    <div class="csec-body"><div id="goals-mount-body"></div></div>
+  </section>
   <section class="csec" id="sec-body" data-key="body" data-group="body">
     <button class="csec-head">
       <div class="csec-head-left"><span class="csec-title">Body</span></div>
@@ -532,15 +553,15 @@ function seasonIndexForDate(d){
   if(m>=2 && m<=4) return 2;
   return 3;
 }
-function mostRecentSaturday(d){
+function mostRecentSunday(d){
   const r = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-  const diff = (r.getDay() - 6 + 7) % 7;
+  const diff = r.getDay();
   r.setDate(r.getDate() - diff);
   return r;
 }
 function currentWeekNumber(d){
   const y = d.getMonth()>=8 ? d.getFullYear() : d.getFullYear()-1;
-  const start = mostRecentSaturday(new Date(y,8,1));
+  const start = mostRecentSunday(new Date(y,8,1));
   const diffDays = Math.floor((d-start)/86400000);
   let wk = Math.floor(diffDays/7)+1;
   if(wk<1) wk=1; if(wk>52) wk=52;
@@ -553,7 +574,7 @@ const nowWeek = currentWeekNumber(today);
 let viewSeasonKey = SEASONS[currentSeasonIndex].key;
 let activeWeek = nowWeek;
 
-const PLAN_YEAR_ANCHOR = mostRecentSaturday(new Date(today.getMonth()>=8 ? today.getFullYear() : today.getFullYear()-1, 8, 1));
+const PLAN_YEAR_ANCHOR = mostRecentSunday(new Date(today.getMonth()>=8 ? today.getFullYear() : today.getFullYear()-1, 8, 1));
 function weekStartDate(weekNum){
   const d = new Date(PLAN_YEAR_ANCHOR);
   d.setDate(d.getDate() + (weekNum-1)*7);
@@ -579,7 +600,7 @@ const LS = {
 };
 
 const SECTION_STATE_KEY = 'seasons-section-state';
-let sectionState = Object.assign({ coordinates:true, weekly:true, notes:false, domains:false, body:false }, (()=>{ try{ return JSON.parse(LS.get(SECTION_STATE_KEY)||'{}'); }catch(e){ return {}; } })());
+let sectionState = Object.assign({ coordinates:true, weekly:true, notes:false, domains:false, body:false, 'goals-spirit':false, 'goals-soul':false, 'goals-body':false }, (()=>{ try{ return JSON.parse(LS.get(SECTION_STATE_KEY)||'{}'); }catch(e){ return {}; } })());
 function applySectionStates(){
   document.querySelectorAll('.csec').forEach(sec=>{
     sec.classList.toggle('open', sectionState[sec.getAttribute('data-key')] !== false);
@@ -1273,6 +1294,105 @@ document.getElementById('save-btn').addEventListener('click', ()=>{
   if(ok){ input.value=''; renderEntries(); renderSoulOverview(); }
   setTimeout(()=>{ status.textContent=''; }, 2000);
 });
+
+const GOALS_KEY = 'seasons-goals';
+function loadAllGoals(){ try{ return JSON.parse(LS.get(GOALS_KEY) || '{}'); }catch(e){ return {}; } }
+function saveAllGoals(obj){ return LS.set(GOALS_KEY, JSON.stringify(obj)); }
+function getGoalsFor(pageKey){
+  const all = loadAllGoals();
+  const seasonKey = SEASONS[currentSeasonIndex].key;
+  if(!all[seasonKey]) all[seasonKey] = { spirit:[], soul:[], body:[] };
+  if(!all[seasonKey][pageKey]) all[seasonKey][pageKey] = [];
+  return { all, list: all[seasonKey][pageKey] };
+}
+let goalsUndo = {};
+function renderGoals(pageKey){
+  const mount = document.getElementById('goals-mount-'+pageKey);
+  if(!mount) return;
+  const s = SEASONS[currentSeasonIndex];
+  const { list } = getGoalsFor(pageKey);
+  const sorted = list.slice().sort((a,b)=>{
+    if(!!b.priority !== !!a.priority) return (b.priority?1:0)-(a.priority?1:0);
+    if(a.due && b.due) return a.due<b.due?-1:1;
+    if(a.due) return -1; if(b.due) return 1;
+    return 0;
+  });
+  const undo = goalsUndo[pageKey];
+  const undoBanner = undo ? `<div class="pt-banner nudge" style="margin-bottom:10px;">Goal deleted. <button class="goal-undo-btn" data-page="${pageKey}" style="background:none; border:none; text-decoration:underline; color:inherit; cursor:pointer; font:inherit; padding:0;">Undo</button></div>` : '';
+  const coordOptions = COORD_LABELS.map((label,i)=>`<option value="${i}">${label} — ${s.values[i]}</option>`).join('');
+  const rows = sorted.map(g=>{
+    const coordTag = (g.coordIndex !== null && g.coordIndex !== undefined) ? `<span class="entry-tag" style="background:var(--paper); color:var(--ink-soft); border:1px solid var(--line); margin-left:6px;">${COORD_LABELS[g.coordIndex]}</span>` : '';
+    return `<div class="domain-task${g.done?' done':''}" data-id="${g.id}">
+      <input type="checkbox" class="goal-check" ${g.done?'checked':''}>
+      <span>${g.text.replace(/</g,'&lt;')}${g.due ? ` <span style="color:var(--ink-faint); font-size:10.5px;">· ${g.due}</span>` : ''}${coordTag}</span>
+      <button class="goal-star" title="Priority" style="background:none; border:none; cursor:pointer; font-size:13px; color:${g.priority?'var(--accent-ink)':'var(--ink-faint)'}; padding:6px 4px;">${g.priority?'★':'☆'}</button>
+      <button class="goal-del" style="background:none; border:none; color:var(--ink-faint); cursor:pointer; font-size:10.5px; padding:6px 4px;">✕</button>
+    </div>`;
+  }).join('');
+  mount.innerHTML = `
+    <p class="lane-sub" style="margin:-4px 0 10px;">This season's goals — optionally tied to one of ${s.name}'s coordinates.</p>
+    ${undoBanner}
+    <div class="domain-tasks" style="margin-bottom:10px;">${rows || '<div class="empty-note">No goals yet this season.</div>'}</div>
+    <div style="display:grid; gap:6px;">
+      <input type="text" class="goal-text-input" placeholder="Add a goal for this season…" style="border:1px solid var(--line); border-radius:9px; padding:9px 12px; font-size:13.5px; background:var(--paper-raised); color:var(--ink);">
+      <div style="display:flex; gap:6px; flex-wrap:wrap;">
+        <select class="goal-coord-select" style="flex:1 1 60%; border:1px solid var(--line); border-radius:9px; padding:8px; font-size:12.5px; background:var(--paper-raised); color:var(--ink);">
+          <option value="">No linked coordinate</option>
+          ${coordOptions}
+        </select>
+        <input type="date" class="goal-date-input" style="flex:1 1 auto; border:1px solid var(--line); border-radius:9px; padding:8px; font-size:12px; background:var(--paper-raised); color:var(--ink);">
+      </div>
+      <button class="save-btn goal-add-btn" style="margin-top:0;">Add goal</button>
+    </div>
+  `;
+  mount.querySelectorAll('.goal-check').forEach(cb=> cb.addEventListener('change', (e)=>{
+    const row = e.target.closest('[data-id]');
+    const { all, list } = getGoalsFor(pageKey);
+    const g = list.find(x=>x.id===row.dataset.id);
+    if(g){ g.done = e.target.checked; saveAllGoals(all); renderGoals(pageKey); }
+  }));
+  mount.querySelectorAll('.goal-star').forEach(btn=> btn.addEventListener('click', ()=>{
+    const row = btn.closest('[data-id]');
+    const { all, list } = getGoalsFor(pageKey);
+    const g = list.find(x=>x.id===row.dataset.id);
+    if(g){ g.priority = !g.priority; saveAllGoals(all); renderGoals(pageKey); }
+  }));
+  mount.querySelectorAll('.goal-del').forEach(btn=> btn.addEventListener('click', ()=>{
+    const row = btn.closest('[data-id]');
+    const { all, list } = getGoalsFor(pageKey);
+    const idx = list.findIndex(x=>x.id===row.dataset.id);
+    if(idx<0) return;
+    const [removed] = list.splice(idx,1);
+    saveAllGoals(all);
+    if(goalsUndo[pageKey] && goalsUndo[pageKey].timer) clearTimeout(goalsUndo[pageKey].timer);
+    goalsUndo[pageKey] = { item: removed, index: idx, timer: setTimeout(()=>{ delete goalsUndo[pageKey]; renderGoals(pageKey); }, 6000) };
+    renderGoals(pageKey);
+  }));
+  mount.querySelectorAll('.goal-undo-btn').forEach(btn=> btn.addEventListener('click', ()=>{
+    const pk = btn.dataset.page;
+    const u = goalsUndo[pk];
+    if(!u) return;
+    clearTimeout(u.timer);
+    const { all, list } = getGoalsFor(pk);
+    list.splice(u.index, 0, u.item);
+    saveAllGoals(all);
+    delete goalsUndo[pk];
+    renderGoals(pk);
+  }));
+  const addBtn = mount.querySelector('.goal-add-btn');
+  if(addBtn) addBtn.addEventListener('click', ()=>{
+    const textInput = mount.querySelector('.goal-text-input');
+    const coordSelect = mount.querySelector('.goal-coord-select');
+    const dateInput = mount.querySelector('.goal-date-input');
+    const text = textInput.value.trim();
+    if(!text) return;
+    const { all, list } = getGoalsFor(pageKey);
+    list.push({ id:'g'+Date.now()+Math.random().toString(36).slice(2,6), text, coordIndex: coordSelect.value===''?null:Number(coordSelect.value), due: dateInput.value || null, priority:false, done:false });
+    saveAllGoals(all);
+    renderGoals(pageKey);
+  });
+}
+function renderAllGoals(){ ['spirit','soul','body'].forEach(renderGoals); }
 
 const DOMAINS = [ { key:'family', name:'Family' }, { key:'education', name:'Education' }, { key:'entertainment', name:'Entertainment' } ];
 const DOMAIN_TASKS_KEY = 'seasons-domain-tasks';
@@ -2125,13 +2245,13 @@ function renderNotes(){
 document.getElementById('notes-tuck-btn').addEventListener('click', ()=> document.getElementById('notes-panel').classList.toggle('open'));
 
 const EXPORT_KEY_GROUPS = {
-  spirit: ['seasons-completed-weeks','seasons-share-bg-photo','seasons-verse-cache'],
-  soul: ['seasons-journal-entries','seasons-learning-entries','seasons-domain-tasks'],
-  body: ['seasons-pt-state']
+  spirit: ['seasons-completed-weeks','seasons-share-bg-photo','seasons-verse-cache','seasons-goals'],
+  soul: ['seasons-journal-entries','seasons-learning-entries','seasons-domain-tasks','seasons-goals'],
+  body: ['seasons-pt-state','seasons-goals']
 };
 function exportData(scope){
   const keys = scope === 'all'
-    ? ['seasons-completed-weeks','seasons-journal-entries','seasons-domain-tasks','seasons-share-bg-photo','seasons-section-state','seasons-verse-cache','seasons-learning-entries','seasons-pt-state','seasons-active-page']
+    ? ['seasons-completed-weeks','seasons-journal-entries','seasons-domain-tasks','seasons-share-bg-photo','seasons-section-state','seasons-verse-cache','seasons-learning-entries','seasons-pt-state','seasons-active-page','seasons-goals']
     : (EXPORT_KEY_GROUPS[scope] || []);
   const data = {};
   keys.forEach(k=>{ const v = LS.get(k); if(v!==null) data[k]=v; });
@@ -2181,6 +2301,7 @@ function init(){
   applySectionStates();
   initPageSwitch();
   initNotesTabSwitch();
+  renderAllGoals();
   renderCoordCallouts();
   renderSoulOverview();
   loadStoredPhoto();
