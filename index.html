@@ -242,7 +242,8 @@
   .empty-note{color:var(--ink-faint); font-size:12.5px; font-style:italic; padding:.3rem 0;}
 
   .domains-sub{color:var(--ink-faint); font-size:12.5px; margin:-.4rem 0 1rem; font-style:italic;}
-  .domain-cols{display:grid; grid-template-columns:1fr 1fr 1fr; gap:9px;}
+  .domain-cols{display:grid; grid-template-columns:1fr 1fr; gap:9px;}
+  .domain-question{font-size:10.5px; color:var(--ink-faint); font-style:italic; margin-bottom:8px; line-height:1.4;}
   .domain-col{background:var(--paper); border:1px dashed var(--line); border-radius:12px; padding:.85rem .9rem;}
   .domain-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:.6rem;}
   .domain-name{font-weight:500; font-size:10.5px; text-transform:uppercase; letter-spacing:.04em; color:var(--ink-soft);}
@@ -351,6 +352,9 @@
 </style>
 </head>
 <body>
+<div id="storage-warning" style="display:none; position:sticky; top:0; z-index:60; background:var(--accent); color:#fff; font-family:'Inter',sans-serif; font-size:12.5px; line-height:1.5; padding:10px 16px; text-align:center;">
+  ⚠ Your entries are not being saved on this device. <button id="storage-warning-btn" style="background:none; border:none; color:#fff; text-decoration:underline; cursor:pointer; font:inherit; padding:0;">Why, and how to fix it</button>
+</div>
 <div class="wrap">
   <header>
     <div class="eyebrow">A personal management system</div>
@@ -361,7 +365,7 @@
 </div>
 
 <nav class="page-switch" id="page-switch">
-  <div class="sidebar-title">Seasons<span class="by">by EiMAGiNE</span></div>
+  <div class="sidebar-title">Seasons<span class="by">by EiMAGiNE</span><span class="by" style="margin-top:8px;">Install: Safari menu → File → Add to Dock</span></div>
   <button data-group="spirit" class="active"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M12 2c.6 3.6 2.4 5.4 6 6-3.6.6-5.4 2.4-6 6-.6-3.6-2.4-5.4-6-6 3.6-.6 5.4-2.4 6-6z"/></svg>Spirit</button>
   <button data-group="soul"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M12 20s-7-4.35-9.5-8.8C.8 8.1 2.3 4.5 5.8 4c2-.3 3.7.6 4.7 2.2 1-1.6 2.7-2.5 4.7-2.2 3.5.5 5 4.1 3.3 7.2C19 15.65 12 20 12 20z"/></svg>Soul</button>
   <button data-group="body"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="2.2"/><path d="M12 8.5v6M8 12h8M9 20l3-5.5 3 5.5"/></svg>Body</button>
@@ -393,6 +397,17 @@
       <div class="coord-season-info" id="coord-season-info"></div>
       <div class="coord-wheel-wrap" id="coord-wheel-wrap"></div>
       <div class="coord-list" id="coord-list"></div>
+    </div>
+  </section>
+
+  <section class="csec" id="sec-foundations" data-key="foundations" data-group="spirit">
+    <button class="csec-head">
+      <div class="csec-head-left"><span class="csec-title">Foundations</span></div>
+      <span class="csec-chevron">⌄</span>
+    </button>
+    <div class="csec-body">
+      <p class="csec-sub">Four foundations govern every stage and phase — hold any goal or activity up against them.</p>
+      <div id="foundations-mount"></div>
     </div>
   </section>
 
@@ -456,7 +471,7 @@
       <span class="csec-chevron">⌄</span>
     </button>
     <div class="csec-body">
-      <p class="domains-sub">Family, Education and Entertainment — add a task, an optional due date, and star anything that's high priority.</p>
+      <p class="domains-sub">Family, Education, Arts, Recreation — the domains where the whole framework is expressed. Add a task, an optional due date, and star anything high priority.</p>
       <div class="domain-cols" id="domain-cols"></div>
     </div>
   </section>
@@ -521,24 +536,55 @@ const SEASONS = [
   { key:'autumn', name:'Autumn', months:'Sep – Nov', color:'autumn',
     piece:'♔ King', blurb:'Knows its position, and governs from it',
     metaDetail:'Archetype — Lion / Lamb / Eagle / Man',
+    stage:'Vision', stageQuestion:'Who am I?', phases:['See','Conceive','Root'],
     values:['Origin — authority','Focus — identity','Vision — see','Purpose — intent','Love — kindness','Justification — go','Earth — source','North — conceive','Who am I? Why am I?','Identity revealed and rooted']
   },
   { key:'winter', name:'Winter', months:'Dec – Feb', color:'winter',
     piece:'♟ Pawns', blurb:'Daily habits, incremental progress',
     metaDetail:'Formation — King / Pawn / Knight, Bishop, Rook / Queen',
+    stage:'Values', stageQuestion:'How do I live?', phases:['Form','Establish','Stand'],
     values:['Being — character','Discipline — formation','Values — stand','Principles — wisdom','Faith — hope','Righteousness — share','Water — essence','West — birth','How do I live?','Life formed and consistent']
   },
   { key:'spring', name:'Spring', months:'Mar – May', color:'spring',
     piece:'♞♗♖', blurb:'Equip · extend · execute',
     metaDetail:'Activation — Solutions / Transformation / Expressions / Convenience',
+    stage:'Mission', stageQuestion:'What do I do?', phases:['Activate','Serve','Release'],
     values:['Creation — expression','Consistency — activation','Mission — move','Potential — power','Grace — mercy','Sanctification — serve','Fire — intention','South — grow','What do I do?','Purpose activated and released']
   },
   { key:'summer', name:'Summer', months:'Jun – Aug', color:'summer',
     piece:'♛ Queen', blurb:'Widest reach, steadiest hand',
     metaDetail:'Governance — King / Prophet / Judge / Priest',
+    stage:'Mandate', stageQuestion:'How do I govern and sustain?', phases:['Govern','Steward','Sustain'],
     values:['Alignment — stewardship','Resilience — governance','Mandate — govern','Plan / predict — process','Peace — joy','Obedience — shine','Wind — will','East — sustain','How long do I sustain?','Life stewarded with peace and authority']
   }
 ];
+
+const FOUNDATIONS = [
+  { name:'Kingdom', full:'Kingdom of God', question:'Whose Kingdom am I representing?', establishes:'Authority, identity, belonging, order, purpose, government' },
+  { name:'Righteousness', full:'Righteousness', question:'Is this right and aligned?', establishes:'Integrity, character, alignment, justice, consistency, right action' },
+  { name:'Fear of God', full:'Fear of God', question:'Am I operating in reverence and submission to God?', establishes:'Reverence, wisdom, humility, obedience, accountability, restraint' },
+  { name:'Power', full:'Power', question:'What capacity has been given and how is it being exercised?', establishes:'Capacity, ability, strength, authority in action, expression, impact' }
+];
+function renderFoundations(){
+  const mount = document.getElementById('foundations-mount');
+  if(!mount) return;
+  mount.innerHTML = FOUNDATIONS.map((f,i)=>`
+    <div class="coord-row" style="--coord-color:var(--ink-soft)">
+      <div class="coord-index">${String(i+1).padStart(2,'0')}</div>
+      <div class="coord-main">
+        <div class="coord-label">${f.full}</div>
+        <div class="coord-value" style="font-size:19px;">${f.question}</div>
+        <div class="coord-def">${f.establishes}</div>
+      </div>
+    </div>`).join('');
+}
+function phaseForWeek(weekNum){
+  const seasonIdx = seasonIndexForWeek(weekNum);
+  const s = SEASONS[seasonIdx];
+  const weekInSeason = (weekNum - 1) - seasonIdx*13; // 0..12
+  const phaseIdx = Math.min(2, Math.floor(weekInSeason / 13 * 3));
+  return { stage: s.stage, phaseName: s.phases[phaseIdx], phaseIdx };
+}
 
 const WEEKS = [
   {w:1,t:'Created Identity',r:'Genesis 1:27',f:'Psalm 139:14',s:'Psalm 8:4-5'},
@@ -631,12 +677,15 @@ function weekStartDate(weekNum){
   return d;
 }
 function suggestedPostingDays(weekNum){
+  // weekStartDate now returns the Sunday the week numbering starts on.
+  // The Reveal/Reframe/Respond cadence stays pinned to Saturday/Tuesday/Thursday
+  // regardless of that — Reveal is the Saturday just before this Sunday.
   const start = weekStartDate(weekNum);
   const fmt = (offset)=>{
     const d = new Date(start); d.setDate(d.getDate()+offset);
     return d.toLocaleDateString(undefined, { weekday:'short', month:'short', day:'numeric' });
   };
-  return { reveal: fmt(0), reframe: fmt(3), respond: fmt(5) };
+  return { reveal: fmt(-1), reframe: fmt(2), respond: fmt(4) };
 }
 
 const COORD_ROTATION_ORDER = [4,0,7,2,9,5,1,8,3,6];
@@ -649,8 +698,32 @@ const LS = {
   remove(key){ try{ localStorage.removeItem(key); }catch(e){} }
 };
 
+function checkStorageHealth(){
+  let works = false;
+  try{
+    const testKey = '__seasons_storage_test__';
+    localStorage.setItem(testKey, '1');
+    works = localStorage.getItem(testKey) === '1';
+    localStorage.removeItem(testKey);
+  }catch(e){ works = false; }
+  const banner = document.getElementById('storage-warning');
+  if(banner) banner.style.display = works ? 'none' : 'block';
+  return works;
+}
+checkStorageHealth();
+const storageWarningBtn = document.getElementById('storage-warning-btn');
+if(storageWarningBtn) storageWarningBtn.addEventListener('click', ()=>{
+  alert(
+    "Safari blocks saved data when a page is opened as a local file (file://) — this is a browser security rule, not a bug in this app, and there's no setting on your end that fixes it.\n\n" +
+    "The fix: host this file online (even privately) and open it from that link instead of the file itself. Two free, no-cost options:\n\n" +
+    "1) Netlify Drop (netlify.com/drop) — drag this HTML file onto the page, get a live link in seconds, no account needed.\n" +
+    "2) GitHub Pages — upload the file to a GitHub repo (named index.html) and enable Pages in the repo settings.\n\n" +
+    "Once it's hosted, open that link in Safari and use Add to Home Screen (iPhone) or Add to Dock (Mac) from there — your entries will then actually persist."
+  );
+});
+
 const SECTION_STATE_KEY = 'seasons-section-state';
-let sectionState = Object.assign({ coordinates:true, weekly:true, notes:false, domains:false, body:false, 'goals-spirit':false, 'goals-soul':false, 'goals-body':false }, (()=>{ try{ return JSON.parse(LS.get(SECTION_STATE_KEY)||'{}'); }catch(e){ return {}; } })());
+let sectionState = Object.assign({ coordinates:true, weekly:true, foundations:false, notes:false, domains:false, body:false, 'goals-spirit':false, 'goals-soul':false, 'goals-body':false }, (()=>{ try{ return JSON.parse(LS.get(SECTION_STATE_KEY)||'{}'); }catch(e){ return {}; } })());
 function applySectionStates(){
   document.querySelectorAll('.csec').forEach(sec=>{
     sec.classList.toggle('open', sectionState[sec.getAttribute('data-key')] !== false);
@@ -697,6 +770,7 @@ function renderSoulOverview(){
 
   mount.innerHTML = `
     <div class="wd-head"><h4>Overview</h4><span class="wd-week">${streak} day streak · ${learning.length} learning · ${journal.length} journal</span></div>
+    ${weeklyCheckInBanner('soul')}
     ${block('Latest learning note', latestLearning, e=>`${e.takeaway.replace(/</g,'&lt;')} <span style="color:var(--ink-faint);">→ ${e.action.replace(/</g,'&lt;')}</span>`)}
     ${block('Latest journal entry', latestJournal, e=>`${e.text.replace(/</g,'&lt;').slice(0,180)}${e.text.length>180?'…':''}`)}
     ${(!latestLearning && !latestJournal) ? `<div class="empty-note">Nothing logged yet — add a note in Learning or write a line in Points taken to see it here.</div>` : ''}
@@ -768,7 +842,7 @@ function renderCoordChips(){
 }
 function renderCoordList(){
   const s = SEASONS.find(x=>x.key===viewSeasonKey);
-  document.getElementById('coord-season-info').innerHTML = `<b>${s.piece}</b> — ${s.blurb}<span class="meta-line">${s.metaDetail}</span>`;
+  document.getElementById('coord-season-info').innerHTML = `<b>${s.stage}</b> — ${s.stageQuestion}<span class="meta-line">${s.phases.join(' → ')}</span><br><b>${s.piece}</b> — ${s.blurb}<span class="meta-line">${s.metaDetail}</span>`;
   const mount = document.getElementById('coord-list');
   mount.innerHTML = COORD_LABELS.map((label,i)=>`
     <div class="coord-row${i===featuredCoordIndex?' spotlight':''}" style="--coord-color:var(--${s.color})">
@@ -834,6 +908,7 @@ function renderSpiritOverview(){
   const streak = computeStreak();
   const isDone = completedWeeks.includes(nowWeek);
   mount.innerHTML = `<div class="wd-head"><h4>Overview</h4><span class="wd-week">${streak} week streak</span></div>
+    ${weeklyCheckInBanner('spirit')}
     <div class="entry-meta" style="margin-bottom:2px;">This week — ${w.t}</div>
     <div style="font-size:13.5px; color:var(--ink);">${isDone ? 'Marked as read.' : 'Not yet marked as read this week.'}</div>`;
 }
@@ -845,7 +920,7 @@ function renderToday(){
   mount.innerHTML = `
     <div class="today-eyebrow">${today.toLocaleDateString(undefined,{weekday:'long', month:'long', day:'numeric'})} · Week ${String(nowWeek).padStart(2,'0')} of 52</div>
     <div class="today-heading">${w.t}</div>
-    <div class="today-season-meta">${s.name} · ${s.piece} — ${s.blurb}</div>
+    <div class="today-season-meta">${s.name} · ${s.stage} · ${phaseForWeek(nowWeek).phaseName} — ${s.piece} — ${s.blurb}</div>
     <div class="today-coord">This week's coordinate — <b>${COORD_LABELS[featuredCoordIndex]}</b>: ${s.values[featuredCoordIndex]}</div>
     <div class="today-q">${s.values[8]}</div>
     ${streak > 1 ? `<div class="today-streak">${streak}-week reading streak</div>` : ''}`;
@@ -933,7 +1008,7 @@ function renderWeekDetail(){
       <div class="verse-text-box" data-box="${ref}"></div>
     </div>`;
   mount.innerHTML = `
-    <div class="wd-head"><h4>${w.t}</h4><span class="wd-week">W${String(w.w).padStart(2,'0')} · ${s.name}</span></div>
+    <div class="wd-head"><h4>${w.t}</h4><span class="wd-week">W${String(w.w).padStart(2,'0')} · ${s.name} · ${phaseForWeek(w.w).stage} · ${phaseForWeek(w.w).phaseName}</span></div>
     ${w.g ? `<div class="wd-subgroup">${w.g}</div>` : ''}
     <div class="wd-verses">${verseRow('Reveal', w.r)}${verseRow('Reframe', w.f)}${verseRow('Respond', w.s)}</div>
     <div class="wd-mark">
@@ -1356,6 +1431,21 @@ function getGoalsFor(pageKey){
   if(!all[seasonKey][pageKey]) all[seasonKey][pageKey] = [];
   return { all, list: all[seasonKey][pageKey] };
 }
+function getGoalsDueThisWeek(pageKey){
+  const { list } = getGoalsFor(pageKey);
+  const weekStart = mostRecentSunday(new Date());
+  const weekEnd = new Date(weekStart); weekEnd.setDate(weekEnd.getDate() + 6);
+  const startStr = ptFmtDate(weekStart), endStr = ptFmtDate(weekEnd);
+  return list.filter(g => !g.done && g.due && g.due >= startStr && g.due <= endStr);
+}
+function weeklyCheckInBanner(pageKey, extraLine){
+  const due = getGoalsDueThisWeek(pageKey);
+  const lines = [];
+  if(extraLine) lines.push(extraLine);
+  if(due.length) lines.push(`${due.length} goal${due.length===1?'':'s'} due this week: ${due.map(g=>g.text).join(', ')}`);
+  if(!lines.length) return '';
+  return `<div class="pt-banner nudge" style="margin-bottom:10px;">${lines.join('<br>')}</div>`;
+}
 let goalsUndo = {};
 function renderGoals(pageKey){
   const mount = document.getElementById('goals-mount-'+pageKey);
@@ -1371,27 +1461,41 @@ function renderGoals(pageKey){
   const undo = goalsUndo[pageKey];
   const undoBanner = undo ? `<div class="pt-banner nudge" style="margin-bottom:10px;">Goal deleted. <button class="goal-undo-btn" data-page="${pageKey}" style="background:none; border:none; text-decoration:underline; color:inherit; cursor:pointer; font:inherit; padding:0;">Undo</button></div>` : '';
   const coordOptions = COORD_LABELS.map((label,i)=>`<option value="${i}">${label} — ${s.values[i]}</option>`).join('');
+  const foundationOptions = FOUNDATIONS.map((f,i)=>`<option value="${i}">${f.full}</option>`).join('');
+  const domainOptions = DOMAINS.map(d=>`<option value="${d.key}">${d.name}</option>`).join('');
+  const tagStyle = 'background:var(--paper); color:var(--ink-soft); border:1px solid var(--line); margin-left:6px;';
   const rows = sorted.map(g=>{
-    const coordTag = (g.coordIndex !== null && g.coordIndex !== undefined) ? `<span class="entry-tag" title="${COORD_DEFINITIONS[g.coordIndex]}" style="background:var(--paper); color:var(--ink-soft); border:1px solid var(--line); margin-left:6px;">${COORD_LABELS[g.coordIndex]}</span>` : '';
+    const coordTag = (g.coordIndex !== null && g.coordIndex !== undefined) ? `<span class="entry-tag" title="${COORD_DEFINITIONS[g.coordIndex]}" style="${tagStyle}">${COORD_LABELS[g.coordIndex]}</span>` : '';
+    const foundationTag = (g.foundationIndex !== null && g.foundationIndex !== undefined) ? `<span class="entry-tag" title="${FOUNDATIONS[g.foundationIndex].question}" style="${tagStyle}">${FOUNDATIONS[g.foundationIndex].name}</span>` : '';
+    const domainDef = g.domain ? DOMAINS.find(d=>d.key===g.domain) : null;
+    const domainTag = domainDef ? `<span class="entry-tag" title="${domainDef.question}" style="${tagStyle}">${domainDef.name}</span>` : '';
     return `<div class="domain-task${g.done?' done':''}" data-id="${g.id}">
       <input type="checkbox" class="goal-check" ${g.done?'checked':''}>
-      <span>${g.text.replace(/</g,'&lt;')}${g.due ? ` <span style="color:var(--ink-faint); font-size:10.5px;">· ${g.due}</span>` : ''}${coordTag}</span>
+      <span>${g.text.replace(/</g,'&lt;')}${g.due ? ` <span style="color:var(--ink-faint); font-size:10.5px;">· ${g.due}</span>` : ''}${coordTag}${foundationTag}${domainTag}</span>
       <button class="goal-star" title="Priority" style="background:none; border:none; cursor:pointer; font-size:13px; color:${g.priority?'var(--accent-ink)':'var(--ink-faint)'}; padding:6px 4px;">${g.priority?'★':'☆'}</button>
       <button class="goal-del" style="background:none; border:none; color:var(--ink-faint); cursor:pointer; font-size:10.5px; padding:6px 4px;">✕</button>
     </div>`;
   }).join('');
   mount.innerHTML = `
-    <p class="lane-sub" style="margin:-4px 0 10px;">This season's goals — optionally tied to one of ${s.name}'s coordinates.</p>
+    <p class="lane-sub" style="margin:-4px 0 10px;">${s.name} is the ${s.stage} season (${s.stageQuestion}) — goals here are set within it, and can be tied to a coordinate, a foundation and a domain.</p>
     ${undoBanner}
     <div class="domain-tasks" style="margin-bottom:10px;">${rows || '<div class="empty-note">No goals yet this season.</div>'}</div>
     <div style="display:grid; gap:6px;">
       <input type="text" class="goal-text-input" placeholder="Add a goal for this season…" style="border:1px solid var(--line); border-radius:9px; padding:9px 12px; font-size:13.5px; background:var(--paper-raised); color:var(--ink);">
       <div style="display:flex; gap:6px; flex-wrap:wrap;">
-        <select class="goal-coord-select" style="flex:1 1 60%; border:1px solid var(--line); border-radius:9px; padding:8px; font-size:12.5px; background:var(--paper-raised); color:var(--ink);">
+        <select class="goal-coord-select" style="flex:1 1 100%; border:1px solid var(--line); border-radius:9px; padding:8px; font-size:12.5px; background:var(--paper-raised); color:var(--ink);">
           <option value="">No linked coordinate</option>
           ${coordOptions}
         </select>
-        <input type="date" class="goal-date-input" style="flex:1 1 auto; border:1px solid var(--line); border-radius:9px; padding:8px; font-size:12px; background:var(--paper-raised); color:var(--ink);">
+        <select class="goal-foundation-select" style="flex:1 1 45%; border:1px solid var(--line); border-radius:9px; padding:8px; font-size:12.5px; background:var(--paper-raised); color:var(--ink);">
+          <option value="">No foundation</option>
+          ${foundationOptions}
+        </select>
+        <select class="goal-domain-select" style="flex:1 1 45%; border:1px solid var(--line); border-radius:9px; padding:8px; font-size:12.5px; background:var(--paper-raised); color:var(--ink);">
+          <option value="">No domain</option>
+          ${domainOptions}
+        </select>
+        <input type="date" class="goal-date-input" style="flex:1 1 100%; border:1px solid var(--line); border-radius:9px; padding:8px; font-size:12px; background:var(--paper-raised); color:var(--ink);">
       </div>
       <div class="goal-coord-hint" style="display:none; font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--ink-faint); line-height:1.5; margin-top:-2px;"></div>
       <button class="save-btn goal-add-btn" style="margin-top:0;">Add goal</button>
@@ -1443,22 +1547,36 @@ function renderGoals(pageKey){
   if(addBtn) addBtn.addEventListener('click', ()=>{
     const textInput = mount.querySelector('.goal-text-input');
     const coordSelect = mount.querySelector('.goal-coord-select');
+    const foundationSelect = mount.querySelector('.goal-foundation-select');
+    const domainSelect = mount.querySelector('.goal-domain-select');
     const dateInput = mount.querySelector('.goal-date-input');
     const text = textInput.value.trim();
     if(!text) return;
     const { all, list } = getGoalsFor(pageKey);
-    list.push({ id:'g'+Date.now()+Math.random().toString(36).slice(2,6), text, coordIndex: coordSelect.value===''?null:Number(coordSelect.value), due: dateInput.value || null, priority:false, done:false });
+    list.push({ id:'g'+Date.now()+Math.random().toString(36).slice(2,6), text, coordIndex: coordSelect.value===''?null:Number(coordSelect.value), foundationIndex: foundationSelect.value===''?null:Number(foundationSelect.value), domain: domainSelect.value || null, due: dateInput.value || null, priority:false, done:false });
     saveAllGoals(all);
     renderGoals(pageKey);
   });
 }
 function renderAllGoals(){ ['spirit','soul','body'].forEach(renderGoals); }
 
-const DOMAINS = [ { key:'family', name:'Family' }, { key:'education', name:'Education' }, { key:'entertainment', name:'Entertainment' } ];
+const DOMAINS = [
+  { key:'family', name:'Family', question:'What am I building, nurturing and passing on relationally and generationally?' },
+  { key:'education', name:'Education', question:'What am I learning, developing and teaching?' },
+  { key:'arts', name:'Arts', question:'What am I creating and communicating?' },
+  { key:'recreation', name:'Recreation', question:'How do I experience, enjoy, recover and renew life?' }
+];
 const DOMAIN_TASKS_KEY = 'seasons-domain-tasks';
 function loadDomainTasks(){ try{ return JSON.parse(LS.get(DOMAIN_TASKS_KEY) || '{}'); }catch(e){ return {}; } }
 function saveDomainTasks(){ LS.set(DOMAIN_TASKS_KEY, JSON.stringify(domainTasks)); }
-let domainTasks = Object.assign({ family:[], education:[], entertainment:[] }, loadDomainTasks());
+let domainTasks = Object.assign({ family:[], education:[], arts:[], recreation:[] }, loadDomainTasks());
+if(!domainTasks._migratedFear){
+  if(domainTasks.entertainment && domainTasks.entertainment.length){
+    domainTasks.recreation = (domainTasks.recreation || []).concat(domainTasks.entertainment);
+  }
+  domainTasks._migratedFear = true;
+  saveDomainTasks();
+}
 function renderDomains(){
   const mount = document.getElementById('domain-cols');
   mount.innerHTML = DOMAINS.map(d=>{
@@ -1477,6 +1595,7 @@ function renderDomains(){
         <button class="domain-task-del" data-id="${t.id}" data-domain="${d.key}">✕</button></div>`).join('');
     return `<div class="domain-col">
       <div class="domain-head"><span class="domain-name">${d.name}</span><span class="domain-count">${done}/${tasks.length}</span></div>
+      <div class="domain-question">${d.question}</div>
       <div class="domain-tasks">${rows}</div>
       <div class="domain-add"><input type="text" placeholder="Add a task…" data-domain="${d.key}" class="domain-add-input"><input type="date" data-domain="${d.key}" class="domain-add-date" style="width:auto; font-size:10px; padding:6px 4px;"><button class="domain-add-btn" data-domain="${d.key}">+</button></div>
     </div>`;
@@ -1867,7 +1986,9 @@ function ptRenderOverview(){
     const info = PT_DAY_TYPE_INFO[pos.dayType];
     latestBlock = `<div class="entry-meta" style="margin-bottom:2px;">Last session — ${latestDate} (${info.name})</div><div style="font-size:13.5px; color:var(--ink);">${log.note ? log.note.replace(/</g,'&lt;') : 'No note added.'}</div>`;
   }
-  mount.innerHTML = `<div class="wd-head"><h4>Overview</h4><span class="wd-week">${streak} day streak</span></div>${latestBlock}`;
+  const missed = ptMissedSessionsCount();
+  const missedLine = missed > 0 ? `${missed} missed session${missed===1?'':'s'} this week — Saturday's Catch-up day is there for this.` : '';
+  mount.innerHTML = `<div class="wd-head"><h4>Overview</h4><span class="wd-week">${streak} day streak</span></div>${weeklyCheckInBanner('body', missedLine)}${latestBlock}`;
 }
 
 function ptRender(){
@@ -2274,6 +2395,10 @@ function ptAttachHandlers(){
 }
 
 const NOTES = [
+  { badge:'Added', title:'Full framework update: FEAR domains, Four Foundations, stages & phases',
+    body:'Domains expanded from FEE (Family/Education/Entertainment) to FEAR (Family/Education/Arts/Recreation), each now showing its core question; old Entertainment tasks were carried over into Recreation automatically. Added a Foundations section (Kingdom/Righteousness/Fear of God/Power, each with its question) to Spirit. Every season now shows its developmental stage (Autumn=Vision, Winter=Values, Spring=Mission, Summer=Mandate) with its core question, and its current 3-part phase (e.g. See/Conceive/Root) in the Today card, Coordinates, and Weekly scripture. Goals can now optionally link to a Foundation and a Domain, alongside the existing Coordinate link. Also added a weekly check-in: goals due this week now surface on all three Overview cards, alongside Body\u2019s existing missed-session notice.' },
+  { badge:'Fixed', title:'Storage safety check + posting-cadence correction',
+    body:'Confirmed (not assumed) that Safari blocks saved data entirely when this page is opened as a local file \u2014 there is no setting on your end that fixes this. The app now checks on load and shows a clear banner with hosting steps (Netlify Drop / GitHub Pages) if that\u2019s happening, instead of silently losing entries. Also: the Sunday week-start change had accidentally shifted the Reveal/Reframe/Respond suggested posting days off their locked Saturday/Tuesday/Thursday assignment \u2014 re-pinned to the correct weekdays.' },
   { badge:'Added', title:'Installable as an app + smarter backup',
     body:'Added a web app manifest (with icons) so the page can be installed as a real app on desktop Chrome/Edge, alongside the existing iOS home-screen support. Export now opens the native Share Sheet first (Save to Files \u2192 iCloud Drive is one tap from there), falling back to a plain download if sharing isn\u2019t available. A gentle reminder appears near Export if it\u2019s been a while since your last backup. Also: Weekly Scripture\u2019s week now starts on Sunday instead of Saturday.' },
   { badge:'Updated', title:'Body: modernized exercise set + home icon',
@@ -2397,6 +2522,7 @@ function init(){
   initPageSwitch();
   initNotesTabSwitch();
   renderAllGoals();
+  renderFoundations();
   renderCoordCallouts();
   renderSoulOverview();
   loadStoredPhoto();
