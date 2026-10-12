@@ -665,8 +665,8 @@ function currentWeekNumber(d){
 }
 
 const today = new Date();
-const currentSeasonIndex = seasonIndexForDate(today);
 const nowWeek = currentWeekNumber(today);
+const currentSeasonIndex = seasonIndexForWeek(nowWeek);
 let viewSeasonKey = SEASONS[currentSeasonIndex].key;
 let activeWeek = nowWeek;
 
@@ -2529,6 +2529,1666 @@ function init(){
   checkBackupReminder();
 }
 init();
+</script>
+<script>
+/* ===== EiMAGiNE upgrades (Body plan, Spirit/Soul, scripture, practices, review, extras) ===== */
+/* Seasons: all upgrades in one file (EiMAGiNE). One script line in index.html loads everything.
+   Each part is isolated: if one fails, the others still run and Display and privacy shows which one failed. */
+window.__SU = window.__SU || { ok:[], fail:[] };
+
+/* ===== body-upgrade.js ===== */
+try{
+/* Seasons: Body upgrade add-on.
+   PASTE this whole block into the main <script>, on the line just ABOVE the final  init();
+   Adds: "why" lines in exercise guides, Too easy / Too hard target adjustment,
+   Skip (pain), and a timed plank hold. Nothing in your existing code needs to change. */
+(function(){
+  var WHY = {
+    pushups:'Builds chest, shoulders, triceps and core together. It is your main pushing exercise and it scales up or down easily.',
+    situps:'Trains the abdominal muscles through a full curl, which supports posture and everyday bending and lifting.',
+    squats:'Trains the biggest muscles in your body (quads, glutes, hamstrings) and the everyday movement of sitting down and standing up.',
+    lunges:'Works one leg at a time, building balance and evening out left-right differences.',
+    plank:'Trains your trunk to stay rigid under load, which protects your spine when you lift or move.',
+    burpees:'A full-body move that raises your heart rate fast, combining a squat, plank and jump.',
+    pullups:'Your main pulling exercise. It builds the back and arms and balances all the pushing work.',
+    run:'Builds the aerobic base that supports every other exercise and your recovery between sets.'
+  };
+
+  var st = document.createElement('style');
+  st.textContent =
+    '.pt-why{font-size:13px;line-height:1.55;color:var(--ink-soft);margin:0 0 12px}' +
+    '#pt-mount .bm-bar{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:8px}' +
+    '#pt-mount .bm-bar button{font-family:"IBM Plex Mono",monospace;font-size:10.5px;border:1px solid var(--line);border-radius:7px;background:var(--paper-raised);color:var(--ink-soft);padding:7px 9px;cursor:pointer}' +
+    '#pt-mount .bm-bar button.running{border-color:var(--accent);color:var(--accent-ink)}' +
+    '#pt-mount .bm-note{font-size:12px;color:var(--ink-soft);flex:1 1 100%}';
+  document.head.appendChild(st);
+
+  /* 1. "Why" line in the exercise guide */
+  var origGuide = ptOpenGuide;
+  ptOpenGuide = function(exId){
+    origGuide(exId);
+    var tempo = document.querySelector('#pt-guide-overlay .pt-tempo-line');
+    if(tempo && WHY[exId]){
+      var p = document.createElement('p'); p.className = 'pt-why'; p.textContent = WHY[exId];
+      tempo.parentNode.insertBefore(p, tempo);
+    }
+  };
+
+  /* 2. Too easy / Too hard: a per-exercise offset that keeps your weekly progression.
+        If you already set a custom target with the pencil icon, the buttons adjust that instead. */
+  function stepFor(exId){ var d = ptExerciseDef(exId); return d && d.unit === 'sec' ? 5 : 1; }
+  var origGetTarget = ptGetTarget;
+  ptGetTarget = function(exId, auto){
+    var custom = ptCustomTargets()[exId];
+    if(custom) return custom;
+    var off = (ptState.bmOffset || {})[exId] || 0;
+    if(!off) return auto;
+    var step = stepFor(exId), floor = Math.max(step, Math.ceil(auto.target / 2));
+    return { sets: auto.sets, target: Math.max(floor, auto.target + off * step) };
+  };
+  function currentTarget(exId){
+    var pos = ptProgramPositionFor(ptViewDate);
+    var base = (ptCurrentTargets()[pos.weekIndex] || {})[exId] || { sets:3, target:10 };
+    return ptGetTarget(exId, base);
+  }
+  function capture(){
+    var log = ptGetLog(ptViewDate);
+    document.querySelectorAll('#pt-mount input[data-ex]').forEach(function(inp){
+      if(inp.value === '') return;
+      var ex = inp.dataset.ex;
+      if(!log.entries[ex]) log.entries[ex] = [];
+      log.entries[ex][Number(inp.dataset.set)] = Number(inp.value);
+    });
+    var note = document.getElementById('pt-session-note');
+    if(note) log.note = note.value;
+  }
+  async function adjust(exId, dir){
+    capture();
+    var step = stepFor(exId), custom = ptCustomTargets()[exId];
+    if(custom){
+      custom.target = Math.max(step, custom.target + dir * step);
+    } else {
+      if(!ptState.bmOffset) ptState.bmOffset = {};
+      var before = currentTarget(exId).target;
+      ptState.bmOffset[exId] = (ptState.bmOffset[exId] || 0) + dir;
+      if(currentTarget(exId).target === before && dir < 0) ptState.bmOffset[exId] -= dir;
+    }
+    await ptSaveState(); ptRender();
+  }
+
+  /* 3. Skip (pain): the exercise is left out of today's log */
+  async function setSkip(exId, on){
+    capture();
+    var log = ptGetLog(ptViewDate);
+    if(!log.skipped) log.skipped = {};
+    if(on){ log.skipped[exId] = true; delete log.entries[exId]; } else { delete log.skipped[exId]; }
+    await ptSaveState(); ptRender();
+  }
+  function isSkipped(exId){ var l = ptState.logs[ptViewDate]; return !!(l && l.skipped && l.skipped[exId]); }
+
+  /* 4. Plank hold timer: counts down, beeps, then fills the next empty set */
+  function mk(text, fn){ var b = document.createElement('button'); b.type = 'button'; b.textContent = text; b.onclick = fn; return b; }
+  function holdButton(box, secs){
+    var timer = null, left = 0;
+    var btn = mk('Hold ' + secs + 's', function(){
+      if(timer){ clearInterval(timer); timer = null; btn.textContent = 'Hold ' + secs + 's'; btn.classList.remove('running'); return; }
+      left = secs; btn.textContent = left + 's left'; btn.classList.add('running');
+      timer = setInterval(function(){
+        left--;
+        if(left > 0){ btn.textContent = left + 's left'; return; }
+        clearInterval(timer); timer = null;
+        btn.textContent = 'Done'; btn.classList.remove('running');
+        ptPlayBeep();
+        var empty = Array.prototype.find.call(box.querySelectorAll('input[data-set]'), function(i){ return i.value === ''; });
+        if(empty) empty.value = secs;
+        setTimeout(function(){ if(document.body.contains(btn)) btn.textContent = 'Hold ' + secs + 's'; }, 1500);
+      }, 1000);
+    });
+    return btn;
+  }
+
+  /* Add the controls under each exercise after every render */
+  function augment(){
+    document.querySelectorAll('#pt-mount .pt-exercise').forEach(function(box){
+      var nameWrap = box.querySelector('[data-guide]');
+      var row = box.querySelector('.pt-sets-row');
+      if(!nameWrap || !row) return;
+      var exId = nameWrap.dataset.guide;
+      var bar = document.createElement('div'); bar.className = 'bm-bar';
+      if(isSkipped(exId)){
+        row.remove();
+        var msg = document.createElement('span'); msg.className = 'bm-note';
+        msg.textContent = 'Skipped today. If pain continues, rest that area and see a doctor or physio.';
+        bar.appendChild(msg);
+        bar.appendChild(mk('Undo skip', function(){ setSkip(exId, false); }));
+      } else {
+        if(exId === 'plank') bar.appendChild(holdButton(box, currentTarget(exId).target));
+        bar.appendChild(mk('Too easy', function(){ adjust(exId, 1); }));
+        bar.appendChild(mk('Too hard', function(){ adjust(exId, -1); }));
+        bar.appendChild(mk('Skip (pain)', function(){ setSkip(exId, true); }));
+      }
+      box.appendChild(bar);
+    });
+  }
+  var origAttach = ptAttachHandlers;
+  ptAttachHandlers = function(){ origAttach(); augment(); };
+  /* If this ran after the app had already drawn the Body page, redraw it once */
+  if(typeof ptState !== 'undefined' && ptState && typeof ptRender === 'function') ptRender();
+})();
+
+ window.__SU.ok.push('Body: why lines, Too easy / Too hard, skip, hold timer');
+}catch(e){ window.__SU.fail.push(['Body: why lines, Too easy / Too hard, skip, hold timer', String(e && e.message || e)]); if(window.console) console.error('Body: why lines, Too easy / Too hard, skip, hold timer', e); }
+
+/* ===== spirit-soul-upgrade.js ===== */
+try{
+/* Seasons: Spirit + Soul upgrade add-on.
+   Load AFTER the main script (one script line above </body>). Adds:
+   - Today-at-a-glance row (Spirit / Soul / Body ticks) in the Today card
+   - Per-verse ticks (Reveal Mon, Reframe Wed, Respond Fri) that mark the week read when all three are done
+   - A weekly reflection note under the verses
+   - Domain tasks (due this week + overdue) in the Soul weekly check-in
+   - Posting rhythm set to Monday / Wednesday / Friday */
+(function(){
+  var CK = 'seasons-verse-cache';          /* Our data lives inside this existing key (under "__ss")
+                                              so your current Export / Import already backs it up. */
+  var KEYS = ['reveal','reframe','respond'], DAYS = ['Mon','Wed','Fri'];
+  function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
+  function ss(){
+    var c = {}; try{ c = JSON.parse(LS.get(CK) || '{}'); }catch(e){}
+    var d = c.__ss || {}; d.ticks = d.ticks || {}; d.notes = d.notes || {}; return d;
+  }
+  function saveSS(d){
+    var c = {}; try{ c = JSON.parse(LS.get(CK) || '{}'); }catch(e){}
+    c.__ss = d; LS.set(CK, JSON.stringify(c));
+  }
+  function all3(t){ return !!(t && t.reveal && t.reframe && t.respond); }
+
+  /* Rhythm: Monday, Wednesday, Friday (week starts Sunday) */
+  suggestedPostingDays = function(weekNum){
+    var start = weekStartDate(weekNum);
+    function fmt(off){ var d = new Date(start); d.setDate(d.getDate() + off);
+      return d.toLocaleDateString(undefined, { weekday:'short', month:'short', day:'numeric' }); }
+    return { reveal: fmt(1), reframe: fmt(3), respond: fmt(5) };
+  };
+
+  /* Per-verse ticks + weekly reflection note */
+  function toggleTick(w, key){
+    var s = ss(); s.ticks[w] = s.ticks[w] || {};
+    var before = all3(s.ticks[w]);
+    s.ticks[w][key] = !s.ticks[w][key];
+    var after = all3(s.ticks[w]);
+    saveSS(s);
+    var i = completedWeeks.indexOf(w);
+    if(after && i < 0){ completedWeeks.push(w); saveCompleted(completedWeeks); }
+    else if(before && !after && i >= 0){ completedWeeks.splice(i, 1); saveCompleted(completedWeeks); }
+    renderProgress(); renderWeekGrid(); renderWeekDetail(); renderToday(); renderSpiritOverview();
+  }
+  var origWD = renderWeekDetail;
+  renderWeekDetail = function(){
+    origWD();
+    var mount = document.getElementById('week-detail'); if(!mount) return;
+    var w = activeWeek, s = ss(), t = s.ticks[w] || {};
+    var dueIdx = (w === nowWeek) ? { 1:0, 3:1, 5:2 }[new Date().getDay()] : undefined;
+    mount.querySelectorAll('.wd-verse').forEach(function(row, i){
+      var head = row.querySelector('.wd-verse-head'); if(!head || i > 2) return;
+      var tag = document.createElement('span');
+      tag.style.cssText = 'font-family:"IBM Plex Mono",monospace;font-size:10px;color:' + (i === dueIdx ? 'var(--accent-ink)' : 'var(--ink-faint)');
+      tag.textContent = DAYS[i] + (i === dueIdx ? ' \u00b7 due today' : '');
+      head.insertBefore(tag, head.querySelector('.verse-show-btn'));
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.style.cssText = 'font-size:11.5px;font-weight:500;border:1px solid var(--line);border-radius:14px;padding:4px 11px;cursor:pointer;background:' + (t[KEYS[i]] ? 'var(--ink)' : 'var(--paper-raised)') + ';color:' + (t[KEYS[i]] ? 'var(--paper)' : 'var(--ink-soft)');
+      b.textContent = t[KEYS[i]] ? '\u2713 Done' : 'Done?';
+      b.onclick = function(){ toggleTick(w, KEYS[i]); };
+      head.appendChild(b);
+    });
+    var mark = mount.querySelector('.wd-mark');
+    if(mark){
+      var box = document.createElement('div'); box.style.marginTop = '1rem';
+      var lab = document.createElement('div'); lab.className = 'entry-meta'; lab.style.marginBottom = '4px';
+      lab.textContent = 'What did this week say to me?';
+      var ta = document.createElement('textarea'); ta.className = 'journal-input'; ta.style.minHeight = '64px';
+      ta.placeholder = 'A line or two\u2026'; ta.value = s.notes[w] || '';
+      ta.addEventListener('input', function(){ var d = ss(); d.notes[w] = ta.value; saveSS(d); });
+      box.appendChild(lab); box.appendChild(ta);
+      mark.parentNode.insertBefore(box, mark);
+    }
+  };
+
+  /* Soul weekly check-in: goals + domain tasks due this week, plus overdue */
+  var origBanner = weeklyCheckInBanner;
+  weeklyCheckInBanner = function(pageKey, extraLine){
+    if(pageKey !== 'soul') return origBanner(pageKey, extraLine);
+    var lines = []; if(extraLine) lines.push(esc(extraLine));
+    var goals = getGoalsDueThisWeek('soul');
+    if(goals.length) lines.push(goals.length + ' goal' + (goals.length === 1 ? '' : 's') + ' due this week: ' + goals.map(function(g){ return esc(g.text); }).join(', '));
+    var sun = mostRecentSunday(new Date()), end = new Date(sun); end.setDate(end.getDate() + 6);
+    var endStr = ptFmtDate(end), td = ptFmtDate(new Date()), week = [], over = [];
+    DOMAINS.forEach(function(d){
+      (domainTasks[d.key] || []).forEach(function(t){
+        if(t.done || !t.due) return;
+        var label = esc(t.text) + ' (' + d.name + ')';
+        if(t.due < td) over.push(label); else if(t.due <= endStr) week.push(label);
+      });
+    });
+    if(week.length) lines.push(week.length + ' domain task' + (week.length === 1 ? '' : 's') + ' due this week: ' + week.join(', '));
+    if(over.length) lines.push('<b>Overdue:</b> ' + over.join(', '));
+    return lines.length ? '<div class="pt-banner nudge" style="margin-bottom:10px;">' + lines.join('<br>') + '</div>' : '';
+  };
+  var origDomains = renderDomains;
+  renderDomains = function(){ origDomains(); renderSoulOverview(); };
+
+  /* Today-at-a-glance row */
+  var origToday = renderToday;
+  renderToday = function(){
+    origToday();
+    var card = document.getElementById('today-card'); if(!card) return;
+    var td = ptFmtDate(new Date()), t = ss().ticks[nowWeek] || {};
+    var n = KEYS.filter(function(k){ return t[k]; }).length;
+    var spiritDone = completedWeeks.indexOf(nowWeek) >= 0;
+    var soulDone = loadLearningEntries().concat(loadEntries()).some(function(e){ return ptFmtDate(new Date(e.ts)) === td; });
+    var bodyTxt = 'set up', bodyDone = false;
+    if(ptState){
+      var lg = ptState.logs[td];
+      if(lg && lg.complete){ bodyDone = true; bodyTxt = 'done'; }
+      else if(ptDayTypeForDate(td) === 'R' || ptDayTypeForDate(td) === 'X'){ bodyTxt = 'rest'; bodyDone = true; }
+      else bodyTxt = 'open';
+    }
+    var items = [
+      ['Spirit', spiritDone ? 'done' : n + '/3', spiritDone],
+      ['Soul', soulDone ? 'done' : 'open', soulDone],
+      ['Body', bodyTxt, bodyDone]
+    ];
+    var row = document.createElement('div');
+    row.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;padding-top:10px;border-top:1px solid rgba(243,241,233,0.15);font-family:"IBM Plex Mono",monospace;font-size:11px';
+    items.forEach(function(it){
+      var s = document.createElement('span');
+      s.style.cssText = 'padding:3px 9px;border-radius:12px;border:1px solid rgba(243,241,233,' + (it[2] ? '0.7' : '0.25') + ');opacity:' + (it[2] ? '1' : '0.7');
+      s.textContent = (it[2] ? '\u2713 ' : '\u25CB ') + it[0] + ' \u00b7 ' + it[1];
+      row.appendChild(s);
+    });
+    card.appendChild(row);
+  };
+  var origSoul = renderSoulOverview;
+  renderSoulOverview = function(){ origSoul(); renderToday(); };
+  var origPtOv = ptRenderOverview;
+  ptRenderOverview = function(){ origPtOv(); renderToday(); };
+
+  /* Apply once now, in case the app has already drawn its pages */
+  renderToday(); renderSoulOverview(); renderWeekDetail();
+})();
+
+ window.__SU.ok.push('Spirit and Soul: Mon/Wed/Fri rhythm, verse ticks, glance row');
+}catch(e){ window.__SU.fail.push(['Spirit and Soul: Mon/Wed/Fri rhythm, verse ticks, glance row', String(e && e.message || e)]); if(window.console) console.error('Spirit and Soul: Mon/Wed/Fri rhythm, verse ticks, glance row', e); }
+
+/* ===== scripture-coordinates-upgrade.js ===== */
+try{
+/* Seasons: Scripture + Coordinates upgrade add-on.
+   Adds: KJV / World English Bible switch, "save all verses offline", an "Across the year"
+   coordinate view, this week's coordinate on the scripture page, and a weekly journal prompt. */
+(function(){
+  var CK = 'seasons-verse-cache', TK = 'seasons-translation';
+  var Q = [
+    'What central idea is this season pressing on me this week?',
+    'Where is my attention going, and is that where it belongs?',
+    'What motion is this season asking of me right now?',
+    'What is being worked underneath that I cannot yet see?',
+    'Where did I live out this quality this week, and where did I miss it?',
+    'What posture or doctrine does this week call me to?',
+    'What does this season\u2019s element say about where I am?',
+    'Which direction am I facing, and what cycle am I in?',
+    'What is this season asking me, and what is my honest answer?',
+    'What is being produced in me, and is it what I intended?'
+  ];
+  function el(tag, cls, text){ var x = document.createElement(tag); if(cls) x.className = cls; if(text) x.textContent = text; return x; }
+  function sleep(ms){ return new Promise(function(r){ setTimeout(r, ms); }); }
+  function tr(){ return LS.get(TK) === 'web' ? 'web' : 'kjv'; }
+  function trName(){ return tr() === 'web' ? 'World English Bible' : 'King James Version'; }
+  function ckey(ref){ return tr() === 'kjv' ? ref : ref + '|web'; }
+  function getCache(){ try{ return JSON.parse(LS.get(CK) || '{}'); }catch(e){ return {}; } }
+
+  /* Verse text in the chosen translation (KJV entries keep their existing cache keys) */
+  fetchVerseText = async function(ref){
+    var c = getCache(), k = ckey(ref);
+    if(c[k]) return c[k];
+    var res = await fetch('https://bible-api.com/' + encodeURIComponent(ref) + '?translation=' + tr());
+    if(!res.ok) throw new Error('fetch failed');
+    var data = await res.json();
+    var text = (data.text || '').trim().replace(/\n+/g, ' ');
+    c = getCache(); c[k] = text; LS.set(CK, JSON.stringify(c));
+    return text;
+  };
+  attachVerseButtons = function(container){
+    container.querySelectorAll('.verse-show-btn').forEach(function(btn){
+      btn.addEventListener('click', async function(){
+        var ref = btn.getAttribute('data-ref');
+        var box = container.querySelector('.verse-text-box[data-box="' + CSS.escape(ref) + '"]');
+        if(!box) return;
+        var open = box.classList.toggle('open'); btn.textContent = open ? 'Hide' : 'Read';
+        if(open && box.dataset.tr !== tr()){
+          box.innerHTML = '<span class="verse-loading">Loading\u2026</span>';
+          try{
+            var text = await fetchVerseText(ref);
+            box.innerHTML = '<p class="verse-text"></p><div class="verse-source"></div>';
+            box.querySelector('.verse-text').textContent = text;
+            box.querySelector('.verse-source').innerHTML = trName() + ' \u00b7 public domain \u2014 <a href="' + bibleGatewayHref(ref) + '" target="_blank" rel="noopener">compare NKJV wording \u2197</a>';
+            box.dataset.tr = tr();
+          }catch(e){
+            box.innerHTML = '<span class="verse-error">Couldn\u2019t load text \u2014 <a href="' + bibleGatewayHref(ref) + '" target="_blank" rel="noopener">read on Bible Gateway \u2197</a></span>';
+          }
+        }
+      });
+    });
+  };
+
+  /* Translation switch + offline download, above the progress chips */
+  async function downloadAll(btn, status){
+    var refs = [];
+    WEEKS.forEach(function(w){ [w.r, w.f, w.s].forEach(function(r){ if(refs.indexOf(r) < 0) refs.push(r); }); });
+    var c = getCache(), todo = refs.filter(function(r){ return !c[ckey(r)]; }), done = refs.length - todo.length, fails = 0;
+    if(!todo.length){ status.textContent = 'All ' + refs.length + ' verses are already saved (' + trName() + ').'; return; }
+    btn.disabled = true;
+    for(var i = 0; i < todo.length; i++){
+      try{ await fetchVerseText(todo[i]); done++; fails = 0; }
+      catch(e){
+        fails++;
+        if(fails >= 3){ status.textContent = 'Stopped at ' + done + '/' + refs.length + '. Check your connection and tap again to resume.'; btn.disabled = false; return; }
+        await sleep(6000); i--; continue;
+      }
+      status.textContent = 'Saved ' + done + '/' + refs.length + ' (' + trName() + ')';
+      await sleep(2500);
+    }
+    status.textContent = 'All ' + refs.length + ' verses saved for offline use (' + trName() + ').';
+    btn.disabled = false;
+  }
+  function buildControls(){
+    var anchor = document.getElementById('progress-row');
+    if(!anchor || document.getElementById('sc-controls')) return;
+    var box = el('div'); box.id = 'sc-controls'; box.style.cssText = 'margin-bottom:1rem';
+    var chips = el('div', 'stage-quick'); chips.style.marginBottom = '8px';
+    [['kjv', 'King James'], ['web', 'World English (modern)']].forEach(function(o){
+      var b = el('button', tr() === o[0] ? 'active' : '', o[1]); b.type = 'button';
+      b.onclick = function(){
+        LS.set(TK, o[0]);
+        chips.querySelectorAll('button').forEach(function(x){ x.classList.toggle('active', x === b); });
+        status.textContent = ''; renderWeekDetail();
+      };
+      chips.appendChild(b);
+    });
+    var row = el('div'); row.style.cssText = 'display:flex;gap:10px;align-items:center;flex-wrap:wrap';
+    var dl = el('button', 'mark-btn', 'Save all verses offline'); dl.type = 'button';
+    var status = el('span', 'save-status');
+    dl.onclick = function(){ downloadAll(dl, status); };
+    row.appendChild(dl); row.appendChild(status);
+    box.appendChild(chips); box.appendChild(row);
+    anchor.parentNode.insertBefore(box, anchor);
+  }
+
+  /* Across the year: one coordinate, all four seasons */
+  function buildAcross(){
+    var host = document.getElementById('coord-list');
+    if(!host || document.getElementById('coord-across')) return;
+    var box = el('div'); box.id = 'coord-across'; box.style.cssText = 'margin-top:1.4rem;padding-top:1.2rem;border-top:1px solid var(--line)';
+    var head = el('div', 'coord-picker-label', 'Across the year'); head.style.marginBottom = '8px';
+    var sel = el('select'); sel.style.cssText = 'width:100%;border:1px solid var(--line);border-radius:9px;padding:9px;font-size:13px;background:var(--paper-raised);color:var(--ink);margin-bottom:6px';
+    COORD_LABELS.forEach(function(l, i){ var o = el('option', null, String(i + 1).padStart(2, '0') + ' \u00b7 ' + l); o.value = i; sel.appendChild(o); });
+    var out = el('div');
+    function draw(){
+      var i = Number(sel.value); out.innerHTML = '';
+      SEASONS.forEach(function(s){
+        var row = el('div', 'coord-row'); row.style.setProperty('--coord-color', 'var(--' + s.color + ')');
+        var idx = el('div', 'coord-index', s.name.slice(0, 3).toUpperCase()); idx.style.width = '34px';
+        var main = el('div', 'coord-main');
+        main.appendChild(el('div', 'coord-label', s.name + ' \u00b7 ' + s.stage));
+        var v = el('div', 'coord-value', s.values[i]); v.style.fontSize = '19px'; main.appendChild(v);
+        row.appendChild(idx); row.appendChild(main); out.appendChild(row);
+      });
+    }
+    sel.value = featuredCoordIndex; sel.onchange = draw; draw();
+    box.appendChild(head); box.appendChild(sel); box.appendChild(out);
+    host.parentNode.appendChild(box);
+    window.__coordAcross = function(i){ sel.value = i; draw(); };
+  }
+  var origJump = jumpToCoordRow;
+  jumpToCoordRow = function(i){ origJump(i); if(window.__coordAcross) window.__coordAcross(i); };
+
+  /* This week's coordinate on the scripture page */
+  var origWD = renderWeekDetail;
+  renderWeekDetail = function(){
+    origWD();
+    var verses = document.querySelector('#week-detail .wd-verses');
+    if(!verses) return;
+    var i = coordIndexForWeek(activeWeek), s = SEASONS[seasonIndexForWeek(activeWeek)];
+    var d = el('div'); d.style.cssText = 'margin:0 0 12px;padding:9px 12px;border-radius:10px;background:var(--paper-raised);font-size:12.5px;color:var(--ink-soft)';
+    var b = el('b', null, 'Coordinate \u2014 ' + COORD_LABELS[i] + ': '); b.style.color = 'var(--ink)';
+    d.appendChild(b); d.appendChild(document.createTextNode(s.values[i]));
+    verses.parentNode.insertBefore(d, verses);
+  };
+
+  /* Weekly journal prompt from this week's coordinate */
+  var origToday = renderToday;
+  renderToday = function(){
+    origToday();
+    var p = document.getElementById('journal-prompt');
+    if(!p) return;
+    var i = coordIndexForWeek(nowWeek), s = SEASONS[seasonIndexForWeek(nowWeek)];
+    p.textContent = 'This week\u2019s coordinate \u2014 ' + COORD_LABELS[i] + ' (' + s.values[i] + '). ' + Q[i];
+  };
+
+  buildControls(); buildAcross(); renderWeekDetail(); renderToday();
+})();
+
+ window.__SU.ok.push('Scripture: translations, offline verses, coordinates');
+}catch(e){ window.__SU.fail.push(['Scripture: translations, offline verses, coordinates', String(e && e.message || e)]); if(window.console) console.error('Scripture: translations, offline verses, coordinates', e); }
+
+/* ===== calisthenics-challenge-upgrade.js ===== */
+try{
+/* Seasons: Progressive Calisthenics Plan (Body page). 12 weeks, no equipment.
+   Built on the principles that make bodyweight training work long term:
+   - Progressive overload by "double progression": reach the top of the rep range on every set, then move to a harder variation
+   - 4 required sessions a week (each muscle group about twice) plus one optional cardio day
+   - Three 4-week blocks, with an easy deload in weeks 4 and 8 and a test week at the end
+   - Stop each set with 1 or 2 reps left, so you can repeat it next week
+   Data is saved inside your existing goals key (seasons-goals), so Export already backs it up. */
+(function(){
+  var KEY = 'seasons-goals';
+  var BLOCKS = [
+    { n:'Foundation', tempo:'Lower for 2 seconds, then rise smoothly.' },
+    { n:'Build', tempo:'Lower for 3 seconds, pause 1 second, then rise.' },
+    { n:'Strength', tempo:'Lower for 3 seconds, then drive up fast.' }
+  ];
+  var SCHED = { 1:'U', 2:'L', 3:'K', 4:'C', 6:'F' };   /* Mon Upper, Tue Lower, Wed Cardio (optional), Thu Core, Sat Full body */
+  var SESS = {
+    U:{ n:'Upper', t:'Upper body: chest, shoulders, arms, back', ex:['push','pike','updown','superman'] },
+    L:{ n:'Lower', t:'Lower body: legs, glutes, calves', ex:['squat','widesquat','lunge','bridge','calf','wall'] },
+    C:{ n:'Core', t:'Core and conditioning: abs, obliques, lower back', ex:['plank','sideplank','legraise','kneeraise','bicycle','deadbug'] },
+    F:{ n:'Full body', t:'Full-body session', ex:['push','latlunge','bridge','superman','plank','climber'] },
+    K:{ n:'Cardio (optional)', t:'Optional cardio and agility day. Skip it if you are tired.', ex:['jacks','hiknee','buttkick','clap','kneebend','skater','burpee'], opt:true }
+  };
+  /* lo-hi = the rep (or seconds) range. Reach hi on every set, then move up a variation. */
+  var EX = {
+    push:{ n:'Chest, shoulders, triceps', u:'reps', lo:8, hi:15, lv:2, tip:'Body in one straight line. Lower your chest to the floor, elbows about 45 degrees from your sides.',
+      lad:['Wall push-up','Incline push-up (hands on stairs or a table)','Knee push-up','Standard push-up','Close-grip push-up (triceps)','Feet-up push-up (feet on a stair)'] },
+    pike:{ n:'Shoulders', u:'reps', lo:6, hi:12, lv:0, tip:'Hips high in an upside-down V. Bend the elbows so your head moves toward the floor.',
+      lad:['Plank shoulder taps','Pike push-up','Feet-up pike push-up'] },
+    updown:{ n:'Triceps and arms', u:'reps', lo:6, hi:12, lv:0, tip:'From forearms to hands and back, one arm at a time, keeping your hips still.',
+      lad:['Knee plank up-downs','Plank up-downs'] },
+    superman:{ n:'Back and rear shoulders', u:'reps', lo:10, hi:20, lv:0, tip:'Lie face down. Lift arms and legs, squeeze your back, and pause for one second.',
+      lad:['Superman','Alternating superman','Reverse snow angels'] },
+    squat:{ n:'Quads, glutes', u:'reps', lo:12, hi:25, lv:1, tip:'Feet shoulder-width, chest up, sit back and down, drive through your heels.',
+      lad:['Chair squat (sit down and stand up)','Bodyweight squat','Jump squat'] },
+    lunge:{ n:'Legs and balance (each leg)', u:'reps', lo:8, hi:15, lv:1, tip:'Step back, lower until both knees bend about 90 degrees, push through the front heel.',
+      lad:['Split squat','Reverse lunge','Jumping lunge'] },
+    latlunge:{ n:'Inner and outer thighs (each side)', u:'reps', lo:8, hi:14, lv:0, tip:'Step wide, sit back over one leg with the other straight, then push back to the middle.',
+      lad:['Side lunge','Curtsy lunge'] },
+    bridge:{ n:'Glutes, hamstrings', u:'reps', lo:12, hi:20, lv:0, tip:'Feet flat. Squeeze your glutes to lift hips until shoulders, hips and knees line up.',
+      lad:['Glute bridge','Marching bridge','Single-leg bridge'] },
+    calf:{ n:'Calves', u:'reps', lo:15, hi:30, lv:0, tip:'Rise slowly onto your toes, pause at the top, lower for three counts.',
+      lad:['Calf raises','Single-leg calf raises'] },
+    wall:{ n:'Quads and endurance', u:'sec', lo:30, hi:60, lv:0, tip:'Back flat against a wall, thighs level with the floor, breathe steadily.',
+      lad:['Wall sit'] },
+    plank:{ n:'Deep core', u:'sec', lo:20, hi:60, lv:1, tip:'Elbows under shoulders, body straight from head to heels, no sagging.',
+      lad:['Knee plank','Forearm plank','Plank shoulder taps'] },
+    sideplank:{ n:'Obliques (each side)', u:'sec', lo:15, hi:45, lv:0, tip:'Elbow under your shoulder, hips lifted so your body forms one straight line.',
+      lad:['Knee side plank','Side plank'] },
+    legraise:{ n:'Lower abs', u:'reps', lo:8, hi:15, lv:0, tip:'Press your lower back into the floor and lower your legs slowly.',
+      lad:['Bent-knee leg raise','Straight leg raise'] },
+    bicycle:{ n:'Abs and obliques', u:'reps', lo:12, hi:24, lv:0, tip:'Slow and controlled. Bring the opposite elbow toward the knee without pulling on your neck.',
+      lad:['Slow bicycle crunch','Bicycle crunch'] },
+    deadbug:{ n:'Core control (each side)', u:'reps', lo:8, hi:14, lv:0, tip:'Opposite arm and leg lower together while your back stays flat.',
+      lad:['Dead bug'] },
+    climber:{ n:'Core, shoulders, heart', u:'sec', lo:20, hi:45, lv:0, tip:'Hands under shoulders, hips low, and drive your knees toward your chest in turn.',
+      lad:['Slow mountain climbers','Mountain climbers (fast)'] },
+    burpee:{ n:'Full body, heart', u:'reps', lo:5, hi:12, lv:0, tip:'Squat, step or jump your feet back, return, and stand. Add the push-up and jump when it feels easy.',
+      lad:['Squat thrust (no push-up, no jump)','Burpee'] },
+    jacks:{ n:'Whole-body cardio', u:'reps', lo:20, hi:50, lv:1, tip:'Arms and legs together, a light landing on the balls of your feet.',
+      lad:['Step jacks (no jump)','Jumping jacks'] },
+    hiknee:{ n:'Heart, hip flexors', u:'sec', lo:20, hi:45, lv:0, tip:'Drive your knees up to hip height, stay tall, and pump your arms.',
+      lad:['Marching high knees','High knees (running pace)'] },
+    buttkick:{ n:'Heart, hamstrings', u:'sec', lo:20, hi:45, lv:0, tip:'Kick your heels toward your glutes, keep your knees pointing down and your chest tall.',
+      lad:['Marching butt kicks','Butt kicks (jogging pace)'] },
+    kneebend:{ n:'Quads, glutes, heart', u:'reps', lo:15, hi:30, lv:1, tip:'Double knee bend: bend both knees twice in a row, then stand tall. Keep your heels down.',
+      lad:['Knee bend (shallow squat)','Double knee bend (bend twice, then stand)','Knee bend with a jump'] },
+    skater:{ n:'Legs, balance, heart (each side)', u:'reps', lo:12, hi:24, lv:0, tip:'Step or hop sideways, land softly on one leg, and swing the other leg behind you.',
+      lad:['Side-to-side step (no hop)','Skater hop'] }
+  };
+  EX.widesquat = { n:'Glutes, inner thighs, quads', u:'reps', lo:12, hi:25, lv:0, tip:'Feet wider than your shoulders, toes turned out a little, knees follow your toes. Sit straight down.',
+    lad:['Wide-stance squat','Wide squat with a 2-second pause at the bottom','Wide squat jump'] };
+  EX.kneeraise = { n:'Lower abs, hip flexors', u:'reps', lo:10, hi:20, lv:0, tip:'Raise each knee toward your chest without leaning back. On the floor, curl your tailbone up slightly.',
+    lad:['Standing knee raise','Lying knee tuck (knees to chest)','Lying knee tuck with leg extension'] };
+  EX.clap = { n:'Coordination, balance, light cardio', u:'reps', lo:12, hi:30, lv:0, tip:'Lift one knee, pass your hands under that thigh and clap, then switch legs. Stand tall and stay light on your feet.',
+    lad:['Slow under-leg claps','Under-leg claps (quick)'] };
+  var LOW = { squat:1, lunge:1, widesquat:1, kneebend:1, skater:0, jacks:0, hiknee:0, buttkick:0, burpee:0 };
+  var CAPS = { low:LOW, knees:LOW, back:{ legraise:0, superman:0, burpee:0 }, shoulders:{ push:2, pike:0, updown:0, climber:0, burpee:0 }, wrists:{ push:2, pike:0, updown:0, climber:0 } };
+  function startLevel(pr, id){
+    var e = EX[id], d = pr.exp === 'new' ? -1 : pr.exp === 'trained' ? 1 : 0;
+    var lv = Math.max(0, Math.min(e.lad.length - 1, e.lv + d));
+    (pr.joints || []).forEach(function(j){ if(CAPS[j] && CAPS[j][id] != null) lv = Math.min(lv, CAPS[j][id]); });
+    if(pr.low && LOW[id] != null) lv = Math.min(lv, LOW[id]);
+    return lv;
+  }
+  function applyProfile(s){ s.profile = s.profile || {}; Object.keys(EX).forEach(function(id){ s.lv[id] = startLevel(s.profile, id); }); }
+  function profileHTML(s){
+    var pr = s.profile || {}, exp = pr.exp || 'some', J = pr.joints || [];
+    function chip(act, v, label, on){ return '<button data-act="' + act + '" data-v="' + v + '" class="' + (on ? 'active' : '') + '">' + label + '</button>'; }
+    return '<div style="font-size:12px;color:var(--ink-faint);margin:4px 0">Experience</div><div class="stage-quick">' +
+      [['new','New to training'],['some','Some experience'],['trained','Trained before']].map(function(x){ return chip('exp', x[0], x[1], exp === x[0]); }).join('') + '</div>' +
+      '<div style="font-size:12px;color:var(--ink-faint);margin:4px 0">Sore or injured areas (tap any)</div><div class="stage-quick">' +
+      ['knees','back','shoulders','wrists'].map(function(j){ return chip('joint', j, j.charAt(0).toUpperCase() + j.slice(1), J.indexOf(j) >= 0); }).join('') + chip('low', '1', 'Low-impact only', !!pr.low) + '</div>' +
+      '<div style="font-size:11.5px;color:var(--ink-faint);margin:2px 0 10px">This sets your starting variations and swaps jumping moves for gentler ones. It is not medical advice. If a move hurts, skip it.</div>';
+  }
+  /* Demo videos per exercise AND per variation (index = position in the variation ladder).
+     Every ID below was checked against YouTube's embed (oEmbed) service, which confirms the video exists and allows embedding.
+     They have not been play-tested from here. If a video is removed later, the player tries the next one, then shows links.
+     Moves with no entry (double knee bend, under-leg claps) have no default video: paste your own in the panel. */
+  var VMAP = {
+    push:[['YB0egDzsu18'],['DhXlLypHyUw'],['1nAsgpufzhc'],['WDIpL0pjun0']],
+    pike:[['CDBKxS-a4qQ']], updown:[['9CvuiMeWQZo']], superman:[['UXUGfiNL1lI']],
+    squat:[['ITv-_BkcrD0'],['P-yaD24bUE8','m0GcZ24pK6k']], widesquat:[['r8DRxdM4HeI']],
+    lunge:[['REflwhg0jNs'],['94AXT7D3bKY','7pkeQFzJR9g']], latlunge:[['apsp_uuXZTU']],
+    bridge:[['bpUudcsZQ8g'],['bpUudcsZQ8g'],['egs6m4J8u8c','bpUudcsZQ8g']], calf:[['2tvsvCRCQZY']], wall:[['JaZNYM3zAP0']],
+    plank:[['ic40NXcsQ2M'],['mwlp75MS6Rg']], sideplank:[['oaJ15vYERoU']], legraise:[['xJJu-WiROM8']], kneeraise:[['zRpLATPywZA']],
+    bicycle:[['wnuLak2onoA']], deadbug:[['bxn9FBrt4-A']], climber:[['De3Gl-nC7IQ']], burpee:[['auBLPXO8Fww']],
+    jacks:[['uLVt6u15L98','DSa8jU_ON3c']], hiknee:[['OpN2Y712k6Y','DSa8jU_ON3c']], buttkick:[['oMW59TKZvaI']], skater:[['BCPoHelNIEg']],
+    __warm:[['LKSC_KujZ4g','DSa8jU_ON3c']], __cool:[['QF7pYMrGeCY']]
+  };
+  function vidsFor(s, key){
+    if(s.video[key]) return [s.video[key]];
+    var m = VMAP[key]; if(!m) return [];
+    var i = key.indexOf('__') === 0 ? 0 : Math.min(lvOf(s, key), m.length - 1);
+    return m[i] || m[m.length - 1];
+  }
+  var openVid = null;
+  function ytId(u){
+    u = String(u || '').trim();
+    if(/^[A-Za-z0-9_-]{11}$/.test(u)) return u;
+    var m = u.match(/(?:v=|youtu\.be\/|shorts\/|embed\/)([A-Za-z0-9_-]{11})/);
+    return m ? m[1] : null;
+  }
+  var ytQ = [], ytStarted = false;
+  function loadYT(cb){
+    if(window.YT && window.YT.Player){ cb(true); return; }
+    ytQ.push(cb); if(ytStarted) return; ytStarted = true;
+    var prev = window.onYouTubeIframeAPIReady;
+    window.onYouTubeIframeAPIReady = function(){ if(typeof prev === 'function') prev(); ytQ.splice(0).forEach(function(f){ f(true); }); };
+    var t = document.createElement('script'); t.src = 'https://www.youtube.com/iframe_api';
+    t.onerror = function(){ ytStarted = false; ytQ.splice(0).forEach(function(f){ f(false); }); };
+    document.head.appendChild(t);
+  }
+  function vidQuery(s, key){
+    if(key === '__warm') return 'warm up exercises at home before workout';
+    if(key === '__cool') return 'cool down stretches after workout';
+    return EX[key].lad[lvOf(s, key)] + ' exercise proper form';
+  }
+  function vidPanel(s, key){
+    var q = encodeURIComponent(vidQuery(s, key)), has = !!s.video[key];
+    return '<div style="margin-top:8px">' + (key.indexOf('__') === 0 || s.video[key] ? '' : '<div class="cal-adv" style="margin:0 0 6px">Showing: ' + EX[key].lad[lvOf(s, key)] + '</div>') + '<div id="cal-player"></div><div class="cal-adv" id="cal-vmsg"></div>' +
+      '<div class="cal-row"><a class="cal-mini" id="cal-watch" target="_blank" rel="noopener" href="#" style="text-decoration:none">Open on YouTube</a>' +
+      '<a class="cal-mini" target="_blank" rel="noopener" href="https://www.youtube.com/results?search_query=' + q + '" style="text-decoration:none">Search YouTube</a></div>' +
+      '<div class="cal-row"><input class="cal-in" id="cal-vurl" type="url" placeholder="Paste your own YouTube link" style="flex:1 1 150px;width:auto">' +
+      '<button class="cal-mini" data-act="vsave" data-id="' + key + '">Save video</button>' + (has ? '<button class="cal-mini" data-act="vrm" data-id="' + key + '">Remove mine</button>' : '') + '</div></div>';
+  }
+  function mountPlayer(key){
+    var s = load(), ids = vidsFor(s, key);
+    var msg = document.getElementById('cal-vmsg'), box = document.getElementById('cal-player'), watch = document.getElementById('cal-watch');
+    if(!box) return;
+    if(!ids.length){
+      if(watch) watch.style.display = 'none';
+      if(msg) msg.textContent = 'No default video for this move yet. Tap Search YouTube, copy a link you like, and paste it below to play it right here.';
+      return;
+    }
+    var token = {}; mountPlayer.tok = token;
+    function plain(id){
+      box.innerHTML = '<iframe style="width:100%;aspect-ratio:16/9;border:0;border-radius:8px;background:#000" src="https://www.youtube-nocookie.com/embed/' + id + '?rel=0&playsinline=1" title="Exercise video" loading="lazy" allow="encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe>';
+    }
+    function play(i){
+      var id = ids[i]; if(watch) watch.href = 'https://www.youtube.com/watch?v=' + id;
+      box.innerHTML = '<div id="cal-slot"></div>';
+      if(location.protocol === 'file:'){ if(msg) msg.textContent = 'Videos need the page to be hosted (for example on GitHub Pages), not opened as a local file.'; plain(id); return; }
+      var settled = false;
+      var timer = setTimeout(function(){ if(!settled && mountPlayer.tok === token){ settled = true; plain(id); } }, 7000);
+      loadYT(function(ok){
+        if(settled || mountPlayer.tok !== token) return;
+        settled = true; clearTimeout(timer);
+        if(!ok){ plain(id); return; }
+        var vars = { rel:0, playsinline:1, modestbranding:1 };
+        if(/^https?:/.test(location.protocol)) vars.origin = location.origin;
+        new YT.Player('cal-slot', { videoId:id, width:'100%', host:'https://www.youtube-nocookie.com', playerVars:vars, events:{
+          onError:function(){
+            if(mountPlayer.tok !== token) return;
+            if(i + 1 < ids.length){ if(msg) msg.textContent = 'That video cannot play here. Trying a backup\u2026'; play(i + 1); }
+            else { box.innerHTML = ''; if(msg) msg.textContent = 'No saved video can play here. Tap Open on YouTube, or paste a link you like below.'; }
+          },
+          onReady:function(){ if(mountPlayer.tok === token && i === 0 && msg) msg.textContent = ''; }
+        } });
+      });
+    }
+    play(0);
+  }
+  var TESTS = [['push','Push-ups (max, no time limit)'],['squat','Squats in 60 seconds'],['situp','Sit-ups in 60 seconds'],['plank','Plank hold (seconds)'],['wall','Wall sit (seconds)']];
+
+  var css = document.createElement('style');
+  css.textContent =
+    '.cal-mini{font-family:"IBM Plex Mono",monospace;font-size:10.5px;border:1px solid var(--line);border-radius:7px;background:var(--paper-raised);color:var(--ink-soft);padding:7px 9px;cursor:pointer}' +
+    '.cal-row{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:8px}' +
+    '.cal-in{width:100%;border:1px solid var(--line);border-radius:7px;padding:8px;font:13px "IBM Plex Mono",monospace;background:var(--paper-raised);color:var(--ink)}' +
+    '.cal-set{width:64px;text-align:center}' +
+    '.cal-adv{font-size:12px;color:var(--ink-soft);margin-top:6px}' +
+    '#cal-timer{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(12px + env(safe-area-inset-bottom));z-index:80;display:none;align-items:center;gap:10px;background:var(--ink);color:var(--paper);border-radius:14px;padding:10px 14px;box-shadow:0 6px 24px rgba(0,0,0,.28);max-width:calc(100vw - 24px)}' +
+    '#cal-timer.show{display:flex}#cal-timer .tl{font-size:11px;opacity:.8;max-width:120px;line-height:1.25}#cal-timer .tt{font:600 22px "IBM Plex Mono",monospace;min-width:58px;text-align:center}' +
+    '#cal-timer button{font:11px "IBM Plex Mono",monospace;border:1px solid rgba(255,255,255,.35);background:none;color:var(--paper);border-radius:8px;padding:7px 9px;cursor:pointer}' +
+    '#cal-timer.done{background:var(--accent)}@media(max-width:859px){#cal-timer{bottom:calc(5rem + env(safe-area-inset-bottom))}}' +
+    '.cal-cell{width:15px;height:15px;border-radius:4px;border:1px solid var(--line);display:inline-block}.cal-cell.on{background:var(--ink);border-color:var(--ink)}.cal-cell.miss{border:1.5px solid var(--accent)}.cal-cell.today{outline:2px solid var(--ink-faint);outline-offset:1px}.cal-cell.fut{opacity:.35}' +
+    '.cal-tab{border:1px solid var(--line);border-radius:9px;padding:8px 10px;margin-top:10px}.cal-tab>summary{font-family:"Fraunces",serif;font-size:12.5px;font-weight:500;cursor:pointer}' +
+    '.cal-tbl{width:100%;border-collapse:collapse;font-size:12px;margin-top:6px}.cal-tbl td,.cal-tbl th{text-align:left;padding:4px 6px;border-top:1px solid var(--line)}.cal-tbl th{font-weight:500;color:var(--ink-faint)}';
+  document.head.appendChild(css);
+
+  function load(){
+    var all = {}; try{ all = JSON.parse(LS.get(KEY) || '{}'); }catch(e){}
+    var s = all.__cal || {};
+    s.lv = s.lv || {}; s.done = s.done || {}; s.tests = s.tests || {}; s.video = s.video || {};
+    return s;
+  }
+  function save(s){
+    var all = {}; try{ all = JSON.parse(LS.get(KEY) || '{}'); }catch(e){}
+    all.__cal = s; LS.set(KEY, JSON.stringify(all));
+  }
+  function mid(str){ return new Date(str + 'T00:00:00'); }
+  function weekOf(s, t){ var e = s.paused || t; return Math.floor(Math.floor((mid(e) - mid(s.start)) / 86400000) / 7) + 1; }
+  function addDays(str, n){ var d = mid(str); d.setDate(d.getDate() + n); return ptFmtDate(d); }
+  function daysBetween(a, b){ return Math.round((mid(b) - mid(a)) / 86400000); }
+  function hasWork(day){ return Object.keys(day || {}).some(function(k){ return Array.isArray(day[k]) && day[k].some(function(v){ return v > 0; }); }); }
+  function loggedDates(s){ return Object.keys(s.done).filter(function(d){ return hasWork(s.done[d]); }).sort(); }
+  function monday(str){ var d = mid(str); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return ptFmtDate(d); }
+  function lvOf(s, id){ return s.lv[id] != null ? s.lv[id] : EX[id].lv; }
+  function arr(s, t, id){ var a = (s.done[t] || {})[id]; return Array.isArray(a) ? a : []; }
+  function plan(w){
+    var deload = (w === 4 || w === 8), test = (w === 12), b = Math.min(2, Math.floor((w - 1) / 4));
+    var sets = (deload || test || w === 1) ? 2 : (b === 2 ? 4 : 3);
+    var effort = deload ? 'Easy week: about 70% effort. Stop well short of failure.' : test ? 'Test week: keep sessions light, then do the final test at the end of the week.' : 'Finish each set with 1 or 2 reps still in reserve.';
+    return { sets: sets, block: BLOCKS[b], deload: deload, test: test, effort: effort };
+  }
+  function lastTime(s, t, id){
+    var ds = Object.keys(s.done).filter(function(d){ return d < t && Array.isArray(s.done[d][id]) && s.done[d][id].some(function(v){ return v > 0; }); }).sort();
+    return ds.length ? s.done[ds[ds.length - 1]][id] : null;
+  }
+  function advice(s, t, id, sets){
+    var e = EX[id], a = arr(s, t, id), lv = lvOf(s, id), filled = 0, i;
+    for(i = 0; i < sets; i++) if(a[i] > 0) filled++;
+    if(filled < sets) return '';
+    var vals = a.slice(0, sets);
+    if(vals.every(function(v){ return v >= e.hi; })){
+      return lv < e.lad.length - 1
+        ? 'Top of the range on every set. <button class="cal-mini" data-act="lv" data-id="' + id + '" data-d="1">Move up: ' + e.lad[lv + 1] + '</button>'
+        : 'Top of the range on every set at the hardest variation. Slow the lowering phase to keep progressing.';
+    }
+    if(vals.some(function(v){ return v < e.lo; })){
+      return lv > 0
+        ? 'A set fell below ' + e.lo + '. If it happens again next time: <button class="cal-mini" data-act="lv" data-id="' + id + '" data-d="-1">Go easier: ' + e.lad[lv - 1] + '</button>'
+        : 'A set fell below ' + e.lo + '. Rest well and aim for ' + e.lo + ' or more next time.';
+    }
+    return 'In range. Next time, try to add one rep to any set.';
+  }
+
+
+  /* ---------- Progress history ---------- */
+  var MEAS = [['weight','Weight'],['waist','Waist'],['chest','Chest'],['arm','Arm'],['thigh','Thigh']];
+  function histHTML(s, t){
+    var lg = loggedDates(s), h = '';
+    if(!lg.length) return '<div class="empty-note">Log your first session and your history appears here.</div>' + measHTML(s, t);
+    /* consistency grid */
+    var first = monday(lg[0] < s.start ? lg[0] : s.start), cur = monday(t), n = Math.round(daysBetween(first, cur) / 7) + 1, from = Math.max(0, n - 16);
+    h += '<div class="rv-h">Consistency (Monday to Sunday)</div><div style="overflow-x:auto">';
+    var sets = {};
+    for(var k = from; k < n; k++){
+      var ws = addDays(first, k * 7), cells = '', cnt = 0, sc = 0;
+      for(var d = 0; d < 7; d++){
+        var day = addDays(ws, d), on = hasWork(s.done[day]), sched = SCHED[mid(day).getDay()], cls = 'cal-cell';
+        if(on){ cls += ' on'; cnt++; } else if(day < t && sched && sched !== 'K' && day >= s.start) cls += ' miss';
+        if(day > t) cls += ' fut'; if(day === t) cls += ' today';
+        cells += '<span class="' + cls + '" title="' + day + '"></span> ';
+      }
+      Object.keys(s.done).forEach(function(dd){ if(dd >= ws && dd < addDays(ws, 7) && s.done[dd]) Object.keys(s.done[dd]).forEach(function(id){ (s.done[dd][id] || []).forEach(function(v){ if(v > 0) sc++; }); }); });
+      sets[k] = sc;
+      h += '<div style="display:flex;align-items:center;gap:8px;margin:3px 0;font-size:11px;color:var(--ink-faint)"><span style="width:44px">' + ws.slice(5) + '</span>' + cells + '<span>' + cnt + ' day' + (cnt === 1 ? '' : 's') + '</span></div>';
+    }
+    h += '</div><div style="font-size:11px;color:var(--ink-faint);margin-top:4px">Filled = trained. Red outline = a planned session you did not log.</div>';
+    /* weekly sets chart */
+    var mx = 1, vals = []; for(var q = Math.max(0, n - 12); q < n; q++){ vals.push(sets[q] != null ? sets[q] : 0); if(vals[vals.length - 1] > mx) mx = vals[vals.length - 1]; }
+    var bw = 22, svg = '<svg viewBox="0 0 ' + (vals.length * bw) + ' 60" width="100%" height="70" role="img" aria-label="Sets completed per week">';
+    vals.forEach(function(v, i){ var ht = Math.round(v / mx * 50); svg += '<rect x="' + (i * bw + 3) + '" y="' + (56 - ht) + '" width="' + (bw - 6) + '" height="' + Math.max(1, ht) + '" rx="2" fill="var(--ink)" opacity="' + (i === vals.length - 1 ? 1 : .55) + '"/>'; });
+    h += '<div class="rv-h">Sets completed per week</div>' + svg + '</svg><div style="font-size:11px;color:var(--ink-faint)">This week: ' + vals[vals.length - 1] + ' sets. Total sessions logged: ' + lg.length + '.</div>';
+    /* personal bests */
+    var rows = '';
+    Object.keys(EX).forEach(function(id){
+      var best = 0, when = '';
+      Object.keys(s.done).forEach(function(d){ (s.done[d][id] || []).forEach(function(v){ if(v > best || (v === best && d > when)){ best = v; when = d; } }); });
+      if(best > 0){ var vi = (s.vr && s.vr[when] && s.vr[when][id] != null) ? s.vr[when][id] : lvOf(s, id); rows += '<tr><td>' + EX[id].lad[Math.min(vi, EX[id].lad.length - 1)] + '</td><td>' + best + (EX[id].u === 'sec' ? 's' : '') + '</td><td>' + when.slice(5) + '</td></tr>'; }
+    });
+    h += '<div class="rv-h">Personal bests (best single set)</div>' + (rows ? '<table class="cal-tbl"><tr><th>Exercise</th><th>Best</th><th>Date</th></tr>' + rows + '</table>' : '<div class="empty-note">None yet.</div>');
+    return h + measHTML(s, t);
+  }
+  function measHTML(s, t){
+    var M = (s.meas || []).slice().sort(function(a, b){ return a.d < b.d ? -1 : 1; });
+    var h = '<div class="rv-h">Body measurements (optional)</div><div style="font-size:11.5px;color:var(--ink-faint);margin-bottom:6px">Use one unit and measure the same way each time (for example kg and cm, in the morning). Fill only what you want to track.</div><div class="cal-row">';
+    MEAS.forEach(function(x){ h += '<input class="cal-in" type="number" step="0.1" min="0" inputmode="decimal" id="cal-m-' + x[0] + '" placeholder="' + x[1] + '" style="width:92px">'; });
+    h += '<button class="cal-mini" data-act="meas">Save for today</button></div>';
+    if(M.length){
+      h += '<div style="overflow-x:auto"><table class="cal-tbl"><tr><th>Date</th>' + MEAS.map(function(x){ return '<th>' + x[1] + '</th>'; }).join('') + '<th></th></tr>';
+      M.slice(-6).forEach(function(r){ h += '<tr><td>' + r.d.slice(5) + '</td>' + MEAS.map(function(x){ return '<td>' + (r[x[0]] != null ? r[x[0]] : '') + '</td>'; }).join('') + '<td><button class="cal-mini" data-act="mdel" data-d="' + r.d + '" aria-label="Delete entry">✕</button></td></tr>'; });
+      h += '</table></div>';
+      if(M.length > 1){
+        var f = M[0], l = M[M.length - 1], ch = [];
+        MEAS.forEach(function(x){ if(f[x[0]] != null && l[x[0]] != null){ var dv = Math.round((l[x[0]] - f[x[0]]) * 10) / 10; ch.push(x[1] + ' ' + (dv > 0 ? '+' : '') + dv); } });
+        if(ch.length) h += '<div style="font-size:12px;color:var(--ink-soft);margin-top:6px">Change since ' + f.d.slice(5) + ': ' + ch.join(', ') + '</div>';
+      }
+    }
+    return h;
+  }
+  function ctlHTML(s, wk){
+    var h = '<div style="font-size:12px;color:var(--ink-soft);margin:6px 0">Life happens. These controls keep the plan fitting your real weeks instead of punishing you for a gap. You are in week ' + Math.max(1, Math.min(12, wk)) + ' of 12.</div><div class="cal-row">';
+    h += s.paused ? '<button class="cal-mini" data-act="resume">Resume plan</button>' : '<button class="cal-mini" data-act="pause">Pause plan (illness, travel)</button>';
+    h += '<button class="cal-mini" data-act="shift" data-n="1">Go back one week</button><button class="cal-mini" data-act="shift" data-n="-1">Skip ahead one week</button><button class="cal-mini" data-act="restart">Restart from week 1</button></div>';
+    h += '<div class="rv-h">Rest timer</div><div class="cal-row"><button class="cal-mini" data-act="autorest">' + (s.autoRest === false ? 'Auto-start: off' : 'Auto-start: on') + '</button>' +
+      '<select class="cal-in" id="cal-restsel" style="width:auto">' + [['auto','Rest: automatic (75s strength, 40s core and cardio)'],['30','Rest: 30s'],['45','Rest: 45s'],['60','Rest: 60s'],['90','Rest: 90s'],['120','Rest: 2 min']].map(function(o){ return '<option value="' + o[0] + '"' + (String(s.rest || 'auto') === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select></div>';
+    h += '<div style="font-size:11.5px;color:var(--ink-faint);margin-top:6px">Timers use your phone clock. Keep the screen on during a hold, because iPhone can pause web pages when it locks.</div>';
+    return h;
+  }
+
+  /* ---------- Timers: rest bar between sets, and a hold/interval timer for timed moves ---------- */
+  var TM = { mode:null, phase:null, end:0, id:null, secs:0, iv:null, lock:null, hideT:null };
+  function fmt(sec){ sec = Math.max(0, Math.ceil(sec)); return Math.floor(sec / 60) + ':' + ('0' + (sec % 60)).slice(-2); }
+  function tbar(){
+    var b = document.getElementById('cal-timer');
+    if(b) return b;
+    b = document.createElement('div'); b.id = 'cal-timer'; b.setAttribute('role', 'timer'); b.setAttribute('aria-live', 'polite');
+    b.innerHTML = '<span class="tl"></span><span class="tt">0:00</span><button type="button" data-t="minus"></button><button type="button" data-t="plus"></button><button type="button" data-t="stop">Skip</button>';
+    b.onclick = function(ev){
+      var a = ev.target.getAttribute && ev.target.getAttribute('data-t'); if(!a) return;
+      var step = TM.mode === 'hold' ? 5 : 15;
+      if(a === 'plus' && TM.end) TM.end += step * 1000;
+      if(a === 'minus' && TM.end) TM.end -= step * 1000;
+      if(a === 'stop') endTimer(true);
+      draw();
+    };
+    document.body.appendChild(b); return b;
+  }
+  function wake(on){
+    try{
+      if(on && navigator.wakeLock && !TM.lock){ navigator.wakeLock.request('screen').then(function(l){ TM.lock = l; l.addEventListener('release', function(){ TM.lock = null; }); }).catch(function(){}); }
+      if(!on && TM.lock){ TM.lock.release(); TM.lock = null; }
+    }catch(e){}
+  }
+  function alertUser(){ try{ if(typeof ptPlayBeep === 'function') ptPlayBeep(); }catch(e){} try{ if(navigator.vibrate) navigator.vibrate([200, 100, 200]); }catch(e){} }
+  function draw(){
+    var b = tbar(), left = (TM.end - Date.now()) / 1000;
+    b.querySelector('.tt').textContent = fmt(left);
+    b.querySelector('.tl').textContent = TM.phase === 'ready' ? 'Get ready' : TM.mode === 'hold' ? 'Hold' : 'Rest before the next set';
+    var step = TM.mode === 'hold' ? 5 : 15;
+    b.querySelector('[data-t=minus]').textContent = '−' + step; b.querySelector('[data-t=plus]').textContent = '+' + step;
+    b.querySelector('[data-t=stop]').textContent = TM.mode === 'hold' && TM.phase === 'run' ? 'Stop' : 'Skip';
+  }
+  function setDone(msg){
+    var b = tbar(); b.classList.add('done'); b.querySelector('.tl').textContent = msg; b.querySelector('.tt').textContent = '0:00';
+    clearTimeout(TM.hideT); TM.hideT = setTimeout(function(){ if(!TM.mode) b.classList.remove('show', 'done'); }, 7000);
+  }
+  function clearIv(){ if(TM.iv){ clearInterval(TM.iv); TM.iv = null; } }
+  function endTimer(manual){
+    clearIv(); wake(false);
+    var mode = TM.mode, phase = TM.phase, id = TM.id, started = TM.runStart;
+    TM.mode = null; TM.phase = null;
+    var b = tbar();
+    if(mode === 'hold' && phase === 'run'){
+      var el = manual ? Math.round((Date.now() - started) / 1000) : TM.secs;
+      if(el >= 5) fillNext(id, el);
+      if(!manual){ alertUser(); setDone('Hold complete'); } else b.classList.remove('show', 'done');
+    } else if(mode === 'rest' && !manual){ alertUser(); setDone('Rest over. Next set.'); }
+    else b.classList.remove('show', 'done');
+  }
+  function tick(){
+    if(!TM.mode) return;
+    if(TM.end - Date.now() > 0){ draw(); return; }
+    if(TM.mode === 'hold' && TM.phase === 'ready'){
+      TM.phase = 'run'; TM.runStart = Date.now(); TM.end = Date.now() + TM.secs * 1000; try{ if(navigator.vibrate) navigator.vibrate(120); }catch(e){} draw(); return;
+    }
+    endTimer(false);
+  }
+  function begin(mode, secs, id, ready){
+    clearIv(); clearTimeout(TM.hideT);
+    TM.mode = mode; TM.id = id || null; TM.secs = secs; TM.phase = ready ? 'ready' : 'run';
+    TM.end = Date.now() + (ready ? 3 : secs) * 1000; TM.runStart = Date.now();
+    var b = tbar(); b.classList.remove('done'); b.classList.add('show'); draw(); wake(true);
+    TM.iv = setInterval(tick, 250);
+  }
+  function restFor(s, id){
+    if(s.rest && s.rest !== 'auto') return Number(s.rest);
+    return (EX[id].u === 'sec' || id === 'plank' || SESS.C.ex.indexOf(id) >= 0 || SESS.K.ex.indexOf(id) >= 0) ? 40 : 75;
+  }
+  function holdTarget(s, t, id){
+    var e = EX[id], last = lastTime(s, t, id), best = last ? Math.max.apply(null, last) : 0;
+    return Math.min(e.hi, Math.max(e.lo, best ? best + 5 : e.lo));
+  }
+  function fillNext(id, val){
+    var ins = document.querySelectorAll('#cal-mount input.cal-set[data-id="' + id + '"]');
+    for(var i = 0; i < ins.length; i++){
+      if(ins[i].value === ''){ ins[i].value = val; ins[i].dispatchEvent(new Event('change', { bubbles:true })); return; }
+    }
+  }
+  document.addEventListener('visibilitychange', function(){ if(!document.hidden && TM.mode) tick(); });
+
+  var openDet = {};
+  function det(k, title, body){ return '<details class="cal-tab" data-k="' + k + '"' + (openDet[k] ? ' open' : '') + '><summary>' + title + '</summary>' + body + '</details>'; }
+
+  function render(){
+    var m = document.getElementById('cal-mount'); if(!m) return;
+    var s = load(), t = ptFmtDate(new Date());
+    if(!s.start){
+      m.innerHTML = '<div class="week-detail"><p style="margin:0 0 10px;font-size:13px;color:var(--ink-soft)">A 12-week progressive plan with no equipment. Four required sessions a week: Upper (Mon), Lower (Tue), Core (Thu) and Full body (Sat), plus an optional Cardio day on Wednesday. You log your reps, and the plan tells you when to make an exercise harder.</p>' +
+        '<p style="margin:0 0 12px;font-size:13px;color:var(--ink-soft)">Stop a set if you feel sharp pain, and check with a doctor first if you have an injury or health condition.</p><div class="entry-meta" style="margin:6px 0">Your starting profile (optional)</div>' + profileHTML(s) + '<button class="save-btn" data-act="start" style="margin-top:0">Start today</button></div>';
+      return;
+    }
+    var wk = weekOf(s, t), w = Math.max(1, Math.min(12, wk)), P = plan(w);
+    var sched = SCHED[new Date().getDay()], sess = (s.viewDate === t && s.view) ? s.view : sched;
+    var h = '<div class="week-detail"><div class="pt-day-banner"><span class="pt-dt-name">Week ' + w + ' of 12</span><span class="pt-dt-tag">' + P.block.n + (P.deload ? ' \u00b7 deload' : P.test ? ' \u00b7 test week' : '') + '</span></div>';
+    h += '<div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:10px">' + P.effort + ' ' + P.block.tempo + ' Rest 60 to 90 seconds between strength sets, 30 to 45 for core and cardio.</div>';
+    if(wk > 12) h += '<div class="pt-banner levelup">The 12 weeks are complete. Take the final test below and compare your numbers.</div>';
+    if(s.paused){
+      h += '<div class="pt-banner nudge">Plan paused since ' + s.paused + '. Week ' + w + ' is saved for you. <button class="cal-mini" data-act="resume">Resume the plan</button></div>';
+    } else {
+      var lg = loggedDates(s), base = lg.length ? lg[lg.length - 1] : s.start, gap = daysBetween(base, t), missed = Math.min(Math.floor(gap / 7), wk - 1);
+      if(gap >= 8 && s.gapDismiss !== t && wk <= 12){
+        h += '<div class="pt-banner nudge"><b>Welcome back.</b> Your last session was ' + gap + ' days ago' + (missed > 0 ? ', about ' + missed + ' week' + (missed === 1 ? '' : 's') + ' of the plan.' : '.') + ' Missing a week does not undo your progress. Choose how to continue:' +
+          '<div class="cal-row">' + (missed > 0 ? '<button class="cal-mini" data-act="catch" data-n="' + missed + '">Pick up at week ' + (wk - missed) + '</button>' : '') +
+          (wk - missed > 1 ? '<button class="cal-mini" data-act="catch" data-n="' + (missed + 1) + '">Ease back in: week ' + (wk - missed - 1) + '</button>' : '') +
+          '<button class="cal-mini" data-act="dismiss">Keep the calendar as it is</button></div></div>';
+      }
+    }
+    h += '<div class="stage-quick">' + Object.keys(SESS).map(function(k){ return '<button data-act="view" data-v="' + k + '" class="' + (sess === k ? 'active' : '') + '">' + SESS[k].n + (sched === k ? ' \u00b7 today' : '') + '</button>'; }).join('') + '</div>';
+    if(s.paused){ h += '<div class="empty-note">The plan is paused, so no sessions are shown. Resume when you are ready.</div>'; }
+    else if(!sess){ h += '<div class="empty-note">Rest day. Recovery is where the progress happens. A walk or light stretching is perfect.</div>'; }
+    else {
+      h += '<div class="entry-meta" style="margin-bottom:6px">' + SESS[sess].t + '</div>';
+      h += '<div class="cal-row"><button class="cal-mini" data-act="rest">Rest timer</button><button class="cal-mini" data-act="vid" data-id="__warm">' + (openVid === '__warm' ? 'Hide warm-up video' : 'Warm-up video') + '</button></div>' + (openVid === '__warm' ? vidPanel(s, '__warm') : '');
+      SESS[sess].ex.forEach(function(id){
+        var e = EX[id], lv = lvOf(s, id), a = arr(s, t, id), last = lastTime(s, t, id), inputs = '';
+        for(var i = 0; i < P.sets; i++) inputs += '<input class="cal-in cal-set" type="number" min="0" inputmode="numeric" data-id="' + id + '" data-i="' + i + '" value="' + (a[i] > 0 ? a[i] : '') + '" data-was="' + (a[i] > 0 ? '1' : '') + '" placeholder="' + (i + 1) + '" aria-label="' + e.lad[lv] + ' set ' + (i + 1) + '">';
+        h += '<div class="pt-exercise"><div class="pt-ex-top"><span class="pt-ex-name">' + e.lad[lv] + '</span><span class="pt-ex-target">' + P.sets + ' sets \u00b7 ' + e.lo + '\u2013' + e.hi + ' ' + e.u + '</span></div>' +
+          '<div style="font-size:12px;color:var(--ink-faint)">' + e.n + (last ? ' \u00b7 last time: ' + last.filter(function(v){ return v > 0; }).join(', ') : '') + '</div>' +
+          '<div style="font-size:12.5px;color:var(--ink-soft);margin:4px 0 8px">' + e.tip + '</div>' +
+          '<div class="cal-row">' + inputs + '</div><div class="cal-adv" id="cal-adv-' + id + '">' + advice(s, t, id, P.sets) + '</div>' +
+          '<div class="cal-row">' + (e.u === 'sec' ? '<button class="cal-mini" data-act="hold" data-id="' + id + '">Timer ' + holdTarget(s, t, id) + 's</button>' : '') + '<button class="cal-mini" data-act="vid" data-id="' + id + '">' + (openVid === id ? 'Hide video' : 'Watch') + '</button>' + (lv > 0 ? '<button class="cal-mini" data-act="lv" data-id="' + id + '" data-d="-1">Easier</button>' : '') + (lv < e.lad.length - 1 ? '<button class="cal-mini" data-act="lv" data-id="' + id + '" data-d="1">Harder</button>' : '') + '</div>' + (openVid === id ? vidPanel(s, id) : '') + '</div>';
+      });
+      h += '<div class="cal-row"><button class="cal-mini" data-act="vid" data-id="__cool">' + (openVid === '__cool' ? 'Hide cool-down video' : 'Cool-down video') + '</button></div>' + (openVid === '__cool' ? vidPanel(s, '__cool') : '');
+    }
+    h += '<details class="stretch-block" style="border:1px solid var(--line);border-radius:9px;padding:8px 10px;margin-top:14px"><summary style="font-family:\'Fraunces\',serif;font-size:12.5px;font-weight:500;cursor:pointer">Starting profile</summary>' + profileHTML(s) + '<button class="mark-btn" data-act="apply">Apply to my plan</button><div style="font-size:11.5px;color:var(--ink-faint);margin-top:6px">Applying resets your exercise variations to the profile defaults. Your logged reps are kept.</div></details>';
+    h += '<details class="stretch-block" style="border:1px solid var(--line);border-radius:9px;padding:8px 10px;margin-top:10px"><summary style="font-family:\'Fraunces\',serif;font-size:12.5px;font-weight:500;cursor:pointer">How this plan works</summary><ul style="margin:8px 0 0;padding-left:18px;font-size:12px;line-height:1.6;color:var(--ink-soft)">' +
+      '<li>Each exercise has a rep range. Log your reps. When every set reaches the top, move to the next variation, which resets you near the bottom of the range.</li>' +
+      '<li>Weeks 1 to 3 build the habit and technique, weeks 5 to 7 add volume and control, weeks 9 to 11 add the hardest variations. Weeks 4 and 8 are easy on purpose, so you recover and come back stronger.</li>' +
+      '<li>Stopping with 1 or 2 reps in reserve is what keeps this sustainable. Failing sets every day leads to injury and burnout.</li>' +
+      '<li>Strength and size also depend on sleep and eating enough protein. This plan covers the training only.</li>' +
+      '<li>Without a bar, pulling work is limited to the floor moves here. A towel row under a sturdy table, or a backpack curl, can fill the gap if you want it.</li></ul></details>';
+    h += det('hist', 'Progress history', histHTML(s, t)) + det('ctl', 'Plan controls and missed weeks', ctlHTML(s, wk));
+    h += '<div class="pt-extra-block"><h4>Benchmark tests</h4>';
+    function form(k, title){
+      return '<div style="font-size:12.5px;margin-bottom:6px">' + title + '</div>' + TESTS.map(function(x){
+        return '<div class="pt-set-input" style="margin-bottom:6px"><label>' + x[1] + '</label><input class="cal-in" type="number" min="0" inputmode="numeric" id="cal-t-' + k + '-' + x[0] + '"></div>';
+      }).join('') + '<button class="mark-btn" data-act="test" data-k="' + k + '">Save ' + (k === 'pre' ? 'starting' : 'final') + ' test</button>';
+    }
+    if(!s.tests.pre) h += form('pre', 'Do this once in week 1 before your first session. Rest between tests.');
+    if(!s.tests.post) h += (wk >= 12 ? form('post', 'Final test. Same five tests as the start.') : '<div class="empty-note">The final test unlocks in week 12.</div>');
+    if(s.tests.pre){
+      h += '<table class="pt-prog-table"><tr><th>Test</th><th>Start</th><th>Final</th><th>Change</th></tr>' + TESTS.map(function(x){
+        var a = s.tests.pre[x[0]], b = s.tests.post && s.tests.post[x[0]];
+        return '<tr><td>' + x[1].replace(/ \(.*\)/, '') + '</td><td>' + a + '</td><td>' + (b != null ? b : '\u2013') + '</td><td>' + (b != null ? (b - a >= 0 ? '+' : '') + (b - a) : '') + '</td></tr>';
+      }).join('') + '</table>';
+    }
+    h += '</div></div>';
+    m.innerHTML = h;
+    if(openVid) mountPlayer(openVid);
+  }
+
+  function onClick(ev){
+    var b = ev.target.closest('[data-act]'); if(!b) return;
+    var s = load(), t = ptFmtDate(new Date()), a = b.dataset.act, id = b.dataset.id;
+    if(a === 'vid'){ openVid = (openVid === id) ? null : id; render(); return; }
+    if(a === 'hold'){ begin('hold', holdTarget(s, t, id), id, true); return; }
+    if(a === 'rest'){ begin('rest', 60, null, false); return; }
+    if(a === 'pause'){ s.paused = t; }
+    else if(a === 'resume'){ if(s.paused){ s.start = addDays(s.start, Math.max(0, daysBetween(s.paused, t))); delete s.paused; s.gapDismiss = t; } }
+    else if(a === 'shift'){
+      var wk0 = weekOf(s, t), n0 = Number(b.dataset.n);
+      if((n0 > 0 && wk0 <= 1) || (n0 < 0 && wk0 >= 12)) return;
+      s.start = addDays(s.start, 7 * n0);
+    }
+    else if(a === 'catch'){ s.start = addDays(s.start, 7 * Math.min(Number(b.dataset.n), weekOf(s, t) - 1)); s.gapDismiss = t; }
+    else if(a === 'dismiss'){ s.gapDismiss = t; }
+    else if(a === 'restart'){ if(!confirm('Restart the plan from week 1 today? Your logged reps, history and tests are kept.')) return; s.start = t; delete s.paused; delete s.gapDismiss; }
+    else if(a === 'autorest'){ s.autoRest = (s.autoRest === false); }
+    else if(a === 'meas'){
+      var rec = { d:t }, any = false;
+      MEAS.forEach(function(x){ var v = document.getElementById('cal-m-' + x[0]).value; if(v !== ''){ rec[x[0]] = Number(v); any = true; } });
+      if(!any) return;
+      s.meas = (s.meas || []).filter(function(r){ return r.d !== t; }); s.meas.push(rec);
+    }
+    else if(a === 'mdel'){ s.meas = (s.meas || []).filter(function(r){ return r.d !== b.dataset.d; }); }
+    else
+    if(a === 'vsave'){
+      var yid = ytId(document.getElementById('cal-vurl').value);
+      if(!yid){ var vm = document.getElementById('cal-vmsg'); if(vm) vm.textContent = 'That does not look like a YouTube link. Copy it from the Share button.'; return; }
+      s.video[id] = yid; save(s); render(); return;
+    }
+    if(a === 'vrm'){ delete s.video[id]; save(s); render(); return; }
+    if(a === 'start'){ s.start = t; applyProfile(s); }
+    else if(a === 'exp'){ s.profile = s.profile || {}; s.profile.exp = b.dataset.v; }
+    else if(a === 'joint'){ s.profile = s.profile || {}; var J = s.profile.joints = s.profile.joints || [], ji = J.indexOf(b.dataset.v); if(ji < 0) J.push(b.dataset.v); else J.splice(ji, 1); }
+    else if(a === 'low'){ s.profile = s.profile || {}; s.profile.low = !s.profile.low; }
+    else if(a === 'apply') applyProfile(s);
+    else if(a === 'view'){ s.view = b.dataset.v; s.viewDate = t; }
+    else if(a === 'lv') s.lv[id] = Math.max(0, Math.min(EX[id].lad.length - 1, lvOf(s, id) + Number(b.dataset.d)));
+    else if(a === 'test'){
+      var o = {}, ok = false;
+      TESTS.forEach(function(x){ var v = document.getElementById('cal-t-' + b.dataset.k + '-' + x[0]).value; if(v !== ''){ o[x[0]] = Number(v); ok = true; } else o[x[0]] = 0; });
+      if(!ok) return;
+      s.tests[b.dataset.k] = o;
+    }
+    save(s); render();
+  }
+  function onChange(ev){
+    var inp = ev.target;
+    if(inp.id === 'cal-restsel'){ var s0 = load(); s0.rest = inp.value; save(s0); return; }
+    if(!inp.classList || !inp.classList.contains('cal-set')) return;
+    var s = load(), t = ptFmtDate(new Date()), id = inp.dataset.id, i = Number(inp.dataset.i);
+    s.done[t] = s.done[t] || {};
+    var a = Array.isArray(s.done[t][id]) ? s.done[t][id] : [];
+    a[i] = inp.value === '' ? 0 : Number(inp.value);
+    s.done[t][id] = a;
+    s.vr = s.vr || {}; s.vr[t] = s.vr[t] || {}; s.vr[t][id] = lvOf(s, id);   /* remember which variation this was */
+    save(s);
+    var adv = document.getElementById('cal-adv-' + id);   /* update the advice in place so typing is not interrupted */
+    if(adv) adv.innerHTML = advice(s, t, id, plan(Math.max(1, Math.min(12, weekOf(s, t)))).sets);
+    if(a[i] > 0 && inp.dataset.was !== '1' && s.autoRest !== false && !s.paused){
+      var filled = a.filter(function(v){ return v > 0; }).length, total = plan(Math.max(1, Math.min(12, weekOf(s, t)))).sets;
+      if(filled < total) begin('rest', restFor(s, id), null, false);
+    }
+    inp.dataset.was = a[i] > 0 ? '1' : '';
+  }
+
+  function build(){
+    if(document.getElementById('sec-calisthenics')) return;
+    var ref = document.getElementById('sec-body'); if(!ref) return;
+    var sec = document.createElement('section');
+    sec.className = 'csec' + (sectionState.calisthenics === true ? ' open' : '');
+    sec.id = 'sec-calisthenics'; sec.setAttribute('data-key', 'calisthenics'); sec.setAttribute('data-group', 'body');
+    sec.innerHTML = '<button class="csec-head"><div class="csec-head-left"><span class="csec-title">Calisthenics plan</span><span class="csec-meta">12 weeks \u00b7 no equipment</span></div><span class="csec-chevron">\u2304</span></button>' +
+      '<div class="csec-body"><p class="csec-sub">A progressive plan for arms, chest, shoulders, back, core, glutes and legs, in the simplest forms.</p><div id="cal-mount"></div></div>';
+    ref.parentNode.insertBefore(sec, ref.nextSibling);
+    sec.querySelector('.csec-head').onclick = function(){
+      var o = sec.classList.toggle('open'); sectionState.calisthenics = o; LS.set(SECTION_STATE_KEY, JSON.stringify(sectionState));
+    };
+    var mount = sec.querySelector('#cal-mount');
+    mount.onclick = onClick; mount.addEventListener('change', onChange);
+    mount.addEventListener('toggle', function(ev){ var k = ev.target.getAttribute && ev.target.getAttribute('data-k'); if(k) openDet[k] = ev.target.open; }, true);
+    sec.style.display = (LS.get('seasons-active-page') || 'spirit') === 'body' ? '' : 'none';
+  }
+
+  build(); render();
+  document.addEventListener('visibilitychange', function(){ if(!document.hidden) render(); });
+})();
+
+ window.__SU.ok.push('Calisthenics plan: timers, missed weeks, history, videos');
+}catch(e){ window.__SU.fail.push(['Calisthenics plan: timers, missed weeks, history, videos', String(e && e.message || e)]); if(window.console) console.error('Calisthenics plan: timers, missed weeks, history, videos', e); }
+
+/* ===== practices-review-upgrade.js ===== */
+try{
+/* Seasons: Practices + Weekly review + Calendar reminders + Offline add-on.
+   - Spirit and Soul "Practices": choose your own (prayer, fasting, reading, rest...), tick daily, weekly targets, streaks
+   - "Weekly review" panel under the Today card (all three pages), with next-week preview
+   - Download calendar reminders (.ics) for scripture days, workouts, practices and the weekly review
+   - Registers sw.js so the app opens offline (upload sw.js next to index.html)
+   Data is saved inside your existing goals key (seasons-goals), so Export already backs it up. */
+(function(){
+  var KEY = 'seasons-goals';
+  var PRESETS = [
+    ['spirit','Prayer',7],['spirit','Scripture reading',5],['spirit','Worship',3],['spirit','Fasting',1],['spirit','Silence / meditation',3],['spirit','Giving or service',1],
+    ['soul','Journaling',4],['soul','Reading',4],['soul','Gratitude',7],['soul','Rest (Sabbath)',1],['soul','Time with someone',2],['soul','Learning',3],
+    ['body','Water (8 glasses)',7],['body','Sleep 7+ hours',7],['body','Stretching / mobility',4],['body','Walk 20+ minutes',5],['body','Protein with each meal',7],['body','No screens before bed',5]
+  ];
+  function el(tag, cls, text){ var x = document.createElement(tag); if(cls) x.className = cls; if(text != null) x.textContent = text; return x; }
+  function all(){ try{ return JSON.parse(LS.get(KEY) || '{}'); }catch(e){ return {}; } }
+  function load(){ var s = all().__prac || {}; s.list = s.list || []; s.log = s.log || {}; return s; }
+  function save(s){ var a = all(); a.__prac = s; LS.set(KEY, JSON.stringify(a)); }
+  function streak(s, id){
+    var d = new Date(), n = 0;
+    if((s.log[ptFmtDate(d)] || []).indexOf(id) < 0) d.setDate(d.getDate() - 1);
+    while((s.log[ptFmtDate(d)] || []).indexOf(id) >= 0){ n++; d.setDate(d.getDate() - 1); }
+    return n;
+  }
+
+  var css = el('style');
+  css.textContent =
+    '.pr-chip{flex:0 0 36px;height:36px;border-radius:50%;border:2px solid var(--ink-faint);background:none;color:var(--paper);font:600 15px system-ui,sans-serif;cursor:pointer}' +
+    '.pr-chip.on{background:var(--ink);border-color:var(--ink)}' +
+    '.pr-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--line)}' +
+    '.pr-row:first-child{border-top:none}' +
+    '.pr-sug{font-size:12px;border:1px dashed var(--ink-faint);border-radius:14px;background:none;color:var(--ink-soft);padding:6px 11px;cursor:pointer}' +
+    '.rv-line{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-top:1px solid var(--line);font-size:13px}' +
+    '.rv-line:first-child{border-top:none}.rv-line span:last-child{color:var(--ink-soft);text-align:right}' +
+    '.rv-h{font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-faint);margin:12px 0 4px}';
+  document.head.appendChild(css);
+
+  /* ---------- Practices ---------- */
+  function renderGroup(g){
+    var m = document.getElementById('prac-' + g); if(!m) return;
+    var s = load(), t = ptFmtDate(new Date()), wk = weekDates(0);
+    m.innerHTML = '';
+    var items = s.list.filter(function(p){ return p.group === g; });
+    if(!items.length) m.appendChild(el('div', 'empty-note', 'No practices yet. Tap a suggestion below, or add your own.'));
+    items.forEach(function(p){
+      var done = (s.log[t] || []).indexOf(p.id) >= 0;
+      var row = el('div', 'pr-row');
+      var cb = el('button', 'pr-chip' + (done ? ' on' : ''), done ? '\u2713' : ''); cb.type = 'button';
+      cb.setAttribute('aria-label', (done ? 'Untick ' : 'Tick ') + p.name);
+      cb.onclick = function(){
+        var d = load(); d.log[t] = d.log[t] || [];
+        var i = d.log[t].indexOf(p.id); if(i >= 0) d.log[t].splice(i, 1); else d.log[t].push(p.id);
+        save(d); renderAll();
+      };
+      var n = wk.filter(function(x){ return (s.log[x] || []).indexOf(p.id) >= 0; }).length, st = streak(s, p.id);
+      var info = el('div'); info.style.flex = '1';
+      info.appendChild(el('div', null, p.name));
+      var meta = el('div', null, n + '/' + p.target + ' this week' + (st > 1 ? ' \u00b7 ' + st + '-day streak' : ''));
+      meta.style.cssText = 'font-size:11.5px;color:var(--ink-faint)'; info.appendChild(meta);
+      var rm = el('button', 'entry-del', '\u2715'); rm.type = 'button'; rm.setAttribute('aria-label', 'Remove ' + p.name);
+      rm.onclick = function(){
+        if(!confirm('Remove "' + p.name + '"? Its history will be removed too.')) return;
+        var d = load(); d.list = d.list.filter(function(x){ return x.id !== p.id; });
+        Object.keys(d.log).forEach(function(k){ d.log[k] = d.log[k].filter(function(x){ return x !== p.id; }); });
+        save(d); renderAll();
+      };
+      row.appendChild(cb); row.appendChild(info); row.appendChild(rm); m.appendChild(row);
+    });
+    function add(name, target){
+      var d = load(); d.list.push({ id: 'p' + Date.now() + Math.random().toString(36).slice(2, 5), name: name, group: g, target: target });
+      save(d); renderAll();
+    }
+    var have = items.map(function(p){ return p.name; });
+    var sug = el('div', 'cal-row'); sug.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap;margin-top:12px';
+    PRESETS.filter(function(p){ return p[0] === g && have.indexOf(p[1]) < 0; }).forEach(function(p){
+      var b = el('button', 'pr-sug', '+ ' + p[1]); b.type = 'button'; b.onclick = function(){ add(p[1], p[2]); }; sug.appendChild(b);
+    });
+    m.appendChild(sug);
+    var form = el('div'); form.style.cssText = 'display:flex;gap:6px;margin-top:12px;flex-wrap:wrap';
+    var inp = el('input'); inp.type = 'text'; inp.placeholder = 'Your own practice\u2026'; inp.setAttribute('aria-label', 'New practice name');
+    inp.style.cssText = 'flex:1 1 150px;border:1px solid var(--line);border-radius:9px;padding:9px 12px;font-size:13px;background:var(--paper-raised);color:var(--ink)';
+    var sel = el('select'); sel.setAttribute('aria-label', 'Days per week');
+    sel.style.cssText = 'border:1px solid var(--line);border-radius:9px;padding:8px;font-size:12.5px;background:var(--paper-raised);color:var(--ink)';
+    for(var i = 1; i <= 7; i++){ var o = el('option', null, i + '\u00d7 a week'); o.value = i; sel.appendChild(o); }
+    sel.value = 3;
+    var ab = el('button', 'save-btn', 'Add'); ab.type = 'button'; ab.style.marginTop = '0';
+    ab.onclick = function(){ var v = inp.value.trim(); if(v) add(v, Number(sel.value)); };
+    form.appendChild(inp); form.appendChild(sel); form.appendChild(ab); m.appendChild(form);
+  }
+
+  /* ---------- Weekly review (browse past weeks, with notes) ---------- */
+  var rvOff = 0;
+  function sundayOf(off){ var d = new Date(mostRecentSunday(new Date())); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - 7 * off); return d; }
+  function weekDates(off){
+    var sun = sundayOf(off || 0), out = [];
+    for(var i = 0; i < 7; i++){ var d = new Date(sun); d.setDate(d.getDate() + i); out.push(ptFmtDate(d)); }
+    return out;
+  }
+  function short(d){ return new Date(d + 'T12:00:00').toLocaleDateString(undefined, { month:'short', day:'numeric' }); }
+  function line(parent, a, b){ var r = el('div', 'rv-line'); r.appendChild(el('span', null, a)); r.appendChild(el('span', null, b)); parent.appendChild(r); }
+  function head(parent, t){ parent.appendChild(el('div', 'rv-h', t)); }
+  function ssData(){ try{ return JSON.parse(LS.get('seasons-verse-cache') || '{}').__ss || {}; }catch(e){ return {}; } }
+  function btn(text, fn, cls){ var b = el('button', cls || 'cal-mini', text); b.type = 'button'; b.onclick = fn; return b; }
+  function renderReview(){
+    var m = document.getElementById('rev-mount'); if(!m) return;
+    var wk = weekDates(rvOff), s = load(), a = all(), iso = wk[0];
+    var mid = new Date(wk[3] + 'T12:00:00'), wn = currentWeekNumber(mid);
+    function inWk(ts){ return wk.indexOf(ptFmtDate(new Date(ts))) >= 0; }
+    var ss = ssData(), ticks = (ss.ticks || {})[wn] || {};
+    var verses = ['reveal','reframe','respond'].filter(function(k){ return ticks[k]; }).length;
+    m.innerHTML = '';
+    var nav = el('div'); nav.style.cssText = 'display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:6px';
+    nav.appendChild(btn('‹ Earlier', function(){ rvOff++; renderReview(); }));
+    var lab = el('span', null, short(wk[0]) + ' – ' + short(wk[6]) + (rvOff === 0 ? ' (this week)' : '')); lab.style.cssText = 'font-size:12.5px;flex:1;text-align:center'; nav.appendChild(lab);
+    var later = btn('Later ›', function(){ if(rvOff > 0){ rvOff--; renderReview(); } }); if(rvOff === 0){ later.disabled = true; later.style.opacity = .4; } nav.appendChild(later);
+    if(rvOff !== 0) nav.appendChild(btn('This week', function(){ rvOff = 0; renderReview(); }));
+    m.appendChild(nav);
+    head(m, 'Spirit');
+    line(m, 'Scripture (week ' + wn + ')', verses + '/3 verses' + (completedWeeks.indexOf(wn) >= 0 ? ' · week read' : ''));
+    function pracLines(g){
+      s.list.filter(function(p){ return p.group === g; }).forEach(function(p){
+        line(m, p.name, wk.filter(function(x){ return (s.log[x] || []).indexOf(p.id) >= 0; }).length + '/' + p.target);
+      });
+    }
+    pracLines('spirit');
+    head(m, 'Soul');
+    line(m, 'Journal entries', String(loadEntries().filter(function(e){ return inWk(e.ts); }).length));
+    line(m, 'Learning notes', String(loadLearningEntries().filter(function(e){ return inWk(e.ts); }).length));
+    pracLines('soul');
+    head(m, 'Body');
+    var pt = 0; if(ptState) wk.forEach(function(d){ if(ptState.logs[d] && ptState.logs[d].complete) pt++; });
+    var cs = (a.__cal && a.__cal.done) || {}, cal = 0;
+    wk.forEach(function(d){ var x = cs[d]; if(x && Object.keys(x).some(function(k){ return Array.isArray(x[k]) ? x[k].some(function(v){ return v > 0; }) : x[k] > 0; })) cal++; });
+    line(m, 'Training program sessions', String(pt));
+    line(m, 'Calisthenics sessions', String(cal));
+    pracLines('body');
+    if(rvOff === 0){
+      head(m, 'Goals due this week');
+      var due = [];
+      ['spirit','soul','body'].forEach(function(p){ getGoalsDueThisWeek(p).forEach(function(g){ due.push(g.text); }); });
+      line(m, due.length ? due.length + ' due' : 'None due', due.join(', '));
+    }
+    head(m, rvOff === 0 ? 'Next week' : 'The week after');
+    var nw = Math.min(52, wn + 1), w = WEEKS.find(function(x){ return x.w === nw; });
+    line(m, 'Scripture theme', w ? w.t : '');
+    line(m, 'Coordinate', COORD_LABELS[coordIndexForWeek(nw)]);
+    /* notes for this week */
+    head(m, 'My notes for this week');
+    var note = (s.notes && s.notes[iso]) || {};
+    [['well', 'What went well?'], ['fix', 'What will I change next week?']].forEach(function(f){
+      var lb = el('div', null, f[1]); lb.style.cssText = 'font-size:12px;color:var(--ink-faint);margin:6px 0 2px'; m.appendChild(lb);
+      var ta = el('textarea', 'journal-input'); ta.style.minHeight = '56px'; ta.value = note[f[0]] || ''; ta.setAttribute('aria-label', f[1]);
+      ta.addEventListener('input', function(){ var d = load(); d.notes = d.notes || {}; d.notes[iso] = d.notes[iso] || {}; d.notes[iso][f[0]] = ta.value; save(d); });
+      m.appendChild(ta);
+    });
+    /* earlier reviews with notes */
+    var past = Object.keys(s.notes || {}).filter(function(k){ var n = s.notes[k]; return k !== iso && ((n.well || '').trim() || (n.fix || '').trim()); }).sort().reverse();
+    if(past.length){
+      head(m, 'Earlier reviews with notes');
+      past.slice(0, 12).forEach(function(k){
+        var n = s.notes[k], txt = ((n.well || '') + ' ' + (n.fix || '')).trim().replace(/\s+/g, ' ');
+        var b = btn(short(k) + ': ' + txt.slice(0, 60) + (txt.length > 60 ? '…' : ''), function(){
+          rvOff = Math.max(0, Math.round((sundayOf(0) - new Date(k + 'T00:00:00')) / 604800000)); renderReview();
+        }); b.style.cssText += ';display:block;width:100%;text-align:left;margin-top:5px'; m.appendChild(b);
+      });
+    }
+    var tools = el('div'); tools.style.marginTop = '14px';
+    var cap = el('div', 'rv-h', 'Calendar reminders'); tools.appendChild(cap);
+    var row = el('div'); row.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;align-items:center';
+    function timeInput(label, val){
+      var w2 = el('label'); w2.style.cssText = 'font-size:12px;color:var(--ink-soft);display:flex;flex-direction:column;gap:2px';
+      w2.appendChild(el('span', null, label));
+      var i = el('input'); i.type = 'time'; i.value = val; i.style.cssText = 'border:1px solid var(--line);border-radius:7px;padding:7px;background:var(--paper-raised);color:var(--ink);font:13px "IBM Plex Mono",monospace';
+      w2.appendChild(i); row.appendChild(w2); return i;
+    }
+    var t1 = timeInput('Scripture + practices', '07:00'), t2 = timeInput('Workouts + review', '18:00');
+    var dl = el('button', 'save-btn', 'Download .ics'); dl.type = 'button'; dl.style.marginTop = '0';
+    dl.onclick = function(){
+      var blob = new Blob([buildIcs(t1.value || '07:00', t2.value || '18:00')], { type: 'text/calendar' });
+      var link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = 'seasons-reminders.ics';
+      document.body.appendChild(link); link.click(); document.body.removeChild(link);
+    };
+    row.appendChild(dl); tools.appendChild(row);
+    var tip = el('div', null, 'Open the downloaded file and choose Add All to put the repeating reminders in your calendar.');
+    tip.style.cssText = 'font-size:11.5px;color:var(--ink-faint);margin-top:6px'; tools.appendChild(tip);
+    m.appendChild(tools);
+  }
+
+  /* ---------- Season review (13 weeks) ---------- */
+  var seIdx = null;
+  function renderSeason(){
+    var m = document.getElementById('season-mount'); if(!m) return;
+    if(seIdx == null) seIdx = seasonIndexForWeek(nowWeek);
+    var S = SEASONS[seIdx], w0 = 13 * seIdx + 1, p = load(), a = all();
+    var start = new Date(weekStartDate(w0)); start.setHours(0, 0, 0, 0);
+    var end = new Date(start); end.setDate(end.getDate() + 90);
+    var sIso = ptFmtDate(start), eIso = ptFmtDate(end), todayIso = ptFmtDate(new Date());
+    var lastIso = todayIso < eIso ? todayIso : eIso, elapsed = lastIso < sIso ? 0 : Math.round((new Date(lastIso + 'T00:00:00') - start) / 86400000) + 1;
+    function inR(ts){ var d = ptFmtDate(new Date(ts)); return d >= sIso && d <= eIso; }
+    m.innerHTML = '';
+    var chips = el('div', 'stage-quick');
+    SEASONS.forEach(function(x, i){ var b = el('button', i === seIdx ? 'active' : '', x.name); b.type = 'button'; b.onclick = function(){ seIdx = i; renderSeason(); }; chips.appendChild(b); });
+    m.appendChild(chips);
+    var intro = el('div', null, S.name + ' · ' + S.stage + ' · ' + short(sIso) + ' to ' + short(eIso)); intro.style.cssText = 'font-size:13px;margin:8px 0 2px'; m.appendChild(intro);
+    if(S.piece){ var pc = el('div', null, S.piece); pc.style.cssText = 'font-size:12px;color:var(--ink-faint)'; m.appendChild(pc); }
+    if(elapsed === 0){ m.appendChild(el('div', 'empty-note', 'This season has not started yet.')); }
+    var ss = ssData(), weeks = [], k;
+    for(k = 0; k < 13; k++) weeks.push(w0 + k);
+    var read = weeks.filter(function(w){ return completedWeeks.indexOf(w) >= 0; }).length;
+    var vt = 0, nt = 0; weeks.forEach(function(w){ var t = (ss.ticks || {})[w] || {}; vt += ['reveal','reframe','respond'].filter(function(x){ return t[x]; }).length; if(((ss.notes || {})[w] || '').trim()) nt++; });
+    head(m, 'Spirit');
+    line(m, 'Weeks read', read + ' of 13'); line(m, 'Verses ticked', vt + ' of 39'); line(m, 'Weekly reflections written', String(nt));
+    var j = loadEntries().filter(function(e){ return inR(e.ts); }), l = loadLearningEntries().filter(function(e){ return inR(e.ts); });
+    var days = {}; j.concat(l).forEach(function(e){ days[ptFmtDate(new Date(e.ts))] = 1; });
+    head(m, 'Soul');
+    line(m, 'Journal entries', String(j.length)); line(m, 'Learning notes', String(l.length)); line(m, 'Days with a note', String(Object.keys(days).length) + (elapsed ? ' of ' + elapsed : ''));
+    head(m, 'Practices (days ticked so far)');
+    if(!p.list.length) line(m, 'None set up yet', '');
+    p.list.forEach(function(x){
+      var n = Object.keys(p.log).filter(function(d){ return d >= sIso && d <= eIso && p.log[d].indexOf(x.id) >= 0; }).length;
+      line(m, x.name + ' (' + x.group + ')', n + (elapsed ? ' of ' + elapsed + ' (' + Math.round(100 * n / elapsed) + '%)' : ''));
+    });
+    head(m, 'Body');
+    var pt = 0; if(ptState) Object.keys(ptState.logs).forEach(function(d){ if(d >= sIso && d <= eIso && ptState.logs[d].complete) pt++; });
+    var cs = (a.__cal && a.__cal.done) || {}, cal = 0;
+    Object.keys(cs).forEach(function(d){ if(d >= sIso && d <= eIso && Object.keys(cs[d]).some(function(q){ return Array.isArray(cs[d][q]) && cs[d][q].some(function(v){ return v > 0; }); })) cal++; });
+    line(m, 'Training program sessions', String(pt)); line(m, 'Calisthenics sessions', String(cal));
+    var M = ((a.__cal && a.__cal.meas) || []).filter(function(r){ return r.d >= sIso && r.d <= eIso; }).sort(function(x, y){ return x.d < y.d ? -1 : 1; });
+    if(M.length > 1){
+      var f = M[0], z = M[M.length - 1], ch = [];
+      [['weight','Weight'],['waist','Waist'],['chest','Chest'],['arm','Arm'],['thigh','Thigh']].forEach(function(x){ if(f[x[0]] != null && z[x[0]] != null){ var dv = Math.round((z[x[0]] - f[x[0]]) * 10) / 10; ch.push(x[1] + ' ' + (dv > 0 ? '+' : '') + dv); } });
+      if(ch.length) line(m, 'Measurements', ch.join(', '));
+    }
+    head(m, 'My reflection');
+    var key = 's' + seIdx, rv = (p.reviews || {})[key] || {}, nextS = SEASONS[(seIdx + 1) % 4];
+    [['grew', 'What grew in me this season?'], ['hard', 'What was hard, and what did it teach me?'], ['carry', 'What do I carry into ' + nextS.name + ' (' + nextS.stage + ')?']].forEach(function(f){
+      var lb = el('div', null, f[1]); lb.style.cssText = 'font-size:12px;color:var(--ink-faint);margin:6px 0 2px'; m.appendChild(lb);
+      var ta = el('textarea', 'journal-input'); ta.style.minHeight = '60px'; ta.value = rv[f[0]] || ''; ta.setAttribute('aria-label', f[1]);
+      ta.addEventListener('input', function(){ var d = load(); d.reviews = d.reviews || {}; d.reviews[key] = d.reviews[key] || {}; d.reviews[key][f[0]] = ta.value; save(d); });
+      m.appendChild(ta);
+    });
+  }
+
+  /* ---------- Calendar reminders (.ics) ---------- */
+  function p2(n){ return n < 10 ? '0' + n : '' + n; }
+  function stamp(d){ return d.getFullYear() + p2(d.getMonth() + 1) + p2(d.getDate()) + 'T' + p2(d.getHours()) + p2(d.getMinutes()) + '00'; }
+  function buildIcs(tAm, tPm){
+    var DAY = { SU:0, MO:1, TU:2, WE:3, TH:4, FR:5, SA:6 };
+    var EV = [
+      ['Scripture: Reveal','MO',tAm],['Scripture: Reframe','WE',tAm],['Scripture: Respond','FR',tAm],
+      ['Daily practices','SU,MO,TU,WE,TH,FR,SA',tAm],
+      ['Calisthenics: Upper body','MO',tPm],['Calisthenics: Lower body','TU',tPm],['Calisthenics: Cardio (optional)','WE',tPm],['Calisthenics: Core','TH',tPm],['Calisthenics: Full body','SA',tPm],
+      ['Weekly review','SU',tPm]
+    ];
+    var now = new Date(), utc = now.getUTCFullYear() + p2(now.getUTCMonth() + 1) + p2(now.getUTCDate()) + 'T' + p2(now.getUTCHours()) + p2(now.getUTCMinutes()) + '00Z';
+    var out = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Seasons//Reminders//EN', 'CALSCALE:GREGORIAN'];
+    EV.forEach(function(e, n){
+      var days = e[1].split(','), hm = e[2].split(':'), d = new Date(now.getFullYear(), now.getMonth(), now.getDate(), Number(hm[0]), Number(hm[1]));
+      for(var k = 0; k < 8; k++){ if(days.some(function(x){ return DAY[x] === d.getDay(); }) && d >= now) break; d.setDate(d.getDate() + 1); }
+      var end = new Date(d.getTime() + 20 * 60000);
+      out.push('BEGIN:VEVENT', 'UID:seasons-' + n + '-' + e[0].replace(/\W+/g, '') + '@seasons.local', 'DTSTAMP:' + utc,
+        'DTSTART:' + stamp(d), 'DTEND:' + stamp(end), 'RRULE:FREQ=WEEKLY;BYDAY=' + e[1], 'SUMMARY:' + e[0],
+        'BEGIN:VALARM', 'TRIGGER:-PT0M', 'ACTION:DISPLAY', 'DESCRIPTION:' + e[0], 'END:VALARM', 'END:VEVENT');
+    });
+    out.push('END:VCALENDAR');
+    return out.join('\r\n');
+  }
+  window.SeasonsReminders = { ics: buildIcs };
+
+  /* ---------- Sections ---------- */
+  function mkSec(id, key, group, title, meta, mountId, afterId, sub){
+    if(document.getElementById(id)) return;
+    var ref = document.getElementById(afterId); if(!ref) return;
+    var sec = document.createElement('section');
+    sec.className = 'csec' + (sectionState[key] === true ? ' open' : '');
+    sec.id = id; sec.setAttribute('data-key', key); if(group) sec.setAttribute('data-group', group);
+    sec.innerHTML = '<button class="csec-head"><div class="csec-head-left"><span class="csec-title"></span><span class="csec-meta"></span></div><span class="csec-chevron">\u2304</span></button><div class="csec-body"><p class="csec-sub"></p><div></div></div>';
+    sec.querySelector('.csec-title').textContent = title; sec.querySelector('.csec-meta').textContent = meta;
+    sec.querySelector('.csec-sub').textContent = sub; sec.querySelector('.csec-body > div').id = mountId;
+    ref.parentNode.insertBefore(sec, ref.nextSibling);
+    sec.querySelector('.csec-head').onclick = function(){
+      var o = sec.classList.toggle('open'); sectionState[key] = o; LS.set(SECTION_STATE_KEY, JSON.stringify(sectionState));
+    };
+    if(group) sec.style.display = (LS.get('seasons-active-page') || 'spirit') === group ? '' : 'none';
+  }
+  function renderAll(){ renderGroup('spirit'); renderGroup('soul'); renderGroup('body'); renderReview(); renderSeason(); }
+
+  mkSec('sec-prac-spirit', 'prac-spirit', 'spirit', 'Practices', 'your spiritual disciplines', 'prac-spirit', 'sec-goals-spirit', 'Choose the disciplines you want to keep, set how many days a week, and tick them off daily.');
+  mkSec('sec-prac-soul', 'prac-soul', 'soul', 'Practices', 'your soul care', 'prac-soul', 'sec-goals-soul', 'Choose the habits that feed your mind and heart, set a weekly target, and tick them off daily.');
+  mkSec('sec-prac-body', 'prac-body', 'body', 'Practices', 'daily body habits', 'prac-body', 'sec-goals-body', 'Water, sleep, walking, stretching: the habits that make training work. Tick them off daily.');
+  mkSec('sec-review', 'review', null, 'Weekly review', 'Sunday to Saturday', 'rev-mount', 'today-card', 'Your week across Spirit, Soul and Body, with a preview of next week.');
+  mkSec('sec-season', 'season', null, 'Season review', 'look back over 13 weeks', 'season-mount', 'sec-review', 'See how a whole season went across Spirit, Soul and Body, and write what you carry forward.');
+  renderAll();
+  document.addEventListener('visibilitychange', function(){ if(!document.hidden) renderAll(); });
+
+  /* ---------- Offline ---------- */
+  if('serviceWorker' in navigator && /^https:/.test(location.protocol)){
+    navigator.serviceWorker.register('sw.js').catch(function(){});
+  }
+})();
+
+ window.__SU.ok.push('Practices, weekly review, season review, reminders, offline');
+}catch(e){ window.__SU.fail.push(['Practices, weekly review, season review, reminders, offline', String(e && e.message || e)]); if(window.console) console.error('Practices, weekly review, season review, reminders, offline', e); }
+
+/* ===== scripture-soul-extras-upgrade.js ===== */
+try{
+/* Seasons: Scripture + Soul extras, display and privacy add-on.
+   Scripture: memory mode (hide words), favourite verses, search across themes, verses and your reflections.
+   Soul: "looking back" (a week, a month, a season, a year ago), search across journal, learning notes and reflections, journal PIN lock.
+   Display: light / dark / automatic, larger text, and an "upgrades loaded" check.
+   Verse favourites and memory counts are saved inside seasons-verse-cache (already in Export).
+   Display choices and the PIN are stored on this device only and are not exported. */
+(function(){
+  var CK = 'seasons-verse-cache', UIK = 'seasons-ui', PINK = 'seasons-pin';
+  function el(tag, cls, text){ var x = document.createElement(tag); if(cls) x.className = cls; if(text != null) x.textContent = text; return x; }
+  function esc(s){ return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  function jget(k, d){ try{ var v = JSON.parse(LS.get(k) || 'null'); return v == null ? d : v; }catch(e){ return d; } }
+  function ssRead(){ var c = jget(CK, {}); var d = c.__ss || {}; d.ticks = d.ticks || {}; d.notes = d.notes || {}; d.fav = d.fav || {}; d.mem = d.mem || {}; return d; }
+  function ssWrite(d){ var c = jget(CK, {}); c.__ss = d; LS.set(CK, JSON.stringify(c)); }
+  function fmtDay(ts){ return new Date(ts).toLocaleDateString(undefined, { month:'short', day:'numeric', year:'numeric' }); }
+  function snip(text, q){
+    text = String(text || '').replace(/\s+/g, ' ');
+    var i = q ? text.toLowerCase().indexOf(q.toLowerCase()) : -1, a = Math.max(0, i - 40), part = text.slice(a, a + 130);
+    var h = esc(part);
+    if(i >= 0){ var rel = i - a; h = esc(part.slice(0, rel)) + '<mark>' + esc(part.slice(rel, rel + q.length)) + '</mark>' + esc(part.slice(rel + q.length)); }
+    return (a > 0 ? '…' : '') + h + (a + 130 < text.length ? '…' : '');
+  }
+
+  /* ---------- styles ---------- */
+  var css = el('style');
+  css.textContent =
+    'html[data-theme="dark"]{color-scheme:dark;--paper:#16150F;--paper-raised:#212017;--ink:#ECE8DA;--ink-soft:#B9B5A5;--ink-faint:#85826F;--line:#38362B;--shadow:0 1px 2px rgba(0,0,0,.4);' +
+      '--autumn:#C9955E;--autumn-bg:#3B2E1F;--autumn-ink:#EBD4B4;--winter:#5BB8CE;--winter-bg:#1D3F47;--winter-ink:#C2E6EE;--spring:#6FB07F;--spring-bg:#223A2B;--spring-ink:#CBE6D1;--summer:#E26A60;--summer-bg:#4B2522;--summer-ink:#F2C8C3;--accent:#E26A60;--accent-ink:#F4B8B2}' +
+    'html[data-theme="dark"] .page-switch{background:rgba(33,32,23,.92)}' +
+    'mark{background:var(--spring-bg);color:var(--spring-ink);border-radius:3px;padding:0 2px}' +
+    '.x-btn{font-family:"IBM Plex Mono",monospace;font-size:10.5px;border:1px solid var(--line);border-radius:7px;background:var(--paper-raised);color:var(--ink-soft);padding:7px 9px;cursor:pointer}' +
+    '.x-btn.on{background:var(--ink);color:var(--paper);border-color:var(--ink)}' +
+    '.x-row{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:8px}' +
+    '.x-in{border:1px solid var(--line);border-radius:9px;padding:9px 12px;font-size:13px;background:var(--paper-raised);color:var(--ink);width:100%}' +
+    '.x-hit{display:block;width:100%;text-align:left;border:1px solid var(--line);border-radius:9px;background:var(--paper-raised);color:var(--ink);padding:9px 11px;margin-top:6px;cursor:pointer;font:inherit}' +
+    '.x-hit small{display:block;color:var(--ink-faint);font:10.5px "IBM Plex Mono",monospace;margin-bottom:2px}' +
+    '.x-mem{margin:6px 0 4px;padding:10px 12px;border-radius:10px;background:var(--paper-raised);border:1px solid var(--line)}' +
+    '.x-mem .t{font-family:"Fraunces",serif;font-size:16px;line-height:1.75;margin:4px 0 8px}' +
+    '.x-star{background:none;border:none;font-size:17px;cursor:pointer;color:var(--ink-faint);padding:0 4px}.x-star.on{color:var(--accent)}' +
+    '.x-lock{padding:14px;border:1px dashed var(--ink-faint);border-radius:10px;text-align:center;font-size:13px;color:var(--ink-soft)}';
+  document.head.appendChild(css);
+
+  /* ---------- display: theme and text size ---------- */
+  function ui(){ var u = jget(UIK, {}); return { theme: u.theme || 'auto', size: u.size || 0 }; }
+  function applyUI(){
+    var u = ui(), dark = u.theme === 'dark' || (u.theme === 'auto' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+    document.body.style.zoom = [1, 1.12, 1.25][u.size] || 1;
+  }
+  function setUI(k, v){ var u = ui(); u[k] = v; LS.set(UIK, JSON.stringify(u)); applyUI(); renderSettings(); }
+  try{ window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyUI); }catch(e){}
+  applyUI();
+
+  /* ---------- journal PIN lock (hides entries on screen; it is not encryption) ---------- */
+  var unlockedUntil = 0, SALT_LEN = 8;
+  function pinRec(){ return jget(PINK, null); }
+  function locked(){ return !!pinRec() && Date.now() > unlockedUntil; }
+  function sha(str){
+    if(window.crypto && crypto.subtle && window.TextEncoder){
+      return crypto.subtle.digest('SHA-256', new TextEncoder().encode(str)).then(function(b){ return Array.prototype.map.call(new Uint8Array(b), function(x){ return ('0' + x.toString(16)).slice(-2); }).join(''); });
+    }
+    var h = 5381; for(var i = 0; i < str.length; i++) h = ((h << 5) + h + str.charCodeAt(i)) | 0;
+    return Promise.resolve('x' + h);
+  }
+  function newSalt(){ return Math.random().toString(36).slice(2, 2 + SALT_LEN); }
+  function checkPin(pin){ var r = pinRec(); if(!r) return Promise.resolve(true); return sha(r.salt + pin).then(function(h){ return h === r.hash; }); }
+  function setPin(pin){ var salt = newSalt(); return sha(salt + pin).then(function(h){ LS.set(PINK, JSON.stringify({ salt:salt, hash:h })); }); }
+  function refreshLockViews(){ try{ renderEntries(); renderSoulOverview(); renderSoulSearch(); renderSettings(); }catch(e){} }
+  function lockNow(){ unlockedUntil = 0; refreshLockViews(); }
+  document.addEventListener('visibilitychange', function(){ if(document.hidden && pinRec()){ unlockedUntil = 0; } else if(!document.hidden){ refreshLockViews(); } });
+
+  var origEntries = renderEntries;
+  renderEntries = function(){
+    origEntries();
+    var flt = document.getElementById('journal-filter');
+    if(flt) flt.disabled = locked();
+    if(!locked()) return;
+    var m = document.getElementById('entries'); if(!m) return;
+    m.innerHTML = '';
+    var box = el('div', 'x-lock'); box.appendChild(el('div', null, 'Your journal is locked. Enter your PIN to read past entries. You can still write new ones above.'));
+    var row = el('div', 'x-row'); row.style.justifyContent = 'center';
+    var inp = el('input', 'x-in'); inp.type = 'password'; inp.inputMode = 'numeric'; inp.placeholder = 'PIN'; inp.autocomplete = 'off'; inp.style.width = '140px'; inp.setAttribute('aria-label', 'Journal PIN');
+    var go = el('button', 'x-btn on', 'Unlock'); go.type = 'button';
+    var msg = el('div', null, ''); msg.style.cssText = 'font-size:12px;margin-top:6px;color:var(--accent)';
+    function tryIt(){ checkPin(inp.value).then(function(ok){ if(ok){ unlockedUntil = Date.now() + 5 * 60000; refreshLockViews(); } else { msg.textContent = 'That PIN did not match.'; inp.value = ''; } }); }
+    go.onclick = tryIt; inp.addEventListener('keydown', function(e){ if(e.key === 'Enter') tryIt(); });
+    row.appendChild(inp); row.appendChild(go); box.appendChild(row); box.appendChild(msg); m.appendChild(box);
+  };
+
+  /* ---------- Soul overview: looking back ---------- */
+  function soulItems(){
+    var out = [];
+    if(!locked()) loadEntries().forEach(function(e){ out.push({ ts:e.ts, kind:'Journal', text:e.text }); });
+    loadLearningEntries().forEach(function(e){ out.push({ ts:e.ts, kind:'Learning', text:(e.takeaway || '') + (e.action ? ' → ' + e.action : ''), src:e.source }); });
+    return out.sort(function(a, b){ return b.ts - a.ts; });
+  }
+  var origSoul = renderSoulOverview;
+  renderSoulOverview = function(){
+    origSoul();
+    var mount = document.getElementById('soul-overview'); if(!mount) return;
+    if(locked()){
+      Array.prototype.forEach.call(mount.querySelectorAll('.entry-meta'), function(m){
+        if(m.textContent === 'Latest journal entry' && m.nextElementSibling) m.nextElementSibling.textContent = '🔒 Locked';
+      });
+    }
+    var items = soulItems(), now = new Date(); now.setHours(12, 0, 0, 0);
+    var spans = [[7, 'A week ago'], [30, 'A month ago'], [91, 'A season ago'], [365, 'A year ago']], found = [];
+    spans.forEach(function(sp){
+      var d = new Date(now); d.setDate(d.getDate() - sp[0]); var key = d.toDateString();
+      var hit = items.filter(function(i){ return new Date(i.ts).toDateString() === key; })[0];
+      if(hit) found.push([sp[1], hit]);
+    });
+    if(!found.length){
+      var older = items.filter(function(i){ return now - i.ts > 14 * 86400000; });
+      if(older.length){ var seed = Number(String(now.getFullYear()) + now.getMonth() + now.getDate()); found.push(['From earlier', older[seed % older.length]]); }
+    }
+    if(!found.length) return;
+    var box = el('div'); box.style.cssText = 'margin-top:12px;padding-top:10px;border-top:1px solid var(--line)';
+    box.appendChild(el('div', 'entry-meta', 'Looking back'));
+    found.forEach(function(f){
+      var r = el('div'); r.style.cssText = 'font-size:13px;margin-top:6px;line-height:1.5';
+      var b = el('b', null, f[0] + ' (' + fmtDay(f[1].ts) + ', ' + f[1].kind.toLowerCase() + '): '); r.appendChild(b);
+      var t = f[1].text.replace(/\s+/g, ' '); r.appendChild(document.createTextNode(t.slice(0, 160) + (t.length > 160 ? '…' : '')));
+      box.appendChild(r);
+    });
+    mount.appendChild(box);
+  };
+
+  /* ---------- Section builder ---------- */
+  function mkSec(id, key, group, title, meta, sub, beforeNode, afterId){
+    if(document.getElementById(id)) return document.getElementById(id + '-mount');
+    var sec = document.createElement('section');
+    sec.className = 'csec' + (sectionState[key] === true ? ' open' : ''); sec.id = id; sec.setAttribute('data-key', key);
+    if(group) sec.setAttribute('data-group', group);
+    sec.innerHTML = '<button class="csec-head"><div class="csec-head-left"><span class="csec-title"></span><span class="csec-meta"></span></div><span class="csec-chevron">⌄</span></button><div class="csec-body"><p class="csec-sub"></p><div></div></div>';
+    sec.querySelector('.csec-title').textContent = title; sec.querySelector('.csec-meta').textContent = meta; sec.querySelector('.csec-sub').textContent = sub;
+    var mount = sec.querySelector('.csec-body > div'); mount.id = id + '-mount';
+    if(afterId){ var ref = document.getElementById(afterId); if(!ref) return null; ref.parentNode.insertBefore(sec, ref.nextSibling); }
+    else if(beforeNode){ beforeNode.parentNode.insertBefore(sec, beforeNode); }
+    else return null;
+    sec.querySelector('.csec-head').onclick = function(){ var o = sec.classList.toggle('open'); sectionState[key] = o; LS.set(SECTION_STATE_KEY, JSON.stringify(sectionState)); };
+    if(group) sec.style.display = (LS.get('seasons-active-page') || 'spirit') === group ? '' : 'none';
+    return mount;
+  }
+
+  /* ---------- Scripture: favourites + memory mode inside each week ---------- */
+  function wordsOf(text){ return String(text || '').split(/\s+/).filter(Boolean); }
+  function maskText(text, lvl){
+    var ws = wordsOf(text);
+    return ws.map(function(w, i){
+      var m = w.match(/^([^A-Za-z0-9]*)([A-Za-z0-9'’\-]+)(.*)$/); if(!m) return w;
+      var core = m[2], hide = lvl === 1 ? (i % 4 === 2) : lvl === 2 ? (i % 2 === 1) : lvl === 3 ? true : lvl === 4;
+      if(!hide) return w;
+      if(lvl === 3) return m[1] + core.charAt(0) + ' _' + m[3];
+      return m[1] + new Array(Math.min(core.length, 9) + 1).join('_') + m[3];
+    }).join(' ');
+  }
+  function addVerseTools(mount){
+    var rows = mount.querySelectorAll('.wd-verse'), d = ssRead();
+    Array.prototype.forEach.call(rows, function(row){
+      var head = row.querySelector('.wd-verse-head'), rb = row.querySelector('.verse-show-btn'); if(!head || !rb) return;
+      var ref = rb.getAttribute('data-ref');
+      var star = el('button', 'x-star' + (d.fav[ref] ? ' on' : ''), d.fav[ref] ? '★' : '☆'); star.type = 'button';
+      star.setAttribute('aria-label', (d.fav[ref] ? 'Remove favourite ' : 'Favourite ') + ref);
+      star.onclick = function(){ var x = ssRead(); if(x.fav[ref]) delete x.fav[ref]; else x.fav[ref] = { ts:Date.now() }; ssWrite(x); star.classList.toggle('on', !!x.fav[ref]); star.textContent = x.fav[ref] ? '★' : '☆'; renderSearch(); };
+      var mb = el('button', 'verse-show-btn', 'Memorise'); mb.type = 'button'; mb.style.marginLeft = '4px';
+      var panel = null;
+      mb.onclick = function(){
+        if(panel){ panel.remove(); panel = null; mb.textContent = 'Memorise'; return; }
+        mb.textContent = 'Close'; panel = el('div', 'x-mem'); row.appendChild(panel);
+        var lvl = (ssRead().mem[ref] || {}).lvl || 1, shown = false, text = null;
+        function draw(){
+          panel.innerHTML = '';
+          if(text == null){ panel.appendChild(el('div', null, 'Loading…')); return; }
+          var mem = ssRead().mem[ref] || {};
+          panel.appendChild(el('div', 'entry-meta', ref + ' · level ' + lvl + ' of 4' + (mem.n ? ' · recalled ' + mem.n + '×' : '')));
+          var t = el('div', 't', shown ? text : (lvl === 4 ? 'Say it from memory, then tap Reveal to check.' : maskText(text, lvl))); panel.appendChild(t);
+          var r = el('div', 'x-row');
+          [['Easier', function(){ lvl = Math.max(1, lvl - 1); shown = false; draw(); }], ['Harder', function(){ lvl = Math.min(4, lvl + 1); shown = false; draw(); }],
+           [shown ? 'Hide' : 'Reveal', function(){ shown = !shown; draw(); }],
+           ['I got it', function(){ var x = ssRead(), m = x.mem[ref] || { n:0 }; m.n++; m.last = Date.now(); m.lvl = lvl; x.mem[ref] = m; ssWrite(x); draw(); }]].forEach(function(b, i){
+            var bt = el('button', 'x-btn' + (i === 3 ? ' on' : ''), b[0]); bt.type = 'button'; bt.onclick = b[1]; r.appendChild(bt);
+          });
+          panel.appendChild(r);
+          var tip = el('div', null, 'Read it aloud, hide more words each time, and tap I got it when you can say it without looking.'); tip.style.cssText = 'font-size:11.5px;color:var(--ink-faint);margin-top:6px'; panel.appendChild(tip);
+        }
+        draw();
+        fetchVerseText(ref).then(function(tx){ text = tx; if(panel) draw(); }).catch(function(){ if(panel){ panel.innerHTML = ''; panel.appendChild(el('div', null, 'Could not load the verse. Connect once, or tap Save all verses offline.')); } });
+      };
+      head.appendChild(star); head.appendChild(mb);
+    });
+  }
+  var origWD = renderWeekDetail;
+  renderWeekDetail = function(){ origWD(); var m = document.getElementById('week-detail'); if(m) addVerseTools(m); };
+
+  /* ---------- Scripture: search + favourites section ---------- */
+  var SW = null, swQuery = '';
+  function jumpWeek(w){
+    setActivePage('spirit'); activeWeek = w; renderWeekDetail();
+    try{ renderWeekGrid(); }catch(e){}
+    var t = document.getElementById('week-detail'); if(t) t.scrollIntoView({ behavior:'smooth', block:'start' });
+  }
+  function firstWeekFor(ref){ var h = WEEKS.filter(function(w){ return w.r === ref || w.f === ref || w.s === ref; })[0]; return h ? h.w : null; }
+  function renderSearch(){
+    if(!SW) return;
+    var d = ssRead(), q = swQuery.trim(), out = SW.querySelector('.x-out'); out.innerHTML = '';
+    function hit(label, body, week){
+      var b = el('button', 'x-hit'); b.type = 'button'; var s = el('small', null, label); b.appendChild(s);
+      var t = el('div'); t.innerHTML = body; b.appendChild(t); if(week) b.onclick = function(){ jumpWeek(week); }; out.appendChild(b);
+    }
+    var cache = jget(CK, {});
+    if(q.length < 2){
+      var favs = Object.keys(d.fav).sort(function(a, b){ return d.fav[b].ts - d.fav[a].ts; });
+      var h = el('div', 'entry-meta', 'Favourite verses'); h.style.marginTop = '10px'; out.appendChild(h);
+      if(!favs.length) out.appendChild(el('div', 'empty-note', 'Tap the star next to any verse in Weekly scripture to keep it here.'));
+      favs.forEach(function(ref){ var w = firstWeekFor(ref); hit(ref + (w ? ' · week ' + w : ''), esc(cache[ref] || 'Tap to open this week.'), w); });
+      var learned = Object.keys(d.mem).filter(function(r){ return d.mem[r].n; });
+      if(learned.length){ var h2 = el('div', 'entry-meta', 'Verses you are memorising'); h2.style.marginTop = '14px'; out.appendChild(h2);
+        learned.sort(function(a, b){ return d.mem[b].last - d.mem[a].last; }).forEach(function(ref){ hit(ref + ' · recalled ' + d.mem[ref].n + '× · last ' + fmtDay(d.mem[ref].last), esc(cache[ref] || ''), firstWeekFor(ref)); }); }
+      return;
+    }
+    var ql = q.toLowerCase(), n = 0;
+    WEEKS.forEach(function(w){
+      if(n >= 30) return;
+      var inTitle = (w.t + ' ' + (w.g || '')).toLowerCase().indexOf(ql) >= 0, inRef = [w.r, w.f, w.s].some(function(r){ return r.toLowerCase().indexOf(ql) >= 0; });
+      var note = (d.notes[w.w] || ''), inNote = note.toLowerCase().indexOf(ql) >= 0;
+      if(inTitle || inRef){ n++; hit('Week ' + w.w, '<b>' + snip(w.t, q) + '</b><br>' + [w.r, w.f, w.s].map(function(r){ return snip(r, q); }).join(' · '), w.w); }
+      else if(inNote){ n++; hit('Week ' + w.w + ' · my reflection', snip(note, q), w.w); }
+    });
+    var seen = {};
+    Object.keys(cache).forEach(function(k){
+      if(k === '__ss' || n >= 30 || typeof cache[k] !== 'string') return;
+      var ref = k.replace(/\|web$/, '');
+      if(seen[ref] || cache[k].toLowerCase().indexOf(ql) < 0) return; seen[ref] = 1;
+      n++; var w = firstWeekFor(ref); hit(ref + (w ? ' · week ' + w : ''), snip(cache[k], q), w);
+    });
+    if(!n) out.appendChild(el('div', 'empty-note', 'Nothing found. Verse text is searchable only for verses you have opened or saved offline.'));
+  }
+  function buildScriptureSec(){
+    var m = mkSec('sec-xsearch', 'xsearch', 'spirit', 'Verse search and favourites', 'find, keep, memorise', 'Search themes, references, verse words and your own reflections. Starred verses and the ones you are memorising are listed here.', null, 'sec-weekly');
+    if(!m || SW) return;
+    SW = m; var inp = el('input', 'x-in'); inp.type = 'search'; inp.placeholder = 'Search scripture…'; inp.setAttribute('aria-label', 'Search scripture');
+    inp.addEventListener('input', function(){ swQuery = inp.value; renderSearch(); });
+    m.appendChild(inp); m.appendChild(el('div', 'x-out'));
+  }
+
+  /* ---------- Soul: search across everything ---------- */
+  var SO = null, soQuery = '';
+  function renderSoulSearch(){
+    if(!SO) return;
+    var out = SO.querySelector('.x-out'), q = soQuery.trim(), ql = q.toLowerCase(); out.innerHTML = '';
+    if(q.length < 2){ out.appendChild(el('div', 'empty-note', 'Type two or more letters to search your journal, learning notes and weekly reflections.')); return; }
+    var items = [];
+    if(!locked()) loadEntries().forEach(function(e){ items.push({ ts:e.ts, label:'Journal', text:e.text }); });
+    loadLearningEntries().forEach(function(e){ items.push({ ts:e.ts, label:'Learning · ' + (e.source || ''), text:[e.source, e.takeaway, e.action].join(' — ') }); });
+    var notes = ssRead().notes;
+    Object.keys(notes).forEach(function(w){ var wk = Number(w); if(notes[w]) items.push({ ts:new Date(weekStartDate(wk)).getTime(), label:'Scripture reflection · week ' + w, text:notes[w] }); });
+    var hits = items.filter(function(i){ return String(i.text || '').toLowerCase().indexOf(ql) >= 0; }).sort(function(a, b){ return b.ts - a.ts; });
+    if(locked()) out.appendChild(el('div', 'x-lock', 'The journal is locked, so journal entries are left out of these results.'));
+    if(!hits.length){ out.appendChild(el('div', 'empty-note', 'Nothing found.')); return; }
+    out.appendChild(el('div', 'entry-meta', hits.length + ' result' + (hits.length === 1 ? '' : 's')));
+    hits.slice(0, 40).forEach(function(h){
+      var b = el('div', 'x-hit'); b.appendChild(el('small', null, fmtDay(h.ts) + ' · ' + h.label));
+      var t = el('div'); t.innerHTML = snip(h.text, q); b.appendChild(t); out.appendChild(b);
+    });
+  }
+  function buildSoulSec(){
+    var m = mkSec('sec-xsoul', 'xsoul', 'soul', 'Search my notes', 'journal, learning, reflections', 'One search across everything you have written in Soul and in your weekly scripture reflections.', null, 'sec-notes');
+    if(!m || SO) return;
+    SO = m; var inp = el('input', 'x-in'); inp.type = 'search'; inp.placeholder = 'Search everything I wrote…'; inp.setAttribute('aria-label', 'Search notes');
+    inp.addEventListener('input', function(){ soQuery = inp.value; renderSoulSearch(); });
+    m.appendChild(inp); m.appendChild(el('div', 'x-out')); renderSoulSearch();
+  }
+
+  /* ---------- Settings: display, privacy, status ---------- */
+  var ST = null;
+  function chip(label, on, fn){ var b = el('button', 'x-btn' + (on ? ' on' : ''), label); b.type = 'button'; b.onclick = fn; return b; }
+  function label(t){ var d = el('div', 'entry-meta', t); d.style.marginTop = '14px'; return d; }
+  function renderSettings(){
+    if(!ST) return;
+    var u = ui(), r = pinRec(); ST.innerHTML = '';
+    ST.appendChild(label('Appearance'));
+    var row = el('div', 'x-row');
+    [['auto', 'Automatic'], ['light', 'Light'], ['dark', 'Dark']].forEach(function(o){ row.appendChild(chip(o[1], u.theme === o[0], function(){ setUI('theme', o[0]); })); });
+    ST.appendChild(row);
+    ST.appendChild(label('Text size'));
+    var r2 = el('div', 'x-row');
+    [['Standard', 0], ['Larger', 1], ['Largest', 2]].forEach(function(o){ r2.appendChild(chip(o[0], u.size === o[1], function(){ setUI('size', o[1]); })); });
+    ST.appendChild(r2);
+    ST.appendChild(label('Journal lock'));
+    var note = el('div', null, r ? 'A PIN is set. Past journal entries are hidden until you enter it, and they relock when you leave the app.' : 'Optional. Set a PIN to hide past journal entries on this device.');
+    note.style.cssText = 'font-size:12.5px;color:var(--ink-soft)'; ST.appendChild(note);
+    var pr = el('div', 'x-row');
+    var p1 = el('input', 'x-in'); p1.type = 'password'; p1.inputMode = 'numeric'; p1.autocomplete = 'off'; p1.placeholder = r ? 'Current PIN' : 'New PIN (4 to 8 digits)'; p1.style.width = '180px'; p1.setAttribute('aria-label', r ? 'Current PIN' : 'New PIN');
+    pr.appendChild(p1);
+    var p2 = null;
+    if(r){ p2 = el('input', 'x-in'); p2.type = 'password'; p2.inputMode = 'numeric'; p2.autocomplete = 'off'; p2.placeholder = 'New PIN (to change)'; p2.style.width = '180px'; p2.setAttribute('aria-label', 'New PIN'); pr.appendChild(p2); }
+    ST.appendChild(pr);
+    var msg = el('div', null, ''); msg.style.cssText = 'font-size:12px;margin-top:6px;color:var(--accent)';
+    var br = el('div', 'x-row');
+    function valid(p){ return /^\d{4,8}$/.test(p); }
+    if(!r){
+      br.appendChild(chip('Set PIN', true, function(){ if(!valid(p1.value)){ msg.textContent = 'Use 4 to 8 digits.'; return; } setPin(p1.value).then(function(){ unlockedUntil = Date.now() + 5 * 60000; refreshLockViews(); }); }));
+    } else {
+      br.appendChild(chip('Change PIN', false, function(){ checkPin(p1.value).then(function(ok){ if(!ok){ msg.textContent = 'Current PIN is wrong.'; return; } if(!valid(p2.value)){ msg.textContent = 'New PIN must be 4 to 8 digits.'; return; } setPin(p2.value).then(function(){ msg.style.color = 'var(--ink-soft)'; msg.textContent = 'PIN changed.'; p1.value = p2.value = ''; }); }); }));
+      br.appendChild(chip('Remove PIN', false, function(){ checkPin(p1.value).then(function(ok){ if(!ok){ msg.textContent = 'Enter your current PIN to remove it.'; return; } LS.remove(PINK); unlockedUntil = 0; refreshLockViews(); }); }));
+      br.appendChild(chip('Lock now', false, lockNow));
+    }
+    ST.appendChild(br); ST.appendChild(msg);
+    var hn = el('div', null, 'The PIN hides entries on screen. It does not encrypt them: exported backups and the browser’s own storage still hold the text. If you forget it, remove it by clearing this site’s data (this erases your entries too, so export first).');
+    hn.style.cssText = 'font-size:11.5px;color:var(--ink-faint);margin-top:6px'; ST.appendChild(hn);
+    ST.appendChild(label('Upgrades loaded'));
+    var su = window.__SU, list = el('div'); list.style.cssText = 'font-size:12.5px;line-height:1.7';
+    if(su){
+      su.ok.forEach(function(n){ list.appendChild(el('div', null, '✓ ' + n)); });
+      su.fail.forEach(function(f){ var d = el('div', null, '✗ ' + f[0] + ': ' + f[1]); d.style.color = 'var(--accent)'; list.appendChild(d); });
+    } else list.appendChild(el('div', null, '✓ Scripture and Soul extras (loaded as a separate file)'));
+    ST.appendChild(list);
+    var off = el('div', null, 'Offline: checking…'); off.style.cssText = 'font-size:12.5px;margin-top:4px'; ST.appendChild(off);
+    if(!('serviceWorker' in navigator)) off.textContent = 'Offline: not supported in this browser.';
+    else if(!/^https:/.test(location.protocol) && location.hostname !== 'localhost') off.textContent = 'Offline: needs the hosted https page.';
+    else navigator.serviceWorker.getRegistration().then(function(g){ off.textContent = g ? (g.active ? '✓ Offline helper active' : 'Offline helper installing… reopen once while online') : 'Offline helper not found. Upload sw.js next to index.html.'; }).catch(function(){ off.textContent = 'Offline: could not check.'; });
+  }
+  function buildSettings(){
+    var tuck = document.querySelector('.foot-tuck'); if(!tuck) return;
+    var m = mkSec('sec-xset', 'xset', null, 'Display and privacy', 'theme, text size, journal lock', 'Preferences for this device. They are not part of Export.', tuck);
+    if(!m || ST) return; ST = m; renderSettings();
+  }
+
+  /* Page tidy-up: each page's overview card and coordinate callout belonged to every page. Show them only on their own page. */
+  var OWN = { 'spirit-overview':'spirit', 'soul-overview':'soul', 'coord-callout-soul':'soul', 'body-overview':'body', 'coord-callout-body':'body' };
+  var origPage = setActivePage;
+  setActivePage = function(page){
+    origPage(page);
+    Object.keys(OWN).forEach(function(id){ var e = document.getElementById(id); if(e) e.style.display = OWN[id] === page ? '' : 'none'; });
+  };
+  setActivePage(LS.get('seasons-active-page') || 'spirit');
+
+  buildScriptureSec(); buildSoulSec(); buildSettings();
+  renderSearch(); renderEntries(); renderSoulOverview(); renderWeekDetail();
+})();
+
+ window.__SU.ok.push('Scripture and Soul extras, dark mode, journal lock');
+}catch(e){ window.__SU.fail.push(['Scripture and Soul extras, dark mode, journal lock', String(e && e.message || e)]); if(window.console) console.error('Scripture and Soul extras, dark mode, journal lock', e); }
+
 </script>
 </body>
 </html>
