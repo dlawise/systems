@@ -2439,7 +2439,7 @@ const EXPORT_KEY_GROUPS = {
 const LAST_BACKUP_KEY = 'seasons-last-backup';
 async function exportData(scope){
   const keys = scope === 'all'
-    ? ['seasons-completed-weeks','seasons-journal-entries','seasons-domain-tasks','seasons-share-bg-photo','seasons-section-state','seasons-verse-cache','seasons-learning-entries','seasons-pt-state','seasons-active-page','seasons-goals','rc_v1']
+    ? ['seasons-completed-weeks','seasons-journal-entries','seasons-domain-tasks','seasons-share-bg-photo','seasons-section-state','seasons-verse-cache','seasons-learning-entries','seasons-pt-state','seasons-active-page','seasons-goals','rc_v1','seasons-profile']
     : (EXPORT_KEY_GROUPS[scope] || []);
   const data = {};
   keys.forEach(k=>{ const v = LS.get(k); if(v!==null) data[k]=v; });
@@ -4912,8 +4912,8 @@ var tags = function (s) { return String(s || '').split(/[,#]+/).map(function (x)
 function load() {
   var o = null; try { o = JSON.parse(localStorage.getItem(KEY)); } catch (e) {}
   S = Object.assign({ books: [], vocab: [], cards: [], trash: [], goal: 12, daily: 20, theme: 'auto', timer: null,
-    reader: { text: '', title: '', size: 19, lh: 1.7, font: 'serif', bg: 'paper', focus: true, rate: 1, pos: 0 } }, o || {});
-  S.reader = Object.assign({ text: '', title: '', size: 19, lh: 1.7, font: 'serif', bg: 'paper', focus: true, rate: 1, pos: 0 }, S.reader || {});
+    reader: { text: '', title: '', size: 20, lh: 1.75, font: 'serif', bg: 'paper', focus: true, rate: 1, pos: 0 } }, o || {});
+  S.reader = Object.assign({ text: '', title: '', size: 20, lh: 1.75, font: 'serif', bg: 'paper', focus: true, rate: 1, pos: 0 }, S.reader || {});
   S.books.forEach(function (b) { b.sessions = b.sessions || []; b.notes = b.notes || []; b.cast = b.cast || []; b.events = b.events || []; });
   purgeTrash();
 }
@@ -4971,7 +4971,7 @@ function noteBlock(b, n, mode) {
       '<input name="chapter" placeholder="Chapter / page" value="' + esc(n.chapter) + '"></div><textarea name="text" rows="4" required>' + esc(n.text) + '</textarea>' +
       '<input name="tags" placeholder="Tags, comma separated" value="' + esc((n.tags || []).join(', ')) + '"><button class="rc-btn">Save changes</button><button type="button" class="rc-btn rc-ghost" data-act="canceledit">Cancel</button></form>';
   }
-  var body = '<span class="rc-tag">' + n.type + '</span>' + (mode === 'all' ? '<b>' + esc(b.title) + '</b>' : '') + (n.chapter ? ' <span class="rc-muted rc-sm">' + esc(n.chapter) + '</span>' : '') + (n.edited ? ' <span class="rc-muted rc-sm">(edited)</span>' : '') + '<div>' + esc(n.text) + '</div>' +
+  var body = '<span class="rc-tag">' + n.type + '</span>' + (mode === 'all' ? '<b>' + esc(b.title) + '</b>' : '') + (n.chapter ? ' <span class="rc-muted rc-sm">' + esc(n.chapter) + '</span>' : '') + (n.edited ? ' <span class="rc-muted rc-sm">(edited)</span>' : '') + '<div class="rc-nt rc-nt-' + esc(n.type) + '">' + esc(n.text) + '</div>' +
     (n.tags || []).map(function (t) { return '<span class="rc-tag">#' + esc(t) + '</span>'; }).join('') +
     '<div><button type="button" class="rc-chip" data-act="editnote" data-b="' + b.id + '" data-id="' + n.id + '">Edit</button>' +
     (mode === 'book' ? '<button type="button" class="rc-chip" data-act="note2card" data-id="' + n.id + '">→ quiz card</button>' : '') +
@@ -5045,6 +5045,22 @@ var CSS = '.rc{--rc-bg:#faf8f4;--rc-fg:#222;--rc-card:#fff;--rc-muted:#777;--rc-
   '.rc .rc-rd.rc-dark{background:#1b1b1f;color:#d8d6d0}.rc .rc-rd.rc-night{background:#000;color:#b9b6ae}' +
   '.rc .rc-rd p{margin:0 0 1em;padding:2px 6px;border-radius:6px;cursor:pointer}.rc .rc-rd.rc-focus p{opacity:.38}.rc .rc-rd.rc-focus p.rc-on{opacity:1;background:rgba(122,79,214,.16)}' +
   '.rc .rc-rd:not(.rc-focus) p.rc-on{background:rgba(122,79,214,.12)}';
+
+/* ---------- typography ---------- */
+var FH = "'Fraunces',Georgia,'Times New Roman',serif", FB = "'Inter',-apple-system,system-ui,'Segoe UI',sans-serif", FM = "'IBM Plex Mono',ui-monospace,Menlo,monospace", FQ = "'Cormorant Garamond',Georgia,serif";
+CSS += '.rc{font-family:' + FB + ';font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased}' +
+  '.rc h2,.rc h3,.rc h4{font-family:' + FH + ';font-weight:500;letter-spacing:-.01em;line-height:1.25}.rc h2{font-size:1.45rem}.rc h3{font-size:1.15rem;margin:0 0 10px}' +
+  '.rc nav button{font-size:.9rem;font-weight:500}.rc .rc-btn,.rc .rc-chip{font-size:.88rem;font-weight:500}' +
+  '.rc .rc-bt b{font-family:' + FH + ';font-size:1.12rem;font-weight:500;line-height:1.25}.rc .rc-bt span{font-size:.85rem}' +
+  '.rc .rc-tag{font-family:' + FM + ';font-size:.68rem;letter-spacing:.02em;border-radius:8px;padding:2px 8px}' +
+  '.rc .rc-stat b{font-family:' + FH + ';font-weight:500;font-size:1.7rem;line-height:1.2}.rc .rc-stat{font-size:.8rem;color:var(--rc-muted)}' +
+  '.rc .rc-timer{font-family:' + FM + ';font-weight:500;font-size:2.4rem;letter-spacing:.02em}' +
+  '.rc .rc-flash{font-family:' + FH + ';font-size:1.45rem;line-height:1.35}' +
+  '.rc .rc-nt{margin:6px 0 4px;line-height:1.6;white-space:pre-wrap}' +
+  '.rc .rc-nt-quote{font-family:' + FQ + ';font-style:italic;font-weight:500;font-size:1.3rem;line-height:1.38;border-left:2px solid var(--rc-acc);padding-left:12px;margin:8px 0 6px}' +
+  '.rc .rc-sm{font-size:.82rem}.rc input,.rc select,.rc textarea{font-family:inherit}' +
+  '.rc .rc-rd h3{text-align:center;font-size:1.3em;margin:.2em 0 1em}' +
+  '.rc .rc-rd p{max-width:34em;margin-left:auto;margin-right:auto;hyphens:auto;-webkit-hyphens:auto;text-wrap:pretty}';
 
 CSS += '.rc-toast{position:fixed;left:50%;bottom:calc(88px + env(safe-area-inset-bottom));transform:translate(-50%,16px);opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;background:var(--ink,#222);color:var(--paper,#fff);padding:11px 14px;border-radius:12px;display:flex;gap:16px;align-items:center;z-index:100000;font:14px/1.3 -apple-system,system-ui,sans-serif;max-width:92vw;box-shadow:0 6px 24px rgba(0,0,0,.25)}' +
   '.rc-toast.rc-show{opacity:1;transform:translate(-50%,0);pointer-events:auto}.rc-toast button{background:none;border:0;color:inherit;font:inherit;font-weight:600;text-decoration:underline;cursor:pointer;padding:6px 4px}' +
@@ -5202,9 +5218,9 @@ function vReader() {
   if (!r.text) return '<form data-form="readerText" class="rc-card"><h3>Reader mode</h3><p class="rc-muted">Paste text you own or that is in the public domain (for example from Project Gutenberg), or open a .txt file.</p>' +
     '<input name="title" placeholder="Title (optional)"><textarea name="text" rows="8" placeholder="Paste text here…"></textarea><div class="rc-row"><input type="file" accept=".txt,text/plain" data-change="readerfile"><button class="rc-btn">Open</button></div></form>';
   ui.paras = getParas();
-  var fonts = { serif: 'Georgia,serif', sans: '-apple-system,system-ui,sans-serif', mono: 'ui-monospace,Menlo,monospace' };
+  var fonts = { serif: "'Fraunces',Georgia,serif", classic: "'Cormorant Garamond',Georgia,serif", sans: "'Inter',-apple-system,system-ui,sans-serif", mono: "'IBM Plex Mono',ui-monospace,Menlo,monospace" };
   var opt = function (k, v, l, cur) { return '<option value="' + v + '"' + (cur === v ? ' selected' : '') + '>' + l + '</option>'; };
-  var h = '<div class="rc-card"><div class="rc-row"><select data-change="rfont">' + opt(0, 'serif', 'Serif', r.font) + opt(0, 'sans', 'Sans', r.font) + opt(0, 'mono', 'Mono', r.font) + '</select>' +
+  var h = '<div class="rc-card"><div class="rc-row"><select data-change="rfont">' + opt(0, 'serif', 'Serif', r.font) + opt(0, 'classic', 'Classic', r.font) + opt(0, 'sans', 'Sans', r.font) + opt(0, 'mono', 'Mono', r.font) + '</select>' +
     '<select data-change="rbg">' + opt(0, 'paper', 'Paper', r.bg) + opt(0, 'sepia', 'Sepia', r.bg) + opt(0, 'dark', 'Dark', r.bg) + opt(0, 'night', 'Night', r.bg) + '</select></div>' +
     '<label class="rc-muted rc-sm">Text size</label><input type="range" min="14" max="34" value="' + r.size + '" data-change="rsize"><label class="rc-muted rc-sm">Line spacing</label><input type="range" min="1.3" max="2.3" step="0.1" value="' + r.lh + '" data-change="rlh">' +
     '<button type="button" class="rc-chip' + (r.focus ? ' rc-on' : '') + '" data-act="rfocus">Focus line</button>' +
@@ -5215,7 +5231,7 @@ function vReader() {
     '<select id="rc-qbook"><option value="">Save as quote in…</option>' + S.books.map(function (b) { return '<option value="' + b.id + '">' + esc(b.title) + '</option>'; }).join('') + '</select>' +
     '<button type="button" class="rc-chip" data-act="rdsaveq" data-keepsel="1">Save selection as quote</button>' +
     '<button type="button" class="rc-chip" data-act="rdclear">Close text</button></div>';
-  h += '<div class="rc-rd rc-' + r.bg + (r.focus ? ' rc-focus' : '') + '" id="rc-rd" style="font-family:' + fonts[r.font] + ';font-size:' + r.size + 'px;line-height:' + r.lh + '">' +
+  h += '<div class="rc-rd rc-' + r.bg + (r.focus ? ' rc-focus' : '') + '" id="rc-rd" lang="en" style="font-family:' + (fonts[r.font] || fonts.serif) + ';font-size:' + Math.round(r.size * (r.font === 'classic' ? 1.12 : 1)) + 'px;line-height:' + r.lh + '">' +
     (r.title ? '<h3>' + esc(r.title) + '</h3>' : '') + ui.paras.map(function (p, i) { return '<p data-i="' + i + '"' + (i === r.pos ? ' class="rc-on"' : '') + '>' + esc(p) + '</p>'; }).join('') + '</div>';
   return h;
 }
@@ -5462,7 +5478,7 @@ global.ReadingCompanion = { mount: mount, unmount: unmount };
   var css = document.createElement('style');
   css.textContent =
     '#sec-reading .rc{--rc-bg:var(--paper);--rc-fg:var(--ink);--rc-card:var(--paper-raised);--rc-muted:var(--ink-faint);--rc-acc:var(--ink);--rc-line:var(--line);--rc-on:var(--paper);' +
-    'font:inherit;line-height:1.45;color:var(--ink);background:transparent;padding:0;max-width:none;margin:0;border-radius:0}' +
+    'font-family:inherit;font-size:15px;line-height:1.55;color:var(--ink);background:transparent;padding:0;max-width:none;margin:0;border-radius:0}' +
     '#sec-reading .rc>.rc-title{display:none}' +
     '#sec-reading .rc h3{font-family:"Fraunces",serif;font-weight:500}' +
     '#sec-reading .rc .rc-card{background:var(--paper-raised)}';
@@ -5489,6 +5505,226 @@ global.ReadingCompanion = { mount: mount, unmount: unmount };
 
  window.__SU.ok.push('Reading: library, timer, notes, review, words, reader, stats, next');
 }catch(e){ window.__SU.fail.push(['Reading: library, timer, notes, review, words, reader, stats, next', String(e && e.message || e)]); if(window.console) console.error('Reading', e); }
+
+/* ===== profile-fx-upgrade.js ===== */
+/* Seasons: "About me" Dashboard card + seasonal ambient effect.
+   PASTE this whole block at the very END of your second script block, after the Reading add-on, on the line before that block closes.
+   1. Dashboard gets an "About me" card: photo, name, tagline, bio, values, current focus. Edit it in place, copy or share it as text.
+      Your name also appears in the greeting ("Good morning, Name").
+   2. A soft seasonal effect over the whole app: falling leaves (Autumn), snow (Winter), blossom petals (Spring), light motes (Summer).
+      Choose Off / Subtle / Lively in "Display and privacy". It pauses when the tab is hidden and is off if your device asks for reduced motion.
+   Stored in 'seasons-profile' (included in Export all) and 'seasons-fx' (a per-device preference, not exported). */
+window.__SU = window.__SU || { ok:[], fail:[] };
+try{
+(function(){
+  var PK = 'seasons-profile', FK = 'seasons-fx';
+  function $(id){ return document.getElementById(id); }
+  function esc(s){ return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+  function jget(k, d){ try{ var v = JSON.parse(LS.get(k) || 'null'); return v == null ? d : v; }catch(e){ return d; } }
+  function toast(t){ try{ var x = document.createElement('div'); x.className = 'rc-toast'; x.textContent = t; document.body.appendChild(x);
+    requestAnimationFrame(function(){ x.classList.add('rc-show'); }); setTimeout(function(){ x.classList.remove('rc-show'); setTimeout(function(){ x.remove(); }, 400); }, 2200); }catch(e){} }
+
+  /* export: profile travels with "Export all" and with the Soul export */
+  try{ if(EXPORT_KEY_GROUPS.soul.indexOf(PK) < 0) EXPORT_KEY_GROUPS.soul.push(PK); }catch(e){}
+
+  /* ================= PROFILE ================= */
+  var P = jget(PK, {});            /* {name, tagline, bio, values, focus, photo} */
+  var editing = false;
+  var today = $('sec-dash-today'); if(!today) throw new Error('Dashboard not found');
+
+  var sec = document.createElement('section');
+  sec.className = 'csec' + (sectionState['dash-profile'] === false ? '' : ' open');
+  sec.id = 'sec-dash-profile'; sec.setAttribute('data-key', 'dash-profile'); sec.setAttribute('data-group', 'home');
+  sec.innerHTML = '<button class="csec-head"><div class="csec-head-left"><span class="csec-title">About me</span><span class="csec-meta"></span></div><span class="csec-chevron">⌄</span></button><div class="csec-body"><div id="dash-profile" class="pf"></div></div>';
+  sec.querySelector('.csec-head').onclick = function(){ var o = sec.classList.toggle('open'); sectionState['dash-profile'] = o; LS.set(SECTION_STATE_KEY, JSON.stringify(sectionState)); };
+  today.parentNode.insertBefore(sec, today.nextSibling);
+  var mount = sec.querySelector('#dash-profile'), meta = sec.querySelector('.csec-meta');
+  if((LS.get('seasons-active-page') || 'spirit') !== 'home') sec.style.display = 'none';
+
+  var CSS = '' +
+  '.pf{padding-top:2px}' +
+  '.pf-top{display:flex;gap:14px;align-items:center}' +
+  '.pf-av{flex:0 0 72px;width:72px;height:72px;border-radius:50%;background:var(--pc-home,var(--accent));color:var(--paper);display:flex;align-items:center;justify-content:center;font-family:"Fraunces",Georgia,serif;font-size:30px;overflow:hidden;box-shadow:0 0 0 3px var(--paper-raised),0 0 0 4px var(--line)}' +
+  '.pf-av img{width:100%;height:100%;object-fit:cover;display:block}' +
+  '.pf-name{font-family:"Fraunces",Georgia,serif;font-size:1.3rem;line-height:1.15;color:var(--ink);margin:0}' +
+  '.pf-tag{margin:.2rem 0 0;color:var(--ink-soft);font-size:.92rem}' +
+  '.pf-bio{margin:.9rem 0 0;color:var(--ink);line-height:1.6;white-space:pre-wrap;font-size:.97rem}' +
+  '.pf-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:.8rem}' +
+  '.pf-chip{padding:3px 11px;border-radius:999px;background:var(--paper);border:1px solid var(--line);color:var(--ink-soft);font-size:.82rem}' +
+  '.pf-focus{margin-top:.9rem;padding:.7rem .85rem;border-left:3px solid var(--pc-home,var(--accent));background:var(--paper);border-radius:0 10px 10px 0;font-size:.92rem;color:var(--ink)}' +
+  '.pf-focus b{display:block;font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint);font-weight:600;margin-bottom:2px}' +
+  '.pf-act{display:flex;flex-wrap:wrap;gap:8px;margin-top:1rem}' +
+  '.pf button.pf-b{font:inherit;font-size:.88rem;padding:7px 14px;border-radius:10px;border:1px solid var(--line);background:var(--paper);color:var(--ink);cursor:pointer}' +
+  '.pf button.pf-b.pri{background:var(--ink);color:var(--paper);border-color:var(--ink)}' +
+  '.pf label{display:block;font-size:.74rem;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-faint);margin:.8rem 0 .25rem}' +
+  '.pf input[type=text],.pf textarea{width:100%;box-sizing:border-box;font:inherit;font-size:16px;padding:9px 11px;border-radius:10px;border:1px solid var(--line);background:var(--paper);color:var(--ink)}' +
+  '.pf textarea{min-height:110px;resize:vertical;line-height:1.5}' +
+  '.pf-empty{color:var(--ink-soft);margin:.2rem 0 0;line-height:1.5}' +
+  '.fx-row{margin-top:.2rem}' +
+  '#fx-canvas{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:35}';
+  var st = document.createElement('style'); st.textContent = CSS; document.head.appendChild(st);
+
+  function initial(){ var n = (P.name || '').trim(); return n ? n.charAt(0).toUpperCase() : '✦'; }
+  function valuesOf(){ return (P.values || '').split(',').map(function(s){ return s.trim(); }).filter(Boolean).slice(0, 8); }
+  function plain(){
+    var o = [];
+    if(P.name) o.push(P.name); if(P.tagline) o.push(P.tagline);
+    if(P.bio) o.push('', P.bio);
+    var v = valuesOf(); if(v.length) o.push('', 'Values: ' + v.join(', '));
+    if(P.focus) o.push('Focus: ' + P.focus);
+    return o.join('\n');
+  }
+  function render(){
+    var has = P.name || P.tagline || P.bio || P.focus || P.photo || valuesOf().length;
+    meta.textContent = P.name ? P.name : 'your story';
+    if(editing){
+      mount.innerHTML =
+        '<div class="pf-top"><div class="pf-av" id="pf-prev">' + (P.photo ? '<img alt="" src="' + esc(P.photo) + '">' : esc(initial())) + '</div>' +
+        '<div class="pf-act" style="margin:0"><button class="pf-b" data-pf="photo">Choose photo</button>' + (P.photo ? '<button class="pf-b" data-pf="nophoto">Remove</button>' : '') + '</div></div>' +
+        '<input type="file" accept="image/*" id="pf-file" style="display:none">' +
+        '<label for="pf-name">Name</label><input type="text" id="pf-name" maxlength="60" value="' + esc(P.name) + '">' +
+        '<label for="pf-tag">One line about you</label><input type="text" id="pf-tag" maxlength="100" value="' + esc(P.tagline) + '" placeholder="e.g. Builder, reader, father">' +
+        '<label for="pf-bio">Bio</label><textarea id="pf-bio" maxlength="1500" placeholder="Who you are, what you are building, what matters to you">' + esc(P.bio) + '</textarea>' +
+        '<label for="pf-val">Values (comma separated)</label><input type="text" id="pf-val" maxlength="160" value="' + esc(P.values) + '" placeholder="Faith, Discipline, Family">' +
+        '<label for="pf-foc">Focus right now</label><input type="text" id="pf-foc" maxlength="140" value="' + esc(P.focus) + '" placeholder="What this season is about for you">' +
+        '<div class="pf-act"><button class="pf-b pri" data-pf="save">Save</button><button class="pf-b" data-pf="cancel">Cancel</button></div>';
+      return;
+    }
+    if(!has){
+      mount.innerHTML = '<p class="pf-empty">Add a short bio, your values and what you are focused on, so your Dashboard opens on who you are and not only on what is due.</p><div class="pf-act"><button class="pf-b pri" data-pf="edit">Write my profile</button></div>';
+      return;
+    }
+    var v = valuesOf();
+    mount.innerHTML =
+      '<div class="pf-top"><div class="pf-av">' + (P.photo ? '<img alt="" src="' + esc(P.photo) + '">' : esc(initial())) + '</div><div>' +
+      (P.name ? '<h3 class="pf-name">' + esc(P.name) + '</h3>' : '') + (P.tagline ? '<p class="pf-tag">' + esc(P.tagline) + '</p>' : '') + '</div></div>' +
+      (P.bio ? '<p class="pf-bio">' + esc(P.bio) + '</p>' : '') +
+      (v.length ? '<div class="pf-chips">' + v.map(function(x){ return '<span class="pf-chip">' + esc(x) + '</span>'; }).join('') + '</div>' : '') +
+      (P.focus ? '<div class="pf-focus"><b>Focus right now</b>' + esc(P.focus) + '</div>' : '') +
+      '<div class="pf-act"><button class="pf-b" data-pf="edit">Edit</button><button class="pf-b" data-pf="copy">Copy as text</button>' + (navigator.share ? '<button class="pf-b" data-pf="share">Share</button>' : '') + '</div>';
+  }
+  function save(){ LS.set(PK, JSON.stringify(P)); }
+  function shrink(file, cb){
+    var r = new FileReader();
+    r.onload = function(){ var im = new Image(); im.onload = function(){
+      var s = 240, c = document.createElement('canvas'), w = im.width, h = im.height, m = Math.min(w, h);
+      c.width = c.height = s; c.getContext('2d').drawImage(im, (w - m) / 2, (h - m) / 2, m, m, 0, 0, s, s);
+      cb(c.toDataURL('image/jpeg', 0.82)); };
+      im.onerror = function(){ toast('That image could not be read'); }; im.src = r.result; };
+    r.readAsDataURL(file);
+  }
+  function grab(){ P.name = $('pf-name').value.trim(); P.tagline = $('pf-tag').value.trim(); P.bio = $('pf-bio').value.trim(); P.values = $('pf-val').value.trim(); P.focus = $('pf-foc').value.trim(); }
+  mount.addEventListener('click', function(e){
+    var b = e.target.closest && e.target.closest('[data-pf]'); if(!b) return;
+    var a = b.getAttribute('data-pf');
+    if(a === 'edit'){ editing = true; render(); }
+    else if(a === 'cancel'){ P = jget(PK, {}); editing = false; render(); }
+    else if(a === 'save'){ grab(); save(); editing = false; render(); greetName(); toast('Profile saved'); }
+    else if(a === 'photo'){ $('pf-file').click(); }
+    else if(a === 'nophoto'){ grab(); P.photo = ''; render(); }
+    else if(a === 'copy'){ var t = plain(); try{ navigator.clipboard.writeText(t).then(function(){ toast('Copied'); }, function(){ toast('Copy not allowed here'); }); }catch(err){ toast('Copy not allowed here'); } }
+    else if(a === 'share'){ try{ navigator.share({ title: P.name || 'About me', text: plain() }); }catch(err){} }
+  });
+  mount.addEventListener('change', function(e){
+    if(e.target.id !== 'pf-file' || !e.target.files[0]) return;
+    shrink(e.target.files[0], function(d){ grab(); P.photo = d; render(); });
+  });
+  render();
+
+  /* greeting with your name (life-ui rewrites the banner on every page change, so watch it) */
+  function greetName(){
+    var h = document.querySelector('#life-banner .life-bt h2'), n = (P.name || '').trim().split(/\s+/)[0];
+    if(!h || !n || document.body.getAttribute('data-page') !== 'home') return;
+    if(/^Good (morning|afternoon|evening)$/.test(h.textContent)) h.textContent = h.textContent + ', ' + n;
+  }
+  var bn = $('life-banner');
+  if(bn) new MutationObserver(function(){ greetName(); }).observe(bn, { childList:true, subtree:true });
+  greetName();
+
+  /* keep the card hidden off the Dashboard page, as the other Dashboard cards are */
+  var prev = setActivePage;
+  setActivePage = function(page){ prev(page); sec.style.display = page === 'home' ? '' : 'none'; };
+  setActivePage(LS.get(PAGE_KEY) || 'spirit');
+
+  /* ================= SEASONAL EFFECT ================= */
+  var reduce = false; try{ reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches; }catch(e){}
+  var mode = LS.get(FK) || 'subtle';                       /* off | subtle | lively */
+  var cv = document.createElement('canvas'); cv.id = 'fx-canvas'; cv.setAttribute('aria-hidden', 'true'); document.body.appendChild(cv);
+  var cx = cv.getContext('2d'), W = 0, H = 0, dpr = 1, ps = [], raf = 0, last = 0;
+  var KINDS = {
+    autumn: { cols:['#B5651D','#C8842B','#A8412B','#D9A441'], g:[16,34], vy:[22,46], sway:1.2, rot:1, shape:'leaf' },
+    winter: { cols:['#FFFFFF','#DCE8F5','#C7D8EC'], g:[2.5,5.5], vy:[14,34], sway:.6, rot:0, shape:'dot' },
+    spring: { cols:['#F2B6C9','#F7D1DC','#E79AB4','#FAE3EA'], g:[7,13], vy:[16,34], sway:1, rot:1, shape:'petal' },
+    summer: { cols:['#F5D76E','#FFE9A0','#FFF3C4'], g:[2,4.5], vy:[-14,-34], sway:.8, rot:0, shape:'glow' }
+  };
+  function seasonKey(){ try{ return SEASONS[seasonIndexForWeek(nowWeek)].key; }catch(e){ return 'autumn'; } }
+  function count(){ var a = Math.min(1, (W * H) / (390 * 800)); return Math.round((mode === 'lively' ? 46 : 18) * Math.max(.7, a)); }
+  function rnd(a, b){ return a + Math.random() * (b - a); }
+  function spawn(k, initial){
+    var K = KINDS[k], up = K.vy[0] < 0;
+    return { x:rnd(0, W), y: initial ? rnd(0, H) : (up ? H + 20 : -20), s:rnd(K.g[0], K.g[1]), vy:rnd(Math.abs(K.vy[0]), Math.abs(K.vy[1])) * (up ? -1 : 1),
+      ph:rnd(0, 6.28), sw:rnd(.5, 1.4) * K.sway, r:rnd(0, 6.28), vr:K.rot ? rnd(-1.2, 1.2) : 0, c:K.cols[(Math.random() * K.cols.length) | 0], a:rnd(.35, .75) };
+  }
+  function size(){ dpr = Math.min(2, window.devicePixelRatio || 1); W = window.innerWidth; H = window.innerHeight; cv.width = W * dpr; cv.height = H * dpr; cx.setTransform(dpr, 0, 0, dpr, 0, 0); }
+  function draw(p, shape){
+    cx.save(); cx.globalAlpha = p.a * (mode === 'lively' ? .95 : .55); cx.translate(p.x, p.y); cx.rotate(p.r); cx.fillStyle = p.c;
+    if(shape === 'leaf'){ cx.beginPath(); cx.moveTo(0, -p.s / 2); cx.quadraticCurveTo(p.s / 2, 0, 0, p.s / 2); cx.quadraticCurveTo(-p.s / 2, 0, 0, -p.s / 2); cx.fill(); cx.strokeStyle = 'rgba(0,0,0,.18)'; cx.lineWidth = .8; cx.beginPath(); cx.moveTo(0, -p.s / 2); cx.lineTo(0, p.s / 2); cx.stroke(); }
+    else if(shape === 'petal'){ cx.beginPath(); cx.ellipse(0, 0, p.s / 2.2, p.s / 1.4, 0, 0, 6.283); cx.fill(); }
+    else if(shape === 'glow'){ var g = cx.createRadialGradient(0, 0, 0, 0, 0, p.s * 2.2); g.addColorStop(0, p.c); g.addColorStop(1, 'rgba(255,230,140,0)'); cx.fillStyle = g; cx.beginPath(); cx.arc(0, 0, p.s * 2.2, 0, 6.283); cx.fill(); }
+    else { cx.beginPath(); cx.arc(0, 0, p.s, 0, 6.283); cx.fill(); }
+    cx.restore();
+  }
+  function frame(t){
+    raf = 0; if(mode === 'off' || document.hidden) return;
+    var dt = Math.min(.05, (t - last) / 1000 || .016); last = t;
+    var k = seasonKey(), K = KINDS[k];
+    cx.clearRect(0, 0, W, H);
+    for(var i = 0; i < ps.length; i++){
+      var p = ps[i]; p.y += p.vy * dt; p.ph += dt * p.sw; p.x += Math.sin(p.ph) * 18 * p.sw * dt; p.r += p.vr * dt;
+      if(p.y > H + 24 || p.y < -30 || p.x < -30 || p.x > W + 30){ ps[i] = spawn(k, false); if(ps[i].x < 0) ps[i].x = 0; }
+      else draw(p, K.shape);
+    }
+    raf = requestAnimationFrame(frame);
+  }
+  function start(){
+    if(raf) cancelAnimationFrame(raf); raf = 0;
+    mode = LS.get(FK) || 'subtle';
+    cx.clearRect(0, 0, W, H);
+    if(mode === 'off' || reduce) { cv.style.display = 'none'; return; }
+    cv.style.display = ''; size(); var k = seasonKey(), n = count(); ps = [];
+    for(var i = 0; i < n; i++) ps.push(spawn(k, true));
+    last = performance.now(); raf = requestAnimationFrame(frame);
+  }
+  window.addEventListener('resize', function(){ if(mode !== 'off' && !reduce) start(); });
+  document.addEventListener('visibilitychange', function(){ if(!document.hidden && mode !== 'off' && !reduce && !raf){ last = performance.now(); raf = requestAnimationFrame(frame); } });
+  start();
+
+  /* the setting, inside "Display and privacy" (that card rebuilds itself, so re-attach when it does) */
+  var xm = $('sec-xset-mount');
+  function attachSetting(){
+    if(!xm || xm.querySelector('#fx-set')) return;
+    var w = document.createElement('div'); w.id = 'fx-set';
+    var lab = document.createElement('div'); lab.className = 'entry-meta'; lab.style.marginTop = '14px'; lab.textContent = 'Seasonal effect'; w.appendChild(lab);
+    var row = document.createElement('div'); row.className = 'x-row';
+    [['off', 'Off'], ['subtle', 'Subtle'], ['lively', 'Lively']].forEach(function(o){
+      var b = document.createElement('button'); b.type = 'button'; b.textContent = o[1];
+      var on = (LS.get(FK) || 'subtle') === o[0]; b.className = 'x-btn' + (on ? ' on' : '');
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+      b.onclick = function(){ LS.set(FK, o[0]); start(); Array.prototype.forEach.call(row.children, function(c){ c.classList.remove('on'); c.setAttribute('aria-pressed', 'false'); });
+        b.classList.add('on'); b.setAttribute('aria-pressed', 'true'); };
+      row.appendChild(b);
+    });
+    w.appendChild(row);
+    var hint = document.createElement('div'); hint.style.cssText = 'font-size:.78rem;color:var(--ink-faint);margin-top:.35rem'; hint.textContent = 'Leaves in Autumn, snow in Winter, blossom in Spring, light in Summer. Follows the current season.'; w.appendChild(hint);
+    xm.appendChild(w);
+  }
+  if(xm){ attachSetting(); new MutationObserver(function(){ attachSetting(); }).observe(xm, { childList:true }); }
+
+  window.__SU_fx = { restart:start, season:seasonKey };
+})();
+
+ window.__SU.ok.push('About me card, seasonal effect');
+}catch(e){ window.__SU.fail.push(['About me card, seasonal effect', String(e && e.message || e)]); if(window.console) console.error('About me / effect', e); }
 
 </script>
 </body>
