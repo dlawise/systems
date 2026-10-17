@@ -2439,7 +2439,7 @@ const EXPORT_KEY_GROUPS = {
 const LAST_BACKUP_KEY = 'seasons-last-backup';
 async function exportData(scope){
   const keys = scope === 'all'
-    ? ['seasons-completed-weeks','seasons-journal-entries','seasons-domain-tasks','seasons-share-bg-photo','seasons-section-state','seasons-verse-cache','seasons-learning-entries','seasons-pt-state','seasons-active-page','seasons-goals']
+    ? ['seasons-completed-weeks','seasons-journal-entries','seasons-domain-tasks','seasons-share-bg-photo','seasons-section-state','seasons-verse-cache','seasons-learning-entries','seasons-pt-state','seasons-active-page','seasons-goals','rc_v1']
     : (EXPORT_KEY_GROUPS[scope] || []);
   const data = {};
   keys.forEach(k=>{ const v = LS.get(k); if(v!==null) data[k]=v; });
@@ -4188,6 +4188,1007 @@ try{
 
  window.__SU.ok.push('Scripture and Soul extras, dark mode, journal lock');
 }catch(e){ window.__SU.fail.push(['Scripture and Soul extras, dark mode, journal lock', String(e && e.message || e)]); if(window.console) console.error('Scripture and Soul extras, dark mode, journal lock', e); }
+
+/* ===== dashboard-upgrade.js ===== */
+/* Seasons: Dashboard add-on.
+   PASTE this whole block at the very END of your second script block, on the line just before that block closes
+   (after the "Scripture and Soul extras" block). It can also live in its own script tag above the closing body tag.
+   Adds a "Dashboard" page (first tab, sidebar on Mac, tab bar on iPhone) that pulls Spirit, Soul and Body together:
+   Today checklist (tick practices right here), Shortcuts, Needs attention (overdue, behind pace, backup),
+   This week, Streaks, Season progress, Last 4 weeks activity, Goals.
+   It only READS your existing data (practices, calisthenics, scripture ticks, journal, goals, training log).
+   The only things it writes are the ones you tick on it: a practice, a goal, or a domain task.
+   Nothing new is added to Export. */
+window.__SU = window.__SU || { ok:[], fail:[] };
+try{
+(function(){
+  var KEY = 'seasons-goals', CK = 'seasons-verse-cache', INTRO = 'seasons-dash-intro';
+  var DUE = { 1:'reveal', 3:'reframe', 5:'respond' };                 /* scripture rhythm: Mon / Wed / Fri */
+  var DOW = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  var CALS = { 1:'Upper', 2:'Lower', 3:'Cardio', 4:'Core', 6:'Full body' }, CAL_OPT = { 3:1 };
+  var PAGES = { spirit:'Spirit', soul:'Soul', body:'Body' };
+  var PILLAR_COLOR = { spirit:'var(--ink)', soul:'var(--ink-soft)', body:'var(--accent-ink)' };
+
+  /* ---------- tiny helpers ---------- */
+  function $(id){ return document.getElementById(id); }
+  function esc(s){ return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+  function jget(k, d){ try{ var v = JSON.parse(LS.get(k) || 'null'); return v == null ? d : v; }catch(e){ return d; } }
+  function cap(s){ return s.charAt(0).toUpperCase() + s.slice(1); }
+  function addDays(d, n){ var x = new Date(d + 'T12:00:00'); x.setDate(x.getDate() + n); return ptFmtDate(x); }
+  function shortDay(d){ return new Date(d + 'T12:00:00').toLocaleDateString(undefined, { weekday:'short' }); }
+  function hasWork(day){
+    if(!day) return false;
+    return Object.keys(day).some(function(k){ var v = day[k]; return Array.isArray(v) ? v.some(function(x){ return x > 0; }) : v > 0; });
+  }
+  function allGoals(){ return jget(KEY, {}); }
+  function prac(){ var s = allGoals().__prac || {}; s.list = s.list || []; s.log = s.log || {}; return s; }
+  function calData(){ return allGoals().__cal || {}; }
+  function ssData(){ var d = (jget(CK, {}).__ss) || {}; d.ticks = d.ticks || {}; return d; }
+  function weekDates(){
+    var sun = mostRecentSunday(new Date()), out = [];
+    for(var i = 0; i < 7; i++){ var d = new Date(sun); d.setDate(d.getDate() + i); out.push(ptFmtDate(d)); }
+    return out;
+  }
+
+  /* ---------- one snapshot of everything, per render ---------- */
+  function ctx(){
+    var now = new Date(), c = { now:now, ts:ptFmtDate(now), dow:now.getDay(), wk:weekDates(), P:prac(), C:calData(), S:ssData(), entryDates:{}, gOf:{} };
+    c.ticks = (c.S.ticks || {})[nowWeek] || {};
+    var entries = loadEntries().concat(loadLearningEntries());
+    c.entries = entries;
+    entries.forEach(function(e){ c.entryDates[ptFmtDate(new Date(e.ts))] = 1; });
+    c.P.list.forEach(function(p){ c.gOf[p.id] = p.group; });
+    return c;
+  }
+  function ticked(c, d, group){ return (c.P.log[d] || []).some(function(id){ return c.gOf[id] === group; }); }
+  function ptDone(d){ return !!(ptState && ptState.logs && ptState.logs[d] && ptState.logs[d].complete); }
+  function active(c, d, pillar){
+    if(pillar === 'spirit') return ticked(c, d, 'spirit');
+    if(pillar === 'soul') return !!c.entryDates[d] || ticked(c, d, 'soul');
+    return ptDone(d) || hasWork(c.C.done && c.C.done[d]) || ticked(c, d, 'body');
+  }
+  function streakDays(c, pillar){
+    var d = c.ts, n = 0;
+    if(!active(c, d, pillar)) d = addDays(d, -1);
+    while(n < 400 && active(c, d, pillar)){ n++; d = addDays(d, -1); }
+    return n;
+  }
+  function pracStreak(c, id){
+    var d = c.ts, n = 0;
+    if((c.P.log[d] || []).indexOf(id) < 0) d = addDays(d, -1);
+    while(n < 400 && (c.P.log[d] || []).indexOf(id) >= 0){ n++; d = addDays(d, -1); }
+    return n;
+  }
+  function pracWeekCount(c, p){ return c.wk.filter(function(d){ return (c.P.log[d] || []).indexOf(p.id) >= 0; }).length; }
+  function ptEnabled(){ return !!(ptState && typeof ptDayTypeForDate === 'function' && ptDayIndexFor(ptFmtDate(new Date())) >= 0); }
+  function ptKind(d){ var t = ptDayTypeForDate(d); return (t === 'A' || t === 'B' || t === 'C') ? t : null; }
+  function calOn(c){ return !!(c.C.start && !c.C.paused); }
+
+  /* ---------- styles ---------- */
+  var css = document.createElement('style');
+  css.textContent =
+    '[data-group="home"]{--grp:var(--ink)}' +
+    '.d-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--line)}' +
+    '.d-row:first-child{border-top:none}' +
+    '.d-chk{flex:0 0 28px;height:28px;border-radius:50%;border:2px solid var(--ink-faint);background:none;color:var(--paper);font:600 13px system-ui,sans-serif;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0}' +
+    '.d-chk.on{background:var(--ink);border-color:var(--ink)}' +
+    '.d-dot{flex:0 0 28px;display:flex;justify-content:center}' +
+    '.d-dot i{width:12px;height:12px;border-radius:50%;border:2px solid var(--ink-faint);display:block}' +
+    '.d-dot i.on{background:var(--ink);border-color:var(--ink)}.d-dot i.opt{border-style:dashed}' +
+    '.d-flag{flex:0 0 28px;display:flex;justify-content:center}.d-flag i{width:10px;height:10px;border-radius:50%;display:block;background:var(--ink-faint)}' +
+    '.d-flag i.s0{background:var(--accent)}.d-flag i.s1{background:var(--ink-soft)}' +
+    '.d-main{flex:1;min-width:0}.d-main b{font-weight:500;font-size:13.5px;display:block;line-height:1.4}' +
+    '.d-main small{display:block;font-size:11.5px;color:var(--ink-faint);line-height:1.4}.d-main em{font:normal 10px "IBM Plex Mono",monospace;color:var(--ink-faint);margin-left:4px}' +
+    '.d-go{font:10.5px "IBM Plex Mono",monospace;border:1px solid var(--line);border-radius:7px;background:var(--paper-raised);color:var(--ink-soft);padding:7px 10px;cursor:pointer;white-space:nowrap}' +
+    '.d-go.pri{background:var(--ink);color:var(--paper);border-color:var(--ink)}' +
+    '.d-sum{display:flex;justify-content:space-between;align-items:baseline;margin:2px 0 6px;font-size:13px}.d-sum span{font:11px "IBM Plex Mono",monospace;color:var(--ink-faint)}' +
+    '.d-bar{height:7px;border-radius:4px;background:var(--line);overflow:hidden}.d-bar i{display:block;height:100%;border-radius:4px;background:var(--c,var(--ink))}' +
+    '.d-pill{padding:10px 0;border-top:1px solid var(--line)}.d-pill:first-child{border-top:none;padding-top:2px}' +
+    '.d-pill-h{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px;font-size:13.5px}.d-pill-h span{font:11px "IBM Plex Mono",monospace;color:var(--ink-faint)}' +
+    '.d-sub{font-size:11.5px;color:var(--ink-faint);margin-top:5px;line-height:1.5}' +
+    '.d-chips{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}' +
+    '.d-chip{border:1px solid var(--line);border-radius:10px;padding:9px 11px;background:var(--paper)}.d-chip b{font:600 20px "Fraunces",serif;display:block;line-height:1.2}.d-chip span{font-size:11.5px;color:var(--ink-faint)}' +
+    '.d-short{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}.d-short button{border:1px solid var(--line);border-radius:10px;background:var(--paper);color:var(--ink);padding:11px 10px;font:500 12.5px "Inter",sans-serif;cursor:pointer;text-align:left}' +
+    '.d-short button small{display:block;font:10.5px "IBM Plex Mono",monospace;color:var(--ink-faint);margin-top:2px}' +
+    '.d-strip{display:grid;grid-template-columns:repeat(13,1fr);gap:3px;margin:10px 0 4px}.d-strip i{aspect-ratio:1;border-radius:4px;border:1px solid var(--line);background:var(--paper)}' +
+    '.d-strip i.on{background:var(--c);border-color:var(--c)}.d-strip i.cur{outline:2px solid var(--ink);outline-offset:1px}.d-strip i.fut{opacity:.45}' +
+    '.d-gl{font:10.5px "IBM Plex Mono",monospace;color:var(--ink-faint);margin:10px 0 3px}' +
+    '.d-wks{display:flex;gap:8px}.d-wk{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;flex:1}.d-wk i{aspect-ratio:1;border-radius:2px;background:var(--line)}' +
+    '.d-wk i.on{background:var(--c)}.d-wk i.fut{opacity:.35}.d-wk i.tod{outline:1.5px solid var(--ink-faint);outline-offset:0}' +
+    '.d-tag{font:9.5px "IBM Plex Mono",monospace;border:1px solid var(--line);border-radius:9px;padding:1px 7px;color:var(--ink-faint);margin-left:6px;white-space:nowrap}' +
+    '.d-empty{font-size:12.5px;color:var(--ink-faint);font-style:italic;padding:4px 0}';
+  document.head.appendChild(css);
+
+  /* ---------- navigation helpers ---------- */
+  function openSec(sec){
+    if(!sec) return;
+    if(!sec.classList.contains('open')){
+      sec.classList.add('open');
+      var k = sec.getAttribute('data-key'); if(k){ sectionState[k] = true; LS.set(SECTION_STATE_KEY, JSON.stringify(sectionState)); }
+    }
+  }
+  function go(page, secId, tab){
+    setActivePage(page);
+    if(tab){ var tb = document.querySelector('#notes-tab-switch button[data-notes-tab="' + tab + '"]'); if(tb) tb.click(); }
+    if(secId === 'sec-weekly' && activeWeek !== nowWeek){ activeWeek = nowWeek; try{ renderWeekDetail(); }catch(e){} }
+    var sec = secId ? $(secId) : null;
+    if(sec){ openSec(sec); setTimeout(function(){ try{ sec.scrollIntoView({ behavior:'smooth', block:'start' }); }catch(e){} }, 60); }
+    else { try{ window.scrollTo({ top:0, behavior:'smooth' }); }catch(e){} }
+  }
+  function refreshOthers(){ try{ document.dispatchEvent(new Event('visibilitychange')); }catch(e){} }
+
+  /* ---------- the things you can tick from the dashboard ---------- */
+  function togglePractice(id){
+    var a = allGoals(), p = a.__prac || { list:[], log:{} }; p.log = p.log || {};
+    var t = ptFmtDate(new Date()); p.log[t] = p.log[t] || [];
+    var i = p.log[t].indexOf(id); if(i >= 0) p.log[t].splice(i, 1); else p.log[t].push(id);
+    a.__prac = p; LS.set(KEY, JSON.stringify(a));
+    refreshOthers(); renderAll();
+  }
+  function finishGoal(page, id){
+    var g = getGoalsFor(page), it = g.list.filter(function(x){ return x.id === id; })[0];
+    if(!it) return; it.done = true; saveAllGoals(g.all);
+    try{ renderGoals(page); }catch(e){}
+    try{ renderSpiritOverview(); renderSoulOverview(); ptRenderOverview(); }catch(e){}
+    renderAll();
+  }
+  function finishTask(domain, id){
+    var it = (domainTasks[domain] || []).filter(function(x){ return x.id === id; })[0];
+    if(!it) return; it.done = true; saveDomainTasks();
+    try{ renderDomains(); }catch(e){}
+    renderAll();
+  }
+
+  /* ---------- card builders ---------- */
+  var cards = {}, anchor = null;
+  function mkCard(key, title, meta){
+    var sk = 'dash-' + key, sec = document.createElement('section');
+    sec.className = 'csec' + (sectionState[sk] === false ? '' : ' open');
+    sec.id = 'sec-dash-' + key; sec.setAttribute('data-key', sk); sec.setAttribute('data-group', 'home');
+    sec.innerHTML = '<button class="csec-head"><div class="csec-head-left"><span class="csec-title"></span><span class="csec-meta"></span></div><span class="csec-chevron">\u2304</span></button><div class="csec-body"><div id="dash-' + key + '" style="padding-top:2px"></div></div>';
+    sec.querySelector('.csec-title').textContent = title; sec.querySelector('.csec-meta').textContent = meta || '';
+    sec.querySelector('.csec-head').onclick = function(){ var o = sec.classList.toggle('open'); sectionState[sk] = o; LS.set(SECTION_STATE_KEY, JSON.stringify(sectionState)); };
+    anchor.parentNode.insertBefore(sec, anchor.nextSibling); anchor = sec;
+    var m = sec.querySelector('#dash-' + key);
+    m.addEventListener('click', onClick);
+    cards[key] = { sec:sec, mount:m, meta:sec.querySelector('.csec-meta') };
+    return m;
+  }
+  function setMeta(key, text){ if(cards[key]) cards[key].meta.textContent = text || ''; }
+
+  function row(i){
+    var left = i.tick
+      ? '<button class="d-chk' + (i.done ? ' on' : '') + '" data-act="tick" data-id="' + esc(i.tick) + '" aria-label="' + (i.done ? 'Untick ' : 'Tick ') + esc(i.label) + '">' + (i.done ? '\u2713' : '') + '</button>'
+      : '<span class="d-dot"><i class="' + (i.done ? 'on' : '') + (i.optional ? ' opt' : '') + '"></i></span>';
+    var right = i.go ? '<button class="d-go" data-act="go" data-page="' + i.go[0] + '" data-sec="' + i.go[1] + '"' + (i.go[2] ? ' data-tab="' + i.go[2] + '"' : '') + '>Open</button>' : '';
+    return '<div class="d-row">' + left + '<div class="d-main"><b>' + esc(i.label) + (i.optional ? '<em>optional</em>' : '') + '</b>' + (i.sub ? '<small>' + esc(i.sub) + '</small>' : '') + '</div>' + right + '</div>';
+  }
+
+  /* 1. Today */
+  function todayCard(c){
+    var items = [], w = WEEKS.filter(function(x){ return x.w === nowWeek; })[0];
+    if(DUE[c.dow]) items.push({ label:'Scripture: ' + cap(DUE[c.dow]), sub:w ? w.t : '', done:!!c.ticks[DUE[c.dow]], go:['spirit','sec-weekly'] });
+    if(ptEnabled()){
+      var kind = ptKind(c.ts);
+      if(kind) items.push({ label:'Training: ' + PT_DAY_TYPE_INFO[kind].name, done:ptDone(c.ts), go:['body','sec-body'] });
+      else if(ptDayTypeForDate(c.ts) === 'X') items.push({ label:'Training: catch-up day', sub:'Make up a missed session, or rest', done:ptDone(c.ts), optional:true, go:['body','sec-body'] });
+    }
+    if(calOn(c) && CALS[c.dow]) items.push({ label:'Calisthenics: ' + CALS[c.dow], done:hasWork(c.C.done && c.C.done[c.ts]), optional:!!CAL_OPT[c.dow], go:['body', $('sec-calisthenics') ? 'sec-calisthenics' : 'sec-body'] });
+    c.P.list.forEach(function(p){
+      items.push({ label:p.name, sub:pracWeekCount(c, p) + '/' + p.target + ' this week \u00b7 ' + PAGES[p.group], done:(c.P.log[c.ts] || []).indexOf(p.id) >= 0, tick:p.id });
+    });
+    items.push({ label:'Capture a note', sub:'Journal or learning', done:!!c.entryDates[c.ts], optional:true, go:['soul','sec-notes'] });
+    var req = items.filter(function(i){ return !i.optional; }), n = req.filter(function(i){ return i.done; }).length, pct = req.length ? Math.round(100 * n / req.length) : 0;
+    var h = req.length ? '<div class="d-sum"><b>' + n + ' of ' + req.length + ' done</b><span>' + pct + '%</span></div><div class="d-bar"><i style="width:' + pct + '%"></i></div>' : '<div class="d-empty">Nothing scheduled that needs ticking today.</div>';
+    h += '<div style="margin-top:6px">' + items.map(row).join('') + '</div>';
+    if(!c.P.list.length) h += '<div class="d-sub">Add daily practices on any page to tick them off here.</div>';
+    cards.today.mount.innerHTML = h;
+    setMeta('today', DOW[c.dow] + ' \u00b7 ' + (req.length ? n + '/' + req.length : 'rest'));
+  }
+
+  /* 2. Shortcuts */
+  function shortCard(){
+    var S = [
+      ['Scripture', 'this week', ['spirit','sec-weekly']],
+      ['Learning note', 'capture something', ['soul','sec-notes','learning']],
+      ['Journal', 'points taken', ['soul','sec-notes','journal']],
+      ['Reading', 'books and notes', ['soul','sec-reading']],
+      ['Log a workout', 'training and calisthenics', ['body', $('sec-calisthenics') ? 'sec-calisthenics' : 'sec-body']],
+      ['Weekly review', 'this week so far', ['home','sec-review']],
+      ['Season review', 'look back', ['home','sec-season']]
+    ];
+    cards.short.mount.innerHTML = '<div class="d-short">' + S.map(function(s){
+      return '<button type="button" data-act="go" data-page="' + s[2][0] + '" data-sec="' + s[2][1] + '"' + (s[2][2] ? ' data-tab="' + s[2][2] + '"' : '') + '>' + s[0] + '<small>' + s[1] + '</small></button>';
+    }).join('') + '</div>';
+  }
+
+  /* 3. Needs attention */
+  function attentionCard(c){
+    var out = [], soon = addDays(c.ts, 3);
+    function push(sev, text, act){ out.push({ sev:sev, text:text, act:act }); }
+    if(!checkStorageHealth()) push(0, 'Your entries are not saving on this device. See the red banner at the top.', null);
+    Object.keys(DUE).forEach(function(n){
+      n = Number(n);
+      if(c.dow > n && !c.ticks[DUE[n]]) push(0, 'Scripture ' + DUE[n] + ' (due ' + DOW[n] + ') is not ticked.', { kind:'go', page:'spirit', sec:'sec-weekly' });
+    });
+    if(ptEnabled()){
+      c.wk.forEach(function(d){
+        if(d >= c.ts || d < ptState.startDate) return;
+        var k = ptKind(d);
+        if(k && !ptDone(d)) push(1, 'Training: missed ' + shortDay(d) + ' (' + PT_DAY_TYPE_INFO[k].name + '). Saturday\u2019s catch-up day can cover it.', { kind:'go', page:'body', sec:'sec-body' });
+      });
+    }
+    if(calOn(c)){
+      c.wk.forEach(function(d){
+        var n = new Date(d + 'T12:00:00').getDay();
+        if(d >= c.ts || d < c.C.start || !CALS[n] || CAL_OPT[n]) return;
+        if(!hasWork(c.C.done && c.C.done[d])) push(1, 'Calisthenics: missed ' + CALS[n] + ' (' + shortDay(d) + ').', { kind:'go', page:'body', sec:$('sec-calisthenics') ? 'sec-calisthenics' : 'sec-body' });
+      });
+    }
+    Object.keys(PAGES).forEach(function(pg){
+      getGoalsFor(pg).list.forEach(function(g){
+        if(g.done || !g.due) return;
+        if(g.due < c.ts) push(0, 'Goal overdue: ' + g.text + ' (due ' + g.due.slice(5) + ', ' + PAGES[pg] + ')', { kind:'goal', page:pg, id:g.id });
+        else if(g.due <= soon) push(1, 'Goal due ' + (g.due === c.ts ? 'today' : g.due.slice(5)) + ': ' + g.text + ' (' + PAGES[pg] + ')', { kind:'goal', page:pg, id:g.id });
+      });
+    });
+    DOMAINS.forEach(function(d){
+      (domainTasks[d.key] || []).forEach(function(t){
+        if(t.done || !t.due) return;
+        if(t.due < c.ts) push(0, 'Task overdue: ' + t.text + ' (due ' + t.due.slice(5) + ', ' + d.name + ')', { kind:'task', domain:d.key, id:t.id });
+        else if(t.due <= soon) push(1, 'Task due ' + (t.due === c.ts ? 'today' : t.due.slice(5)) + ': ' + t.text + ' (' + d.name + ')', { kind:'task', domain:d.key, id:t.id });
+      });
+    });
+    c.P.list.forEach(function(p){
+      var n = pracWeekCount(c, p), rem = p.target - n, avail = (7 - c.dow) - ((c.P.log[c.ts] || []).indexOf(p.id) >= 0 ? 1 : 0);
+      if(rem > 0 && rem >= avail && c.dow >= 3) push(2, p.name + ': ' + n + '/' + p.target + ' this week. ' + (avail > 0 ? rem + ' more needed in ' + avail + ' day' + (avail === 1 ? '' : 's') + '.' : 'Target missed this week.'), { kind:'go', page:p.group, sec:'sec-prac-' + p.group });
+    });
+    var last = Number(LS.get(LAST_BACKUP_KEY) || 0), days = last ? Math.floor((Date.now() - last) / 86400000) : null;
+    if(days === null) push(2, 'You have not backed up yet.', { kind:'backup' });
+    else if(days > 14) push(2, 'Last backup was ' + days + ' days ago.', { kind:'backup' });
+    out.sort(function(a, b){ return a.sev - b.sev; });
+    var m = cards.attention.mount;
+    if(!out.length){ m.innerHTML = '<div class="d-empty">All caught up. Nothing overdue and nothing falling behind.</div>'; setMeta('attention', 'all clear'); return; }
+    m.innerHTML = out.slice(0, 12).map(function(o){
+      var a = o.act, btn = '';
+      if(a){
+        if(a.kind === 'goal') btn = '<button class="d-go pri" data-act="goal" data-page="' + a.page + '" data-id="' + esc(a.id) + '">Done</button>';
+        else if(a.kind === 'task') btn = '<button class="d-go pri" data-act="task" data-domain="' + a.domain + '" data-id="' + esc(a.id) + '">Done</button>';
+        else if(a.kind === 'backup') btn = '<button class="d-go pri" data-act="backup">Back up</button>';
+        else btn = '<button class="d-go" data-act="go" data-page="' + a.page + '" data-sec="' + a.sec + '">Open</button>';
+      }
+      return '<div class="d-row"><span class="d-flag"><i class="s' + o.sev + '"></i></span><div class="d-main"><b>' + esc(o.text) + '</b></div>' + btn + '</div>';
+    }).join('') + (out.length > 12 ? '<div class="d-sub">+ ' + (out.length - 12) + ' more</div>' : '');
+    setMeta('attention', out.length + (out.length === 1 ? ' item' : ' items'));
+  }
+
+  /* 4. This week */
+  function weekCard(c){
+    var P = c.P, S = {};
+    function pm(g){ return P.list.filter(function(p){ return p.group === g; }).map(function(p){ var n = pracWeekCount(c, p); return { label:p.name, done:Math.min(n, p.target), shown:n, planned:p.target }; }); }
+    var verses = ['reveal','reframe','respond'].filter(function(k){ return c.ticks[k]; }).length;
+    S.spirit = [{ label:'Scripture', done:verses, shown:verses, planned:3 }].concat(pm('spirit'));
+    var notes = c.entries.filter(function(e){ return c.wk.indexOf(ptFmtDate(new Date(e.ts))) >= 0; }).length;
+    S.soul = [{ label:'Notes written', done:0, shown:notes, planned:null }].concat(pm('soul'));
+    S.body = [];
+    if(ptEnabled()){
+      var planned = c.wk.filter(function(d){ return d >= ptState.startDate && ptKind(d); }).length, done = c.wk.filter(ptDone).length;
+      if(planned) S.body.push({ label:'Training sessions', done:Math.min(done, planned), shown:done, planned:planned });
+    }
+    if(calOn(c)){
+      var cd = c.wk.filter(function(d){ return hasWork(c.C.done && c.C.done[d]); }).length;
+      S.body.push({ label:'Calisthenics', done:Math.min(cd, 4), shown:cd, planned:4 });
+    }
+    S.body = S.body.concat(pm('body'));
+    var tot = 0, h = '';
+    Object.keys(PAGES).forEach(function(pg){
+      var ms = S[pg], pl = 0, dn = 0;
+      ms.forEach(function(m){ if(m.planned){ pl += m.planned; dn += m.done; } });
+      var pct = pl ? Math.round(100 * dn / pl) : null;
+      h += '<div class="d-pill"><div class="d-pill-h"><b>' + PAGES[pg] + '</b><span>' + (pct == null ? 'no target set' : pct + '%') + '</span></div>' +
+        (pct == null ? '' : '<div class="d-bar" style="--c:' + PILLAR_COLOR[pg] + '"><i style="width:' + pct + '%"></i></div>') +
+        '<div class="d-sub">' + ms.map(function(m){ return esc(m.label) + ' ' + m.shown + (m.planned ? '/' + m.planned : ''); }).join(' \u00b7 ') + '</div></div>';
+    });
+    cards.week.mount.innerHTML = h;
+    setMeta('week', 'Sun \u2013 Sat');
+  }
+
+  /* 5. Streaks */
+  function streakCard(c){
+    var best = { n:0, name:'' };
+    c.P.list.forEach(function(p){ var n = pracStreak(c, p.id); if(n > best.n) best = { n:n, name:p.name }; });
+    var chips = [
+      [computeStreak(), 'Scripture weeks'],
+      [streakDays(c, 'spirit'), 'Spirit practice days'],
+      [streakDays(c, 'soul'), 'Soul days'],
+      [streakDays(c, 'body'), 'Body days']
+    ];
+    cards.streak.mount.innerHTML = '<div class="d-chips">' + chips.map(function(x){ return '<div class="d-chip"><b>' + x[0] + '</b><span>' + x[1] + '</span></div>'; }).join('') + '</div>' +
+      '<div class="d-sub">' + (best.n > 1 ? 'Longest practice streak right now: ' + esc(best.name) + ', ' + best.n + ' days.' : 'A streak counts consecutive days with something done. Missing today does not break yesterday\u2019s streak until the day ends.') + '</div>';
+  }
+
+  /* 6. Season */
+  function seasonCard(c){
+    var si = seasonIndexForWeek(nowWeek), S = SEASONS[si], w0 = 13 * si + 1, wIn = nowWeek - w0 + 1, ph = phaseForWeek(nowWeek);
+    var next = null;
+    for(var w = nowWeek + 1; w <= w0 + 12; w++){ if(phaseForWeek(w).phaseIdx !== ph.phaseIdx){ next = { name:phaseForWeek(w).phaseName, wk:w - w0 + 1 }; break; } }
+    var end = new Date(weekStartDate(w0 + 13)); end.setHours(0, 0, 0, 0); end.setDate(end.getDate() - 1);
+    var t0 = new Date(); t0.setHours(0, 0, 0, 0);
+    var left = Math.max(0, Math.round((end - t0) / 86400000) + 1);
+    var read = 0, strip = '';
+    for(var k = 0; k < 13; k++){
+      var wk = w0 + k, done = completedWeeks.indexOf(wk) >= 0; if(done) read++;
+      var ww = WEEKS.filter(function(x){ return x.w === wk; })[0];
+      strip += '<i class="' + (done ? 'on ' : '') + (wk === nowWeek ? 'cur ' : '') + (wk > nowWeek ? 'fut' : '') + '" title="Week ' + wk + (ww ? ': ' + esc(ww.t) : '') + '"></i>';
+    }
+    var gt = 0, gd = 0;
+    Object.keys(PAGES).forEach(function(pg){ getGoalsFor(pg).list.forEach(function(g){ gt++; if(g.done) gd++; }); });
+    var pct = Math.round(100 * wIn / 13), ci = coordIndexForWeek(nowWeek);
+    cards.season.mount.innerHTML =
+      '<div class="d-sum"><b>' + S.name + ' \u00b7 ' + S.stage + '</b><span>week ' + wIn + ' of 13</span></div>' +
+      '<div class="d-bar" style="--c:var(--' + S.color + ')"><i style="width:' + pct + '%"></i></div>' +
+      '<div class="d-sub">' + esc(S.stageQuestion) + ' You are in the <b>' + ph.phaseName + '</b> phase' + (next ? '; <b>' + next.name + '</b> begins in week ' + next.wk : '; the season closes after this phase') + '. ' + left + ' day' + (left === 1 ? '' : 's') + ' left in the season.</div>' +
+      '<div class="d-strip" style="--c:var(--' + S.color + ')">' + strip + '</div>' +
+      '<div class="d-sub">Scripture weeks read: ' + read + ' of 13 \u00b7 Season goals done: ' + gd + ' of ' + gt + '</div>' +
+      '<div class="d-sub">This week\u2019s coordinate \u2014 <b>' + COORD_LABELS[ci] + '</b>: ' + esc(S.values[ci]) + '</div>';
+    setMeta('season', S.name);
+  }
+
+  /* 7. Last four weeks */
+  function activityCard(c){
+    var start = addDays(ptFmtDate(mostRecentSunday(new Date())), -21), h = '', empty = [];
+    Object.keys(PAGES).forEach(function(pg){
+      var wks = '', any = false;
+      for(var wi = 0; wi < 4; wi++){
+        var cells = '';
+        for(var di = 0; di < 7; di++){
+          var d = addDays(start, wi * 7 + di), on = d <= c.ts && active(c, d, pg); if(on) any = true;
+          cells += '<i class="' + (on ? 'on ' : '') + (d > c.ts ? 'fut ' : '') + (d === c.ts ? 'tod' : '') + '" title="' + d + '"></i>';
+        }
+        wks += '<div class="d-wk">' + cells + '</div>';
+      }
+      if(!any) empty.push(PAGES[pg]);
+      h += '<div class="d-gl">' + PAGES[pg] + '</div><div class="d-wks" style="--c:' + PILLAR_COLOR[pg] + '">' + wks + '</div>';
+    });
+    h += '<div class="d-sub">Each block is a week, Sunday to Saturday; the filled squares are days you did something on that page (a practice ticked, a note written, a workout logged).' +
+      (empty.length ? ' ' + empty.join(' and ') + ' will fill in once you tick a practice or log something there.' : '') + '</div>';
+    cards.activity.mount.innerHTML = h;
+  }
+
+  /* 8. Goals this season */
+  function goalsCard(c){
+    var S = SEASONS[seasonIndexForWeek(nowWeek)], open = [], h = '', total = 0;
+    Object.keys(PAGES).forEach(function(pg){
+      var list = getGoalsFor(pg).list, dn = list.filter(function(g){ return g.done; }).length; total += list.length;
+      var pct = list.length ? Math.round(100 * dn / list.length) : 0;
+      h += '<div class="d-pill"><div class="d-pill-h"><b>' + PAGES[pg] + '</b><span>' + (list.length ? dn + ' of ' + list.length + ' done' : 'none set') + '</span></div>' +
+        (list.length ? '<div class="d-bar" style="--c:' + PILLAR_COLOR[pg] + '"><i style="width:' + pct + '%"></i></div>' : '') + '</div>';
+      list.forEach(function(g){ if(!g.done) open.push({ g:g, pg:pg }); });
+    });
+    open.sort(function(a, b){
+      if(!!b.g.priority !== !!a.g.priority) return (b.g.priority ? 1 : 0) - (a.g.priority ? 1 : 0);
+      if(a.g.due && b.g.due) return a.g.due < b.g.due ? -1 : 1;
+      return a.g.due ? -1 : b.g.due ? 1 : 0;
+    });
+    if(open.length){
+      h += '<div class="d-gl">Next up</div>' + open.slice(0, 5).map(function(o){
+        return '<div class="d-row"><button class="d-chk" data-act="goal" data-page="' + o.pg + '" data-id="' + esc(o.g.id) + '" aria-label="Mark done: ' + esc(o.g.text) + '"></button>' +
+          '<div class="d-main"><b>' + (o.g.priority ? '\u2605 ' : '') + esc(o.g.text) + '</b><small>' + PAGES[o.pg] + (o.g.due ? ' \u00b7 due ' + o.g.due.slice(5) : '') + (o.g.coordIndex != null ? ' \u00b7 ' + COORD_LABELS[o.g.coordIndex] : '') + '</small></div></div>';
+      }).join('');
+    }
+    if(!total) h += '<div class="d-empty">No goals set for ' + S.name + '. Add some under Goals on each page, linked to a coordinate, foundation and domain.</div>';
+    cards.goals.mount.innerHTML = h;
+    setMeta('goals', S.name + ' \u00b7 ' + S.stage);
+  }
+
+  /* ---------- render all (each card isolated so one failure never blanks the rest) ---------- */
+  function renderAll(){
+    if(!cards.today) return;
+    var c = ctx();
+    [['today', todayCard], ['short', shortCard], ['attention', attentionCard], ['week', weekCard], ['streak', streakCard], ['season', seasonCard], ['activity', activityCard], ['goals', goalsCard]].forEach(function(p){
+      try{ p[1](c); }catch(e){ if(cards[p[0]]) cards[p[0]].mount.innerHTML = '<div class="d-empty">This card could not load.</div>'; if(window.console) console.error('Dashboard ' + p[0], e); }
+    });
+  }
+
+  /* ---------- clicks ---------- */
+  function onClick(ev){
+    var b = ev.target.closest && ev.target.closest('[data-act]'); if(!b) return;
+    var a = b.getAttribute('data-act');
+    if(a === 'tick') togglePractice(b.getAttribute('data-id'));
+    else if(a === 'goal') finishGoal(b.getAttribute('data-page'), b.getAttribute('data-id'));
+    else if(a === 'task') finishTask(b.getAttribute('data-domain'), b.getAttribute('data-id'));
+    else if(a === 'backup'){ try{ exportData('all'); }catch(e){} }
+    else if(a === 'go') go(b.getAttribute('data-page'), b.getAttribute('data-sec'), b.getAttribute('data-tab'));
+  }
+
+  /* ---------- build: label, cards, nav tab ---------- */
+  function build(){
+    if($('sec-dash-today')) return;
+    var today = $('today-card'); if(!today) return;
+    var label = document.createElement('div'); label.className = 'group-label'; label.setAttribute('data-group', 'home'); label.textContent = 'Dashboard';
+    today.parentNode.insertBefore(label, today.nextSibling); anchor = label;
+    mkCard('today', 'Today', '');
+    mkCard('short', 'Shortcuts', 'jump straight in');
+    mkCard('attention', 'Needs attention', '');
+    mkCard('week', 'This week', '');
+    mkCard('streak', 'Streaks', '');
+    mkCard('season', 'Season', '');
+    mkCard('activity', 'Last 4 weeks', 'consistency');
+    mkCard('goals', 'Goals', '');
+
+    var nav = $('page-switch');
+    if(nav && !nav.querySelector('button[data-group="home"]')){
+      var b = document.createElement('button'); b.setAttribute('data-group', 'home');
+      b.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/></svg>Dashboard';
+      b.addEventListener('click', function(){ setActivePage('home'); try{ window.scrollTo({ top:0, behavior:'smooth' }); }catch(e){} });
+      nav.insertBefore(b, nav.querySelector('button'));
+    }
+  }
+
+  /* ---------- page switching: wrap setActivePage so Home is a real page ---------- */
+  var OWN = { 'spirit-overview':'spirit', 'soul-overview':'soul', 'coord-callout-soul':'soul', 'body-overview':'body', 'coord-callout-body':'body' };
+  var origPage = setActivePage;
+  setActivePage = function(page){
+    origPage(page);
+    Object.keys(OWN).forEach(function(id){ var e = $(id); if(e) e.style.display = OWN[id] === page ? '' : 'none'; });
+    if(page === 'home') renderAll();
+  };
+
+  build();
+  document.addEventListener('visibilitychange', function(){ if(!document.hidden && LS.get('seasons-active-page') === 'home') renderAll(); });
+  /* open on the Dashboard once after this upgrade; afterwards remember whichever page you were on */
+  if(!LS.get(INTRO)){ LS.set(INTRO, '1'); setActivePage('home'); }
+  else setActivePage(LS.get('seasons-active-page') || 'home');
+  renderAll();
+  setTimeout(function(){ if(LS.get('seasons-active-page') === 'home') renderAll(); }, 400);   /* training log loads a beat later */
+})();
+
+ window.__SU.ok.push('Dashboard: today, attention, week, streaks, season, activity, goals');
+}catch(e){ window.__SU.fail.push(['Dashboard: today, attention, week, streaks, season, activity, goals', String(e && e.message || e)]); if(window.console) console.error('Dashboard', e); }
+
+/* ===== Reading add-on goes last, so it can see everything above ===== */
+/* ===== reading-upgrade.js ===== */
+/* Seasons: Reading add-on.
+   PASTE this whole block at the very END of your second script block, on the line just before that block closes
+   (after the Dashboard block). It can also live in its own script tag above the closing body tag.
+   Adds a collapsible "Reading" card to the Soul page, right under Notes. Inside it: Library, Today (timer and streak),
+   Notes (quotes, thoughts, chapter summaries, characters, plot), Review (quiz cards and words, spaced), Words,
+   Reader (paste your own or public-domain text, read aloud), Stats and Next.
+   It keeps its own data under the key "rc_v1" and does not touch any other Seasons data. It is added to the Soul
+   export automatically. For the All export, add 'rc_v1' to the key list inside exportData (already done in the full file).
+   The Dashboard Shortcuts card already has a Reading button (included in the full file).
+   Anything of your own can call window.openReading() to jump straight to it. */
+window.__SU = window.__SU || { ok:[], fail:[] };
+try{
+/* Reading Companion — self-contained module.
+   Usage: ReadingCompanion.mount(document.getElementById('reading-root'));
+   Stores everything in localStorage under "rc_v1". No dependencies. */
+(function (global) {
+'use strict';
+var KEY = 'rc_v1', DAY = 864e5, INTERVALS = [1, 2, 4, 8, 16, 32];
+var S, root, tick = null;
+var ui = { tab: 'library', book: null, filter: 'all', spoil: false, pending: null, mc: false, picked: null, optFor: null,
+  reveal: false, nq: '', wq: '', fp: -1, sel: '', ttsOn: false, ttsId: 0, ol: [], olMsg: '', pick: null };
+
+/* ---------- helpers ---------- */
+var uid = function () { return Math.random().toString(36).slice(2, 9) + Date.now().toString(36).slice(-4); };
+var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
+var iso = function (d) { d = d || new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+var addDays = function (s, n) { var d = new Date(s + 'T12:00:00'); d.setDate(d.getDate() + n); return iso(d); };
+var diffDays = function (a, b) { return Math.round((new Date(a + 'T12:00:00') - new Date(b + 'T12:00:00')) / DAY); };
+var fmt = function (s) { return s ? new Date(s + 'T12:00:00').toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : ''; };
+var num = function (v) { var n = parseFloat(v); return isNaN(n) ? 0 : n; };
+var B = function (id) { return S.books.find(function (b) { return b.id === id; }); };
+var unitLabel = function (b) { return b.unit === 'min' ? 'min' : b.unit === '%' ? '%' : 'pp'; };
+var pct = function (b) { return b.total ? Math.min(100, Math.round(b.progress / b.total * 100)) : 0; };
+var prog = function (b) { return b.unit === '%' ? b.progress + '%' : b.total ? b.progress + '/' + b.total + ' ' + unitLabel(b) : b.progress + ' ' + unitLabel(b); };
+var tags = function (s) { return String(s || '').split(/[,#]+/).map(function (x) { return x.trim(); }).filter(Boolean); };
+
+function load() {
+  var o = null; try { o = JSON.parse(localStorage.getItem(KEY)); } catch (e) {}
+  S = Object.assign({ books: [], vocab: [], cards: [], goal: 12, daily: 20, theme: 'auto', timer: null,
+    reader: { text: '', title: '', size: 19, lh: 1.7, font: 'serif', bg: 'paper', focus: true, rate: 1, pos: 0 } }, o || {});
+  S.reader = Object.assign({ text: '', title: '', size: 19, lh: 1.7, font: 'serif', bg: 'paper', focus: true, rate: 1, pos: 0 }, S.reader || {});
+  S.books.forEach(function (b) { b.sessions = b.sessions || []; b.notes = b.notes || []; b.cast = b.cast || []; b.events = b.events || []; });
+}
+function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} }
+
+function newBook(o) {
+  var unit = o.unit || (o.format === 'audio' ? 'min' : 'pages');
+  return { id: uid(), title: o.title, author: o.author || '', format: o.format || 'physical', unit: unit,
+    total: unit === '%' ? 100 : Math.max(0, num(o.total)), progress: 0, status: o.status || 'to-read', rating: 0,
+    started: '', finished: '', deadline: '', added: iso(), sessions: [], notes: [], cast: [], events: [] };
+}
+
+function logProgress(b, to, mins, date) {
+  to = Math.max(0, num(to)); if (b.total) to = Math.min(b.total, to);
+  var from = b.progress; mins = num(mins);
+  if (b.unit === 'min' && !mins && to > from) mins = to - from;
+  b.sessions.push({ date: date || iso(), mins: mins, from: from, to: to });
+  b.progress = to;
+  if (b.status === 'to-read' && (to > from || mins > 0)) { b.status = 'reading'; b.started = b.started || iso(); }
+  if (b.total && to >= b.total && b.status !== 'finished') { b.status = 'finished'; b.finished = iso(); }
+  save();
+}
+
+/* ---------- stats ---------- */
+function activeDates() { var s = {}; S.books.forEach(function (b) { b.sessions.forEach(function (x) { if (x.mins > 0 || x.to > x.from) s[x.date] = 1; }); }); return s; }
+function streak() { var s = activeDates(), d = iso(), n = 0; if (!s[d]) d = addDays(d, -1); while (s[d]) { n++; d = addDays(d, -1); } return n; }
+function bestStreak() { var a = Object.keys(activeDates()).sort(), best = 0, cur = 0, prev = null; a.forEach(function (d) { cur = prev && diffDays(d, prev) === 1 ? cur + 1 : 1; if (cur > best) best = cur; prev = d; }); return best; }
+function minsOn(d) { var t = 0; S.books.forEach(function (b) { b.sessions.forEach(function (x) { if (x.date === d) t += x.mins || 0; }); }); return t; }
+function gainOn(b, d) { var t = 0; b.sessions.forEach(function (x) { if (x.date === d) t += Math.max(0, x.to - x.from); }); return t; }
+function eta(b) {
+  if (b.status !== 'reading' || !b.total) return null;
+  var from = addDays(iso(), -14), g = 0; b.sessions.forEach(function (x) { if (x.date >= from) g += Math.max(0, x.to - x.from); });
+  if (!g) return null; return addDays(iso(), Math.ceil((b.total - b.progress) / (g / 14)));
+}
+function perDayNeeded(b) {
+  if (!b.deadline || !b.total || b.status === 'finished') return null;
+  var days = Math.max(1, diffDays(b.deadline, iso()) + 1); return { days: days, need: Math.ceil(Math.max(0, b.total - b.progress) / days), late: diffDays(b.deadline, iso()) < 0 };
+}
+
+/* ---------- styles ---------- */
+var CSS = '.rc{--rc-bg:#faf8f4;--rc-fg:#222;--rc-card:#fff;--rc-muted:#777;--rc-acc:#7a4fd6;--rc-line:#e4dfd6;--rc-ok:#2e8b57;--rc-bad:#c0392b;--rc-on:#fff;font:16px/1.45 -apple-system,system-ui,Segoe UI,sans-serif;color:var(--rc-fg);background:var(--rc-bg);padding:12px;max-width:760px;margin:0 auto;border-radius:12px}' +
+  '.rc[data-theme=dark]{--rc-bg:#16161a;--rc-fg:#e8e6e1;--rc-card:#202026;--rc-muted:#9a98a0;--rc-line:#33333c;--rc-acc:#a98bff}' +
+  '@media(prefers-color-scheme:dark){.rc[data-theme=auto]{--rc-bg:#16161a;--rc-fg:#e8e6e1;--rc-card:#202026;--rc-muted:#9a98a0;--rc-line:#33333c;--rc-acc:#a98bff}}' +
+  '.rc *{box-sizing:border-box}.rc h2{margin:0;font-size:1.25rem}.rc h3{margin:0 0 8px;font-size:1.05rem}.rc h4{margin:14px 0 6px;font-size:.95rem}' +
+  '.rc .rc-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}' +
+  '.rc nav{display:flex;gap:6px;overflow-x:auto;padding-bottom:6px;margin-bottom:10px;border-bottom:1px solid var(--rc-line)}' +
+  '.rc nav button{flex:0 0 auto;border:0;background:transparent;color:var(--rc-muted);padding:8px 12px;border-radius:20px;font:inherit;cursor:pointer}' +
+  '.rc nav button.rc-on{background:var(--rc-acc);color:var(--rc-on)}' +
+  '.rc .rc-card{background:var(--rc-card);border:1px solid var(--rc-line);border-radius:12px;padding:12px;margin-bottom:10px}' +
+  '.rc .rc-book{cursor:pointer}.rc .rc-bt{display:flex;flex-direction:column;margin-bottom:6px}' +
+  '.rc input,.rc select,.rc textarea{width:100%;font:inherit;font-size:16px;padding:9px 10px;border:1px solid var(--rc-line);border-radius:8px;background:var(--rc-bg);color:var(--rc-fg);margin:3px 0}' +
+  '.rc textarea{resize:vertical}.rc .rc-row{display:flex;gap:8px;flex-wrap:wrap}.rc .rc-row>*{flex:1 1 140px}' +
+  '.rc .rc-btn,.rc .rc-chip{font:inherit;border:1px solid var(--rc-acc);background:var(--rc-acc);color:var(--rc-on);padding:8px 14px;border-radius:8px;cursor:pointer;margin:3px 3px 3px 0}' +
+  '.rc .rc-btn.rc-ghost,.rc .rc-chip{background:transparent;color:var(--rc-acc)}.rc .rc-chip{border-radius:20px;padding:5px 12px}.rc .rc-chip.rc-on{background:var(--rc-acc);color:var(--rc-on)}' +
+  '.rc .rc-btn.rc-warn{border-color:var(--rc-bad);color:var(--rc-bad);background:transparent}.rc .rc-btn.rc-big{font-size:1.1rem;padding:12px 22px}' +
+  '.rc .rc-muted{color:var(--rc-muted)}.rc .rc-sm{font-size:.85rem}.rc .rc-bar{height:8px;background:var(--rc-line);border-radius:6px;overflow:hidden;margin:4px 0}' +
+  '.rc .rc-bar i{display:block;height:100%;background:var(--rc-acc)}.rc .rc-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px}' +
+  '.rc .rc-stat{text-align:center}.rc .rc-stat b{display:block;font-size:1.5rem;color:var(--rc-acc)}' +
+  '.rc .rc-item{border-top:1px solid var(--rc-line);padding:8px 0}.rc .rc-item:first-child{border-top:0}' +
+  '.rc .rc-tag{display:inline-block;font-size:.75rem;background:var(--rc-line);border-radius:10px;padding:1px 8px;margin-right:4px}' +
+  '.rc .rc-timer{font-size:2.6rem;text-align:center;font-variant-numeric:tabular-nums;margin:8px 0}' +
+  '.rc .rc-stars button{border:0;background:none;font-size:1.5rem;color:var(--rc-line);cursor:pointer;padding:0 2px}.rc .rc-stars button.rc-on{color:#e0a800}' +
+  '.rc .rc-bars{display:flex;align-items:flex-end;gap:4px;height:80px}.rc .rc-bars div{flex:1;background:var(--rc-acc);border-radius:3px 3px 0 0;min-height:2px;opacity:.85}' +
+  '.rc .rc-opt{display:block;width:100%;text-align:left;margin:5px 0;padding:10px;border:1px solid var(--rc-line);border-radius:8px;background:var(--rc-bg);color:var(--rc-fg);font:inherit;cursor:pointer}' +
+  '.rc .rc-opt.rc-good{border-color:var(--rc-ok);background:rgba(46,139,87,.15)}.rc .rc-opt.rc-wrong{border-color:var(--rc-bad);background:rgba(192,57,43,.15)}' +
+  '.rc .rc-flash{text-align:center;font-size:1.3rem;padding:26px 8px}' +
+  '.rc .rc-rd{border-radius:12px;padding:16px;margin-top:8px}.rc .rc-rd.rc-paper{background:#fbf9f3;color:#222}.rc .rc-rd.rc-sepia{background:#f1e6cf;color:#4a3a22}' +
+  '.rc .rc-rd.rc-dark{background:#1b1b1f;color:#d8d6d0}.rc .rc-rd.rc-night{background:#000;color:#b9b6ae}' +
+  '.rc .rc-rd p{margin:0 0 1em;padding:2px 6px;border-radius:6px;cursor:pointer}.rc .rc-rd.rc-focus p{opacity:.38}.rc .rc-rd.rc-focus p.rc-on{opacity:1;background:rgba(122,79,214,.16)}' +
+  '.rc .rc-rd:not(.rc-focus) p.rc-on{background:rgba(122,79,214,.12)}';
+
+/* ---------- views ---------- */
+var TABS = [['library', 'Library'], ['today', 'Today'], ['notes', 'Notes'], ['review', 'Review'], ['words', 'Words'], ['reader', 'Reader'], ['stats', 'Stats'], ['next', 'Next']];
+
+function chips(items, cur, act) { return items.map(function (i) { return '<button type="button" class="rc-chip' + (cur === i[0] ? ' rc-on' : '') + '" data-act="' + act + '" data-v="' + i[0] + '">' + i[1] + '</button>'; }).join(''); }
+
+function vLibrary() {
+  if (ui.book && B(ui.book)) return vBook(B(ui.book));
+  var list = S.books.filter(function (b) { return ui.filter === 'all' || b.status === ui.filter; });
+  var h = '<form data-form="addBook" class="rc-card"><h3>Add a book</h3><div class="rc-row"><input name="title" placeholder="Title" required><input name="author" placeholder="Author"></div>' +
+    '<div class="rc-row"><select name="format"><option value="physical">Physical book</option><option value="ebook">E-book</option><option value="audio">Audiobook</option></select>' +
+    '<select name="unit"><option value="">Units: auto</option><option value="pages">Pages</option><option value="%">Percent</option><option value="min">Minutes</option></select>' +
+    '<input name="total" type="number" min="1" inputmode="numeric" placeholder="Total pages / minutes"></div>' +
+    '<select name="status"><option value="to-read">To read</option><option value="reading">Reading now</option></select><button class="rc-btn">Add book</button></form>';
+  h += '<div>' + chips([['all', 'All'], ['reading', 'Reading'], ['to-read', 'To read'], ['finished', 'Finished']], ui.filter, 'filter') + '</div>';
+  h += list.length ? list.map(function (b) {
+    return '<div class="rc-card rc-book" data-act="open" data-id="' + b.id + '"><div class="rc-bt"><b>' + esc(b.title) + '</b><span class="rc-muted rc-sm">' + esc(b.author) + '</span></div>' +
+      '<div class="rc-bar"><i style="width:' + pct(b) + '%"></i></div><div class="rc-muted rc-sm">' + b.status + ' · ' + prog(b) + (b.rating ? ' · ' + '★'.repeat(b.rating) : '') + '</div></div>';
+  }).join('') : '<p class="rc-muted">Nothing here yet.</p>';
+  return h;
+}
+
+function vBook(b) {
+  var vis = function (x) { return ui.spoil || (x.at || 0) <= b.progress; };
+  var hidden = 0;
+  var h = '<button type="button" class="rc-btn rc-ghost" data-act="back">← Library</button>';
+  h += '<div class="rc-card"><h2>' + esc(b.title) + '</h2><div class="rc-muted">' + esc(b.author) + ' · ' + b.format + '</div>' +
+    '<div class="rc-bar"><i style="width:' + pct(b) + '%"></i></div><div class="rc-muted rc-sm">' + prog(b) + (b.total ? ' (' + pct(b) + '%)' : '') + '</div>' +
+    '<div class="rc-row"><select data-change="status"><option value="to-read"' + (b.status === 'to-read' ? ' selected' : '') + '>To read</option><option value="reading"' + (b.status === 'reading' ? ' selected' : '') + '>Reading</option><option value="finished"' + (b.status === 'finished' ? ' selected' : '') + '>Finished</option></select></div>' +
+    '<div class="rc-stars">' + [1, 2, 3, 4, 5].map(function (n) { return '<button type="button" data-act="rate" data-v="' + n + '" class="' + (b.rating >= n ? 'rc-on' : '') + '">★</button>'; }).join('') + '</div>' +
+    '<div class="rc-muted rc-sm">' + (b.started ? 'Started ' + fmt(b.started) : '') + (b.finished ? ' · Finished ' + fmt(b.finished) : '') + '</div></div>';
+
+  h += '<form data-form="logSession" class="rc-card"><h3>Log reading</h3><div class="rc-row"><input name="to" type="number" step="any" inputmode="decimal" placeholder="Now at (' + unitLabel(b) + ')" value="' + b.progress + '" required>' +
+    '<input name="mins" type="number" min="0" inputmode="numeric" placeholder="Minutes (optional)"><input name="date" type="date" value="' + iso() + '"></div><button class="rc-btn">Save</button></form>';
+
+  var pl = perDayNeeded(b), e = eta(b);
+  h += '<div class="rc-card"><h3>Plan</h3><label class="rc-muted rc-sm">Finish by</label><input type="date" data-change="deadline" value="' + esc(b.deadline) + '">' +
+    (pl ? '<p>' + (pl.late ? 'Deadline passed — ' : '') + '<b>' + pl.need + ' ' + (b.unit === 'min' ? 'min' : b.unit === '%' ? '%' : 'pages') + '/day</b> over ' + pl.days + ' day' + (pl.days > 1 ? 's' : '') + '.</p>' : '') +
+    (e ? '<p class="rc-muted">At your recent pace you would finish around <b>' + fmt(e) + '</b>.</p>' : '') + '</div>';
+
+  var sums = b.notes.filter(function (n) { return n.type === 'summary' && vis(n); }).slice(-3);
+  var last = b.sessions[b.sessions.length - 1];
+  if (b.status !== 'to-read') {
+    h += '<div class="rc-card"><h3>Previously…</h3>' + (last ? '<p class="rc-muted rc-sm">Last read ' + fmt(last.date) + ', you were at ' + b.progress + ' ' + unitLabel(b) + '.</p>' : '') +
+      (sums.length ? sums.map(function (n) { return '<p>' + (n.chapter ? '<b>' + esc(n.chapter) + ':</b> ' : '') + esc(n.text) + '</p>'; }).join('') : '<p class="rc-muted">Add chapter summaries below and they will appear here as a refresher.</p>') + '</div>';
+  }
+
+  h += '<div class="rc-top"><h3>Notes</h3><button type="button" class="rc-chip' + (ui.spoil ? ' rc-on' : '') + '" data-act="spoil">Spoilers: ' + (ui.spoil ? 'shown' : 'hidden') + '</button></div>';
+  h += '<form data-form="addNote" class="rc-card"><div class="rc-row"><select name="type"><option value="quote">Quote</option><option value="thought">Thought</option><option value="summary">Chapter summary</option></select><input name="chapter" placeholder="Chapter / page"></div>' +
+    '<textarea name="text" rows="3" placeholder="Your note (for quotes, keep them short)" required></textarea><input name="tags" placeholder="Tags, comma separated"><button class="rc-btn">Add note</button></form>';
+  h += '<div class="rc-card">' + (function () {
+    var out = b.notes.filter(function (n) { if (!vis(n)) { hidden++; return false; } return true; }).reverse().map(function (n) {
+      return '<div class="rc-item"><span class="rc-tag">' + n.type + '</span>' + (n.chapter ? '<span class="rc-muted rc-sm">' + esc(n.chapter) + '</span>' : '') + '<div>' + esc(n.text) + '</div>' +
+        (n.tags || []).map(function (t) { return '<span class="rc-tag">#' + esc(t) + '</span>'; }).join('') +
+        '<div><button type="button" class="rc-chip" data-act="note2card" data-id="' + n.id + '">→ quiz card</button><button type="button" class="rc-chip" data-act="delnote" data-id="' + n.id + '">Delete</button></div></div>';
+    }).join('');
+    return (out || '<p class="rc-muted">No notes yet.</p>') + (hidden ? '<p class="rc-muted rc-sm">' + hidden + ' note(s) from further ahead are hidden.</p>' : '');
+  })() + '</div>';
+
+  h += '<h3>Characters &amp; plot</h3><form data-form="addCast" class="rc-card"><div class="rc-row"><input name="name" placeholder="Name" required><input name="role" placeholder="Who they are / relationships"></div><button class="rc-btn">Add character</button></form>';
+  var cast = b.cast.filter(vis);
+  h += '<div class="rc-card">' + (cast.length ? cast.map(function (c) { return '<div class="rc-item"><b>' + esc(c.name) + '</b> <span class="rc-muted">' + esc(c.role) + '</span> <button type="button" class="rc-chip" data-act="delcast" data-id="' + c.id + '">×</button></div>'; }).join('') : '<p class="rc-muted">No characters yet.</p>') + '</div>';
+  h += '<form data-form="addEvent" class="rc-card"><input name="text" placeholder="Plot event for the timeline" required><button class="rc-btn">Add event</button></form>';
+  var ev = b.events.filter(vis);
+  h += '<div class="rc-card">' + (ev.length ? ev.map(function (x, i) { return '<div class="rc-item">' + (i + 1) + '. ' + esc(x.text) + ' <span class="rc-muted rc-sm">(' + x.at + ' ' + unitLabel(b) + ')</span> <button type="button" class="rc-chip" data-act="delevent" data-id="' + x.id + '">×</button></div>'; }).join('') : '<p class="rc-muted">No events yet.</p>') + '</div>';
+
+  var cards = S.cards.filter(function (c) { return c.bookId === b.id; });
+  h += '<h3>Quiz cards (' + cards.length + ')</h3><form data-form="addCard" class="rc-card"><input name="q" placeholder="Question" required><input name="a" placeholder="Answer" required><button class="rc-btn">Add card</button></form>';
+  if (cards.length) h += '<div class="rc-card">' + cards.map(function (c) { return '<div class="rc-item">' + esc(c.q) + ' → <b>' + esc(c.a) + '</b> <button type="button" class="rc-chip" data-act="delcard" data-id="' + c.id + '">×</button></div>'; }).join('') + '</div>';
+
+  h += '<button type="button" class="rc-btn rc-warn" data-act="delbook">Delete this book</button>';
+  return h;
+}
+
+function vToday() {
+  var h = '', t = iso(), reading = S.books.filter(function (b) { return b.status === 'reading'; });
+  h += '<div class="rc-grid"><div class="rc-card rc-stat"><b>' + streak() + '</b>day streak</div><div class="rc-card rc-stat"><b>' + minsOn(t) + '/' + S.daily + '</b>minutes today</div></div>';
+  h += '<div class="rc-bar"><i style="width:' + Math.min(100, Math.round(minsOn(t) / Math.max(1, S.daily) * 100)) + '%"></i></div>';
+  if (ui.pending) {
+    var pb = B(ui.pending.bookId);
+    if (pb) h += '<form data-form="finishLog" class="rc-card"><h3>Nice — ' + ui.pending.mins + ' min</h3><p class="rc-muted">Where did you get to in “' + esc(pb.title) + '”?</p><input name="to" type="number" step="any" inputmode="decimal" value="' + pb.progress + '" required><button class="rc-btn">Save</button><button type="button" class="rc-btn rc-ghost" data-act="tskip">Skip</button></form>';
+  } else if (S.timer && B(S.timer.bookId)) {
+    h += '<div class="rc-card"><h3>Reading: ' + esc(B(S.timer.bookId).title) + '</h3><div class="rc-timer" id="rc-timer">00:00</div><button type="button" class="rc-btn rc-big" data-act="tstop">Stop &amp; log</button></div>';
+  } else if (reading.length) {
+    h += '<div class="rc-card"><h3>Reading timer</h3><select id="rc-tbook">' + reading.map(function (b) { return '<option value="' + b.id + '">' + esc(b.title) + '</option>'; }).join('') + '</select><button type="button" class="rc-btn rc-big" data-act="tstart">Start</button></div>';
+  } else h += '<div class="rc-card"><p class="rc-muted">Mark a book as “Reading” in the Library to start a timer.</p></div>';
+  var plans = S.books.map(function (b) { return { b: b, p: perDayNeeded(b) }; }).filter(function (x) { return x.p && x.b.status === 'reading'; });
+  if (plans.length) h += '<div class="rc-card"><h3>Today’s targets</h3>' + plans.map(function (x) {
+    var done = gainOn(x.b, t); return '<div class="rc-item"><b>' + esc(x.b.title) + '</b><div class="rc-muted rc-sm">' + done + ' / ' + x.p.need + ' ' + unitLabel(x.b) + ' today</div><div class="rc-bar"><i style="width:' + Math.min(100, Math.round(done / Math.max(1, x.p.need) * 100)) + '%"></i></div></div>';
+  }).join('') + '</div>';
+  if (reading.length) h += '<div class="rc-card"><h3>Currently reading</h3>' + reading.map(function (b) { return '<div class="rc-item" data-act="open" data-id="' + b.id + '" style="cursor:pointer"><b>' + esc(b.title) + '</b> <span class="rc-muted rc-sm">' + prog(b) + '</span></div>'; }).join('') + '</div>';
+  return h;
+}
+
+function notesList() {
+  var q = ui.nq.toLowerCase(), out = [];
+  S.books.forEach(function (b) { b.notes.forEach(function (n) { out.push({ b: b, n: n }); }); });
+  out = out.filter(function (x) { return !q || (x.n.text + ' ' + x.n.chapter + ' ' + x.b.title + ' ' + (x.n.tags || []).join(' ')).toLowerCase().indexOf(q) >= 0; }).reverse();
+  return out.length ? out.map(function (x) { return '<div class="rc-card"><span class="rc-tag">' + x.n.type + '</span><b>' + esc(x.b.title) + '</b>' + (x.n.chapter ? ' <span class="rc-muted rc-sm">' + esc(x.n.chapter) + '</span>' : '') + '<div>' + esc(x.n.text) + '</div>' + (x.n.tags || []).map(function (t) { return '<span class="rc-tag">#' + esc(t) + '</span>'; }).join('') + '</div>'; }).join('') : '<p class="rc-muted">No notes found.</p>';
+}
+function vNotes() { return '<input data-live="nq" placeholder="Search all notes, quotes and tags" value="' + esc(ui.nq) + '"><button type="button" class="rc-btn rc-ghost" data-act="exportnotes">Export notes (Markdown)</button><div id="rc-results">' + notesList() + '</div>'; }
+
+function dueItems() {
+  var t = iso();
+  return S.cards.map(function (c) { return { k: 'c', x: c }; }).concat(S.vocab.map(function (v) { return { k: 'v', x: v }; }))
+    .filter(function (i) { return (i.x.due || t) <= t; }).sort(function (a, b) { return (a.x.due || '') < (b.x.due || '') ? -1 : 1; });
+}
+function vReview() {
+  var items = dueItems(), total = S.cards.length + S.vocab.length;
+  var h = '<div class="rc-top"><h3>Review</h3>' + (S.vocab.length >= 4 ? '<button type="button" class="rc-chip' + (ui.mc ? ' rc-on' : '') + '" data-act="mcmode">Multiple choice (words)</button>' : '') + '</div>';
+  if (!items.length) return h + '<div class="rc-card"><p>' + (total ? 'All caught up — nothing is due today.' : 'No cards or words yet. Add quiz cards from a book’s notes, or save words in the Words tab.') + '</p><p class="rc-muted rc-sm">' + total + ' item(s) in your review deck.</p></div>';
+  var cur = items[0], x = cur.x;
+  h += '<p class="rc-muted rc-sm">' + items.length + ' due</p><div class="rc-card">';
+  if (cur.k === 'v' && ui.mc && S.vocab.length >= 4) {
+    if (ui.optFor !== x.id) {
+      var others = S.vocab.filter(function (v) { return v.id !== x.id && v.def; }).sort(function () { return Math.random() - .5; }).slice(0, 3);
+      var opts = others.map(function (v) { return { t: v.def, ok: false }; }).concat([{ t: x.def, ok: true }]).sort(function () { return Math.random() - .5; });
+      ui.opts = opts; ui.optFor = x.id; ui.picked = null;
+    }
+    h += '<div class="rc-flash"><b>' + esc(x.word) + '</b></div>';
+    ui.opts.forEach(function (o, i) {
+      var cls = ui.picked == null ? '' : o.ok ? ' rc-good' : (ui.picked === i ? ' rc-wrong' : '');
+      h += '<button type="button" class="rc-opt' + cls + '" data-act="mcpick" data-v="' + i + '"' + (ui.picked != null ? ' disabled' : '') + '>' + esc(o.t) + '</button>';
+    });
+    if (ui.picked != null) h += '<button type="button" class="rc-btn" data-act="grade" data-ok="' + (ui.opts[ui.picked].ok ? 1 : 0) + '">Next</button>';
+  } else {
+    var front = cur.k === 'c' ? x.q : x.word, back = cur.k === 'c' ? x.a : x.def + (x.ex ? '\n“' + x.ex + '”' : '');
+    h += '<div class="rc-flash">' + esc(front) + '</div>';
+    if (!ui.reveal) h += '<button type="button" class="rc-btn" data-act="reveal">Show answer</button>';
+    else h += '<div class="rc-flash" style="white-space:pre-line;color:var(--rc-acc)">' + esc(back) + '</div><button type="button" class="rc-btn" data-act="grade" data-ok="1">Got it</button><button type="button" class="rc-btn rc-warn" data-act="grade" data-ok="0">Missed</button>';
+  }
+  return h + '</div>';
+}
+
+function wordsList() {
+  var q = ui.wq.toLowerCase();
+  var l = S.vocab.filter(function (v) { return !q || (v.word + ' ' + v.def).toLowerCase().indexOf(q) >= 0; });
+  return l.length ? l.map(function (v) { var b = B(v.bookId); return '<div class="rc-card"><b>' + esc(v.word) + '</b> <span class="rc-muted rc-sm">' + (b ? esc(b.title) : '') + '</span><div>' + esc(v.def) + '</div>' + (v.ex ? '<div class="rc-muted rc-sm">“' + esc(v.ex) + '”</div>' : '') + '<button type="button" class="rc-chip" data-act="delword" data-id="' + v.id + '">Delete</button></div>'; }).join('') : '<p class="rc-muted">No words yet.</p>';
+}
+function vWords() {
+  return '<form data-form="addWord" class="rc-card"><h3>Save a word</h3><div class="rc-row"><input name="word" id="rc-word" placeholder="Word" required><button type="button" class="rc-btn rc-ghost" data-act="lookup">Look up</button></div>' +
+    '<input name="def" id="rc-def" placeholder="Definition" required><input name="ex" placeholder="Example sentence (optional)"><select name="bookId"><option value="">From book…</option>' +
+    S.books.map(function (b) { return '<option value="' + b.id + '">' + esc(b.title) + '</option>'; }).join('') + '</select><button class="rc-btn">Save word</button><div class="rc-muted rc-sm" id="rc-lookmsg"></div></form>' +
+    '<input data-live="wq" placeholder="Search words" value="' + esc(ui.wq) + '"><div id="rc-results">' + wordsList() + '</div>';
+}
+
+function getParas() {
+  var t = S.reader.text || '', p = t.split(/\r?\n\s*\r?\n/).map(function (s) { return s.replace(/\s*\n\s*/g, ' ').trim(); }).filter(Boolean);
+  if (p.length === 1 && p[0].length > 1500) { var s = p[0].match(/[^.!?]+[.!?]+["')\]]*\s*|[^.!?]+$/g) || [p[0]]; p = []; for (var i = 0; i < s.length; i += 4) p.push(s.slice(i, i + 4).join('').trim()); }
+  return p;
+}
+function vReader() {
+  var r = S.reader;
+  if (!r.text) return '<form data-form="readerText" class="rc-card"><h3>Reader mode</h3><p class="rc-muted">Paste text you own or that is in the public domain (for example from Project Gutenberg), or open a .txt file.</p>' +
+    '<input name="title" placeholder="Title (optional)"><textarea name="text" rows="8" placeholder="Paste text here…"></textarea><div class="rc-row"><input type="file" accept=".txt,text/plain" data-change="readerfile"><button class="rc-btn">Open</button></div></form>';
+  ui.paras = getParas();
+  var fonts = { serif: 'Georgia,serif', sans: '-apple-system,system-ui,sans-serif', mono: 'ui-monospace,Menlo,monospace' };
+  var opt = function (k, v, l, cur) { return '<option value="' + v + '"' + (cur === v ? ' selected' : '') + '>' + l + '</option>'; };
+  var h = '<div class="rc-card"><div class="rc-row"><select data-change="rfont">' + opt(0, 'serif', 'Serif', r.font) + opt(0, 'sans', 'Sans', r.font) + opt(0, 'mono', 'Mono', r.font) + '</select>' +
+    '<select data-change="rbg">' + opt(0, 'paper', 'Paper', r.bg) + opt(0, 'sepia', 'Sepia', r.bg) + opt(0, 'dark', 'Dark', r.bg) + opt(0, 'night', 'Night', r.bg) + '</select></div>' +
+    '<label class="rc-muted rc-sm">Text size</label><input type="range" min="14" max="34" value="' + r.size + '" data-change="rsize"><label class="rc-muted rc-sm">Line spacing</label><input type="range" min="1.3" max="2.3" step="0.1" value="' + r.lh + '" data-change="rlh">' +
+    '<button type="button" class="rc-chip' + (r.focus ? ' rc-on' : '') + '" data-act="rfocus">Focus line</button>' +
+    '<button type="button" class="rc-chip" data-act="rdplay">▶ Read aloud</button><button type="button" class="rc-chip" data-act="rdpause">Pause</button><button type="button" class="rc-chip" data-act="rdstop">Stop</button>' +
+    '<label class="rc-muted rc-sm">Read-aloud speed</label><input type="range" min="0.6" max="1.8" step="0.1" value="' + r.rate + '" data-change="rrate">' +
+    '<div class="rc-muted rc-sm">Tap a paragraph to focus it and start from there. Select a word or phrase to save it.</div>' +
+    '<button type="button" class="rc-chip" data-act="rdsavew" data-keepsel="1">Save selection as word</button>' +
+    '<select id="rc-qbook"><option value="">Save as quote in…</option>' + S.books.map(function (b) { return '<option value="' + b.id + '">' + esc(b.title) + '</option>'; }).join('') + '</select>' +
+    '<button type="button" class="rc-chip" data-act="rdsaveq" data-keepsel="1">Save selection as quote</button>' +
+    '<button type="button" class="rc-chip" data-act="rdclear">Close text</button></div>';
+  h += '<div class="rc-rd rc-' + r.bg + (r.focus ? ' rc-focus' : '') + '" id="rc-rd" style="font-family:' + fonts[r.font] + ';font-size:' + r.size + 'px;line-height:' + r.lh + '">' +
+    (r.title ? '<h3>' + esc(r.title) + '</h3>' : '') + ui.paras.map(function (p, i) { return '<p data-i="' + i + '"' + (i === r.pos ? ' class="rc-on"' : '') + '>' + esc(p) + '</p>'; }).join('') + '</div>';
+  return h;
+}
+
+function vStats() {
+  var yr = String(new Date().getFullYear()), fin = S.books.filter(function (b) { return b.status === 'finished' && (b.finished || '').indexOf(yr) === 0; });
+  var pages = 0, pm = 0, ph = 0;
+  S.books.forEach(function (b) { b.sessions.forEach(function (x) { var d = Math.max(0, x.to - x.from); if (b.unit === 'pages') { pages += d; if (x.mins > 0) { pm += x.mins; ph += d; } } }); });
+  var days = [], mx = 1, i;
+  for (i = 13; i >= 0; i--) { var d = addDays(iso(), -i), m = minsOn(d); days.push({ d: d, m: m }); if (m > mx) mx = m; }
+  var h = '<div class="rc-grid"><div class="rc-card rc-stat"><b>' + fin.length + '/' + S.goal + '</b>books in ' + yr + '</div><div class="rc-card rc-stat"><b>' + streak() + '</b>current streak</div><div class="rc-card rc-stat"><b>' + bestStreak() + '</b>best streak</div><div class="rc-card rc-stat"><b>' + pages + '</b>pages logged</div>' +
+    '<div class="rc-card rc-stat"><b>' + (pm ? Math.round(ph / (pm / 60)) : '–') + '</b>pages / hour</div></div>';
+  h += '<div class="rc-bar"><i style="width:' + Math.min(100, Math.round(fin.length / Math.max(1, S.goal) * 100)) + '%"></i></div>';
+  h += '<div class="rc-card"><h3>Last 14 days (minutes)</h3><div class="rc-bars">' + days.map(function (x) { return '<div title="' + x.d + ': ' + x.m + ' min" style="height:' + Math.round(x.m / mx * 100) + '%"></div>'; }).join('') + '</div></div>';
+  h += '<div class="rc-card"><h3>Settings</h3><div class="rc-row"><div><label class="rc-muted rc-sm">Books to read this year</label><input type="number" min="1" data-change="goal" value="' + S.goal + '"></div><div><label class="rc-muted rc-sm">Daily minutes target</label><input type="number" min="1" data-change="daily" value="' + S.daily + '"></div></div>' +
+    '<label class="rc-muted rc-sm">Theme</label><select data-change="theme"><option value="auto"' + (S.theme === 'auto' ? ' selected' : '') + '>Auto</option><option value="light"' + (S.theme === 'light' ? ' selected' : '') + '>Light</option><option value="dark"' + (S.theme === 'dark' ? ' selected' : '') + '>Dark</option></select>' +
+    '<button type="button" class="rc-btn rc-ghost" data-act="exportjson">Back up (JSON)</button><label class="rc-btn rc-ghost" style="display:inline-block">Restore backup<input type="file" accept=".json,application/json" data-change="import" style="display:none"></label></div>';
+  return h;
+}
+
+function vNext() {
+  var h = '<div class="rc-card"><h3>What should I read next?</h3><div>' + chips([['short', 'Something short'], ['long', 'Something long'], ['fav', 'An author I rate'], ['random', 'Surprise me']], '', 'mood') + '</div>';
+  if (ui.pick === false) h += '<p class="rc-muted">Your to-read shelf is empty — search below to add some.</p>';
+  else if (ui.pick) h += '<div class="rc-item"><b>' + esc(ui.pick.b.title) + '</b> <span class="rc-muted">' + esc(ui.pick.b.author) + '</span><div class="rc-muted rc-sm">' + esc(ui.pick.why) + '</div><button type="button" class="rc-btn" data-act="startpick" data-id="' + ui.pick.b.id + '">Start reading</button></div>';
+  h += '</div><form data-form="olsearch" class="rc-card"><h3>Find books</h3><p class="rc-muted rc-sm">Searches Open Library (needs internet).</p><div class="rc-row"><input name="q" placeholder="Title, author or subject" required><button class="rc-btn">Search</button></div>';
+  h += (ui.olMsg ? '<p class="rc-muted">' + esc(ui.olMsg) + '</p>' : '') + ui.ol.map(function (r, i) { return '<div class="rc-item"><b>' + esc(r.title) + '</b> <span class="rc-muted">' + esc(r.author) + (r.year ? ' · ' + r.year : '') + (r.pages ? ' · ' + r.pages + ' pp' : '') + '</span> <button type="button" class="rc-chip" data-act="oladd" data-i="' + i + '">+ To read</button></div>'; }).join('') + '</form>';
+  return h;
+}
+function pickNext(mood) {
+  var pool = S.books.filter(function (b) { return b.status === 'to-read'; });
+  if (!pool.length) return false;
+  var r = function (a) { return a[Math.floor(Math.random() * a.length)]; }, b, why;
+  if (mood === 'short') { pool.sort(function (a, c) { return (a.total || 1e9) - (c.total || 1e9); }); b = r(pool.slice(0, 3)); why = 'One of the shortest on your shelf.'; }
+  else if (mood === 'long') { pool.sort(function (a, c) { return (c.total || 0) - (a.total || 0); }); b = r(pool.slice(0, 3)); why = 'One of the longest on your shelf.'; }
+  else if (mood === 'fav') {
+    var avg = {}; S.books.filter(function (x) { return x.status === 'finished' && x.rating && x.author; }).forEach(function (x) { (avg[x.author] = avg[x.author] || []).push(x.rating); });
+    var best = null, bs = 0; pool.forEach(function (x) { var a = avg[x.author]; if (a) { var m = a.reduce(function (p, c) { return p + c; }, 0) / a.length; if (m > bs) { bs = m; best = x; } } });
+    if (best) { b = best; why = 'You rated this author ' + bs.toFixed(1) + '★ on average.'; } else { b = r(pool); why = 'No rated authors yet, so here is a random pick.'; }
+  } else { b = r(pool); why = 'Picked at random from your shelf.'; }
+  return { b: b, why: why };
+}
+
+/* ---------- render ---------- */
+function render() {
+  if (!root) return;
+  var th = S.theme;
+  root.className = 'rc'; root.setAttribute('data-theme', th === 'light' ? 'light' : th);
+  var views = { library: vLibrary, today: vToday, notes: vNotes, review: vReview, words: vWords, reader: vReader, stats: vStats, next: vNext };
+  root.innerHTML = '<div class="rc-top"><h2>📚 Reading Companion</h2></div><nav>' + TABS.map(function (t) { return '<button type="button" data-act="tab" data-v="' + t[0] + '" class="' + (ui.tab === t[0] ? 'rc-on' : '') + '">' + t[1] + '</button>'; }).join('') + '</nav>' + views[ui.tab]();
+  if (ui.tab === 'reader' && S.reader.text) { var p = root.querySelector('#rc-rd p.rc-on'); if (p && p.scrollIntoView && S.reader.pos > 0) p.scrollIntoView({ block: 'center' }); }
+  updateTimer();
+}
+function updateTimer() {
+  var el = root && root.querySelector('#rc-timer'); if (!el || !S.timer) return;
+  var s = Math.floor((Date.now() - S.timer.start) / 1000), m = Math.floor(s / 60), h = Math.floor(m / 60);
+  el.textContent = (h ? h + ':' : '') + String(m % 60).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
+}
+
+/* ---------- read aloud ---------- */
+function markP(k) {
+  S.reader.pos = k; save();
+  var all = root.querySelectorAll('#rc-rd p'); all.forEach(function (el) { el.classList.toggle('rc-on', +el.dataset.i === k); });
+  var el = root.querySelector('#rc-rd p[data-i="' + k + '"]'); if (el && el.scrollIntoView) el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+}
+function stopTTS() { ui.ttsOn = false; ui.ttsId++; try { if ('speechSynthesis' in global) global.speechSynthesis.cancel(); } catch (e) {} }
+function speakFrom(i) {
+  if (!('speechSynthesis' in global)) { alert('Read-aloud is not supported in this browser.'); return; }
+  stopTTS(); var id = ui.ttsId, paras = ui.paras || getParas(); ui.ttsOn = true;
+  var go = function (k) {
+    if (id !== ui.ttsId || !ui.ttsOn || k >= paras.length) { if (id === ui.ttsId) ui.ttsOn = false; return; }
+    markP(k); var u = new global.SpeechSynthesisUtterance(paras[k]); u.rate = S.reader.rate || 1;
+    u.onend = function () { go(k + 1); }; u.onerror = function () { if (id === ui.ttsId) ui.ttsOn = false; };
+    global.speechSynthesis.speak(u);
+  };
+  go(i);
+}
+
+/* ---------- actions ---------- */
+function dl(name, text, type) {
+  var a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type: type || 'text/plain' })); a.download = name;
+  document.body.appendChild(a); a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+}
+function notesMd() {
+  return S.books.filter(function (b) { return b.notes.length; }).map(function (b) {
+    return '# ' + b.title + (b.author ? ' — ' + b.author : '') + '\n\n' + b.notes.map(function (n) { return '- **' + n.type + '**' + (n.chapter ? ' (' + n.chapter + ')' : '') + ': ' + n.text + ((n.tags || []).length ? ' _#' + n.tags.join(' #') + '_' : ''); }).join('\n');
+  }).join('\n\n');
+}
+var cur = function () { return B(ui.book); };
+var ACT = {
+  tab: function (t) { ui.tab = t.dataset.v; if (ui.tab !== 'library') ui.book = null; render(); },
+  open: function (t) { ui.tab = 'library'; ui.book = t.dataset.id; render(); global.scrollTo && global.scrollTo(0, 0); },
+  back: function () { ui.book = null; render(); },
+  filter: function (t) { ui.filter = t.dataset.v; render(); },
+  rate: function (t) { var b = cur(); b.rating = b.rating === +t.dataset.v ? 0 : +t.dataset.v; save(); render(); },
+  spoil: function () { ui.spoil = !ui.spoil; render(); },
+  delbook: function () { var b = cur(); if (confirm('Delete “' + b.title + '” and all its notes?')) { S.books = S.books.filter(function (x) { return x !== b; }); S.cards = S.cards.filter(function (c) { return c.bookId !== b.id; }); ui.book = null; save(); render(); } },
+  delnote: function (t) { var b = cur(); b.notes = b.notes.filter(function (n) { return n.id !== t.dataset.id; }); save(); render(); },
+  delcast: function (t) { var b = cur(); b.cast = b.cast.filter(function (n) { return n.id !== t.dataset.id; }); save(); render(); },
+  delevent: function (t) { var b = cur(); b.events = b.events.filter(function (n) { return n.id !== t.dataset.id; }); save(); render(); },
+  delcard: function (t) { S.cards = S.cards.filter(function (c) { return c.id !== t.dataset.id; }); save(); render(); },
+  delword: function (t) { S.vocab = S.vocab.filter(function (c) { return c.id !== t.dataset.id; }); save(); render(); },
+  note2card: function (t) {
+    var b = cur(), n = b.notes.find(function (x) { return x.id === t.dataset.id; });
+    var q = n.type === 'quote' ? 'Who or what is this from, and what does it mean? “' + n.text.slice(0, 80) + '”' : n.type === 'summary' ? 'What happened / was the key idea in ' + (n.chapter || 'this section') + ' of ' + b.title + '?' : 'What was your thought on ' + (n.chapter || 'this part') + ' of ' + b.title + '?';
+    S.cards.push({ id: uid(), bookId: b.id, q: q, a: n.text, box: 0, due: iso() }); save(); alert('Quiz card added.');
+  },
+  tstart: function () { var sel = root.querySelector('#rc-tbook'); if (!sel || !sel.value) return; S.timer = { bookId: sel.value, start: Date.now() }; save(); render(); },
+  tstop: function () { var m = Math.max(1, Math.round((Date.now() - S.timer.start) / 60000)); ui.pending = { bookId: S.timer.bookId, mins: m }; S.timer = null; save(); render(); },
+  tskip: function () { ui.pending = null; render(); },
+  reveal: function () { ui.reveal = true; render(); },
+  mcmode: function () { ui.mc = !ui.mc; ui.optFor = null; render(); },
+  mcpick: function (t) { ui.picked = +t.dataset.v; render(); },
+  grade: function (t) {
+    var it = dueItems()[0]; if (!it) return; var ok = t.dataset.ok === '1', x = it.x;
+    x.box = ok ? Math.min((x.box || 0) + 1, INTERVALS.length - 1) : 0; x.due = addDays(iso(), ok ? INTERVALS[x.box] : 1);
+    ui.reveal = false; ui.picked = null; ui.optFor = null; save(); render();
+  },
+  lookup: function () {
+    var w = (root.querySelector('#rc-word').value || '').trim(), msg = root.querySelector('#rc-lookmsg'); if (!w) return; msg.textContent = 'Looking up…';
+    fetch('https://api.dictionaryapi.dev/api/v2/entries/en/' + encodeURIComponent(w)).then(function (r) { if (!r.ok) throw 0; return r.json(); }).then(function (d) {
+      var m = d[0].meanings[0]; root.querySelector('#rc-def').value = (m.partOfSpeech ? '(' + m.partOfSpeech + ') ' : '') + m.definitions[0].definition; msg.textContent = '';
+    }).catch(function () { msg.textContent = 'Could not find it — type your own definition.'; });
+  },
+  exportnotes: function () { dl('reading-notes.md', notesMd() || '(no notes yet)', 'text/markdown'); },
+  exportjson: function () { dl('reading-backup-' + iso() + '.json', JSON.stringify(S), 'application/json'); },
+  rfocus: function () { S.reader.focus = !S.reader.focus; save(); render(); },
+  rdplay: function () { speakFrom(Math.max(0, S.reader.pos || 0)); },
+  rdpause: function () { try { var s = global.speechSynthesis; if (s.paused) s.resume(); else s.pause(); } catch (e) {} },
+  rdstop: function () { stopTTS(); },
+  rdclear: function () { stopTTS(); S.reader.text = ''; S.reader.pos = 0; save(); render(); },
+  rdsavew: function () {
+    var w = (ui.sel || '').trim(); if (!w) { alert('Select a word in the text first.'); return; }
+    if (w.split(/\s+/).length > 3) { alert('Select just a word or short phrase.'); return; }
+    S.vocab.push({ id: uid(), word: w, def: '', ex: '', bookId: '', box: 0, due: iso() }); save(); ui.tab = 'words'; ui.wq = w; render(); alert('Added “' + w + '” — add a definition in the Words tab.');
+  },
+  rdsaveq: function () {
+    var q = (ui.sel || '').trim(), id = root.querySelector('#rc-qbook').value;
+    if (!q) { alert('Select some text first.'); return; } if (!id) { alert('Choose a book to save the quote in.'); return; }
+    if (q.split(/\s+/).length > 60) q = q.split(/\s+/).slice(0, 60).join(' ') + '…';
+    var b = B(id); b.notes.push({ id: uid(), type: 'quote', chapter: S.reader.title || '', text: q, tags: [], date: iso(), at: b.progress }); save(); alert('Quote saved.');
+  },
+  mood: function (t) { ui.pick = pickNext(t.dataset.v); render(); },
+  startpick: function (t) { var b = B(t.dataset.id); b.status = 'reading'; b.started = b.started || iso(); save(); ui.pick = null; ui.tab = 'library'; ui.book = b.id; render(); },
+  oladd: function (t) { var r = ui.ol[+t.dataset.i]; S.books.push(newBook({ title: r.title, author: r.author, total: r.pages || 0 })); save(); t.textContent = 'Added ✓'; t.disabled = true; }
+};
+var FORM = {
+  addBook: function (f, d) { var b = newBook(d); S.books.push(b); if (b.status === 'reading') b.started = iso(); save(); ui.filter = 'all'; render(); },
+  logSession: function (f, d) { logProgress(cur(), d.to, d.mins, d.date); render(); },
+  finishLog: function (f, d) { var b = B(ui.pending.bookId); logProgress(b, d.to, ui.pending.mins); ui.pending = null; render(); },
+  addNote: function (f, d) { var b = cur(); b.notes.push({ id: uid(), type: d.type, chapter: d.chapter.trim(), text: d.text.trim(), tags: tags(d.tags), date: iso(), at: b.progress }); save(); render(); },
+  addCast: function (f, d) { var b = cur(); b.cast.push({ id: uid(), name: d.name.trim(), role: d.role.trim(), at: b.progress }); save(); render(); },
+  addEvent: function (f, d) { var b = cur(); b.events.push({ id: uid(), text: d.text.trim(), at: b.progress }); save(); render(); },
+  addCard: function (f, d) { S.cards.push({ id: uid(), bookId: cur().id, q: d.q.trim(), a: d.a.trim(), box: 0, due: iso() }); save(); render(); },
+  addWord: function (f, d) { S.vocab.push({ id: uid(), word: d.word.trim(), def: d.def.trim(), ex: d.ex.trim(), bookId: d.bookId, box: 0, due: iso() }); save(); ui.wq = ''; render(); },
+  readerText: function (f, d) { if (!d.text.trim()) { alert('Paste some text or choose a file.'); return; } S.reader.text = d.text.slice(0, 1500000); S.reader.title = d.title.trim(); S.reader.pos = 0; save(); render(); },
+  olsearch: function (f, d) {
+    ui.olMsg = 'Searching…'; ui.ol = []; render();
+    fetch('https://openlibrary.org/search.json?limit=8&fields=title,author_name,first_publish_year,number_of_pages_median&q=' + encodeURIComponent(d.q))
+      .then(function (r) { return r.json(); }).then(function (j) {
+        ui.ol = (j.docs || []).map(function (x) { return { title: x.title, author: (x.author_name || [])[0] || '', year: x.first_publish_year, pages: x.number_of_pages_median }; });
+        ui.olMsg = ui.ol.length ? '' : 'No results.'; render();
+      }).catch(function () { ui.olMsg = 'Search failed — check your connection.'; render(); });
+  }
+};
+var CHG = {
+  status: function (t) { var b = cur(); b.status = t.value; if (t.value === 'reading') b.started = b.started || iso(); if (t.value === 'finished') { b.finished = iso(); if (b.total) b.progress = b.total; } save(); render(); },
+  deadline: function (t) { cur().deadline = t.value; save(); render(); },
+  goal: function (t) { S.goal = Math.max(1, num(t.value) | 0); save(); render(); },
+  daily: function (t) { S.daily = Math.max(1, num(t.value) | 0); save(); render(); },
+  theme: function (t) { S.theme = t.value; save(); render(); },
+  rfont: function (t) { S.reader.font = t.value; save(); render(); }, rbg: function (t) { S.reader.bg = t.value; save(); render(); },
+  rsize: function (t) { S.reader.size = +t.value; save(); render(); }, rlh: function (t) { S.reader.lh = +t.value; save(); render(); },
+  rrate: function (t) { S.reader.rate = +t.value; save(); },
+  readerfile: function (t) {
+    var f = t.files && t.files[0]; if (!f) return; var rd = new FileReader();
+    rd.onload = function () { S.reader.text = String(rd.result).slice(0, 1500000); S.reader.title = f.name.replace(/\.txt$/i, ''); S.reader.pos = 0; save(); render(); }; rd.readAsText(f);
+  },
+  import: function (t) {
+    var f = t.files && t.files[0]; if (!f) return; var rd = new FileReader();
+    rd.onload = function () { try { var o = JSON.parse(rd.result); if (!o.books) throw 0; if (confirm('Replace everything with this backup?')) { localStorage.setItem(KEY, JSON.stringify(o)); load(); render(); } } catch (e) { alert('That does not look like a Reading Companion backup.'); } }; rd.readAsText(f);
+  }
+};
+
+function onClick(e) {
+  var p = e.target.closest && e.target.closest('#rc-rd p[data-i]');
+  if (p && root.contains(p)) {
+    var sel = global.getSelection ? global.getSelection().toString().trim() : ''; if (sel) return;
+    var i = +p.dataset.i; S.reader.pos = i; save();
+    root.querySelectorAll('#rc-rd p').forEach(function (el) { el.classList.toggle('rc-on', el === p); });
+    if (ui.ttsOn) speakFrom(i); return;
+  }
+  var t = e.target.closest && e.target.closest('[data-act]'); if (!t || !root.contains(t)) return;
+  var fn = ACT[t.dataset.act]; if (fn) fn(t, e);
+}
+function onSubmit(e) { var f = e.target.closest && e.target.closest('[data-form]'); if (!f) return; e.preventDefault(); var fn = FORM[f.dataset.form]; if (fn) { var d = {}; new FormData(f).forEach(function (v, k) { d[k] = v; }); fn(f, d); } }
+function onChange(e) { var c = e.target.dataset && e.target.dataset.change; if (c && CHG[c]) CHG[c](e.target); }
+function onInput(e) {
+  var l = e.target.dataset && e.target.dataset.live; if (!l) return;
+  ui[l] = e.target.value; var box = root.querySelector('#rc-results'); if (box) box.innerHTML = l === 'nq' ? notesList() : wordsList();
+}
+function onSel() {
+  if (ui.tab !== 'reader' || !global.getSelection) return;
+  var s = global.getSelection(), t = s.toString().trim();
+  if (t && s.anchorNode && root && root.contains(s.anchorNode)) ui.sel = t;
+}
+function onDown(e) { if (e.target.closest && e.target.closest('[data-keepsel]')) e.preventDefault(); }
+
+function mount(el) {
+  if (!el) return; unmount(); root = el; load();
+  root.addEventListener('click', onClick); root.addEventListener('submit', onSubmit); root.addEventListener('change', onChange);
+  root.addEventListener('input', onInput); root.addEventListener('mousedown', onDown);
+  document.addEventListener('selectionchange', onSel);
+  tick = setInterval(updateTimer, 1000); render();
+}
+function unmount() {
+  if (!root) return; root.removeEventListener('click', onClick); root.removeEventListener('submit', onSubmit); root.removeEventListener('change', onChange);
+  root.removeEventListener('input', onInput); root.removeEventListener('mousedown', onDown); document.removeEventListener('selectionchange', onSel);
+  clearInterval(tick); stopTTS(); root = null;
+}
+
+if (!document.getElementById('rc-style')) { var st = document.createElement('style'); st.id = 'rc-style'; st.textContent = CSS; document.head.appendChild(st); }
+global.ReadingCompanion = { mount: mount, unmount: unmount };
+})(window);
+
+(function(){
+  function $(id){ return document.getElementById(id); }
+  if($('sec-reading')) return;
+  var notes = $('sec-notes');
+  if(!notes) throw new Error('Soul Notes card (sec-notes) not found, so Reading has nowhere to sit');
+
+  /* Make the Reading module wear Seasons colours and type, and follow Seasons dark mode and text size */
+  var css = document.createElement('style');
+  css.textContent =
+    '#sec-reading .rc{--rc-bg:var(--paper);--rc-fg:var(--ink);--rc-card:var(--paper-raised);--rc-muted:var(--ink-faint);--rc-acc:var(--ink);--rc-line:var(--line);--rc-on:var(--paper);' +
+    'font:inherit;line-height:1.45;color:var(--ink);background:transparent;padding:0;max-width:none;margin:0;border-radius:0}' +
+    '#sec-reading .rc>.rc-top{display:none}' +
+    '#sec-reading .rc h3{font-family:"Fraunces",serif;font-weight:500}' +
+    '#sec-reading .rc .rc-card{background:var(--paper-raised)}';
+  document.head.appendChild(css);
+
+  var sec = document.createElement('section');
+  sec.className = 'csec' + (sectionState['reading'] === true ? ' open' : '');
+  sec.id = 'sec-reading'; sec.setAttribute('data-key', 'reading');
+  sec.setAttribute('data-group', notes.getAttribute('data-group') || 'soul');
+  sec.innerHTML = '<button class="csec-head"><div class="csec-head-left"><span class="csec-title">Reading</span><span class="csec-meta">books, notes, words</span></div><span class="csec-chevron">⌄</span></button><div class="csec-body"><div id="reading-root" style="padding-top:2px"></div></div>';
+  sec.querySelector('.csec-head').onclick = function(){ var o = sec.classList.toggle('open'); sectionState['reading'] = o; LS.set(SECTION_STATE_KEY, JSON.stringify(sectionState)); };
+  if(sectionState['reading'] === undefined) sectionState['reading'] = false;   /* starts collapsed */
+  notes.parentNode.insertBefore(sec, notes.nextSibling);
+  ReadingCompanion.mount($('reading-root'));
+  try{ if(EXPORT_KEY_GROUPS.soul.indexOf('rc_v1') < 0) EXPORT_KEY_GROUPS.soul.push('rc_v1'); }catch(e){}
+  setActivePage(LS.get(PAGE_KEY) || 'spirit');   /* the new card was added after page setup, so show/hide it for the current page */
+
+  window.openReading = function(){
+    setActivePage('soul');
+    if(!sec.classList.contains('open')){ sec.classList.add('open'); sectionState['reading'] = true; LS.set(SECTION_STATE_KEY, JSON.stringify(sectionState)); }
+    setTimeout(function(){ try{ sec.scrollIntoView({ behavior:'smooth', block:'start' }); }catch(e){} }, 60);
+  };
+})();
+
+ window.__SU.ok.push('Reading: library, timer, notes, review, words, reader, stats, next');
+}catch(e){ window.__SU.fail.push(['Reading: library, timer, notes, review, words, reader, stats, next', String(e && e.message || e)]); if(window.console) console.error('Reading', e); }
 
 </script>
 </body>
