@@ -4367,17 +4367,21 @@ try{
   /* 1. Today */
   function todayCard(c){
     var items = [], w = WEEKS.filter(function(x){ return x.w === nowWeek; })[0];
-    if(DUE[c.dow]) items.push({ label:'Scripture: ' + cap(DUE[c.dow]), sub:w ? w.t : '', done:!!c.ticks[DUE[c.dow]], go:['spirit','sec-weekly'] });
+    if(DUE[c.dow]) items.push({ pillar:'spirit', label:'Scripture: ' + cap(DUE[c.dow]), sub:w ? w.t : '', done:!!c.ticks[DUE[c.dow]], go:['spirit','sec-weekly'] });
     if(ptEnabled()){
       var kind = ptKind(c.ts);
-      if(kind) items.push({ label:'Training: ' + PT_DAY_TYPE_INFO[kind].name, done:ptDone(c.ts), go:['body','sec-body'] });
-      else if(ptDayTypeForDate(c.ts) === 'X') items.push({ label:'Training: catch-up day', sub:'Make up a missed session, or rest', done:ptDone(c.ts), optional:true, go:['body','sec-body'] });
+      if(kind) items.push({ pillar:'body', label:'Training: ' + PT_DAY_TYPE_INFO[kind].name, done:ptDone(c.ts), go:['body','sec-body'] });
+      else if(ptDayTypeForDate(c.ts) === 'X') items.push({ pillar:'body', label:'Training: catch-up day', sub:'Make up a missed session, or rest', done:ptDone(c.ts), optional:true, go:['body','sec-body'] });
     }
-    if(calOn(c) && CALS[c.dow]) items.push({ label:'Calisthenics: ' + CALS[c.dow], done:hasWork(c.C.done && c.C.done[c.ts]), optional:!!CAL_OPT[c.dow], go:['body', $('sec-calisthenics') ? 'sec-calisthenics' : 'sec-body'] });
+    if(calOn(c) && CALS[c.dow]) items.push({ pillar:'body', label:'Calisthenics: ' + CALS[c.dow], done:hasWork(c.C.done && c.C.done[c.ts]), optional:!!CAL_OPT[c.dow], go:['body', $('sec-calisthenics') ? 'sec-calisthenics' : 'sec-body'] });
     c.P.list.forEach(function(p){
-      items.push({ label:p.name, sub:pracWeekCount(c, p) + '/' + p.target + ' this week \u00b7 ' + PAGES[p.group], done:(c.P.log[c.ts] || []).indexOf(p.id) >= 0, tick:p.id });
+      items.push({ pillar:p.group, label:p.name, sub:pracWeekCount(c, p) + '/' + p.target + ' this week \u00b7 ' + PAGES[p.group], done:(c.P.log[c.ts] || []).indexOf(p.id) >= 0, tick:p.id });
     });
-    items.push({ label:'Capture a note', sub:'Journal or learning', done:!!c.entryDates[c.ts], optional:true, go:['soul','sec-notes'] });
+    items.push({ pillar:'soul', label:'Capture a note', sub:'Journal or learning', done:!!c.entryDates[c.ts], optional:true, go:['soul','sec-notes'] });
+    /* per-area counts for the progress rings (optional items only count once they are done) */
+    var cnt = { spirit:{ done:0, total:0 }, soul:{ done:0, total:0 }, body:{ done:0, total:0 } };
+    items.forEach(function(i){ var k = cnt[i.pillar]; if(!k || (i.optional && !i.done)) return; k.total++; if(i.done) k.done++; });
+    window.__SU_today = cnt;
     var req = items.filter(function(i){ return !i.optional; }), n = req.filter(function(i){ return i.done; }).length, pct = req.length ? Math.round(100 * n / req.length) : 0;
     var h = req.length ? '<div class="d-sum"><b>' + n + ' of ' + req.length + ' done</b><span>' + pct + '%</span></div><div class="d-bar"><i style="width:' + pct + '%"></i></div>' : '<div class="d-empty">Nothing scheduled that needs ticking today.</div>';
     h += '<div style="margin-top:6px">' + items.map(row).join('') + '</div>';
@@ -4590,6 +4594,8 @@ try{
     });
   }
 
+  window.__SU_dash = { refresh:function(){ try{ renderAll(); }catch(e){} } };
+
   /* ---------- clicks ---------- */
   function onClick(ev){
     var b = ev.target.closest && ev.target.closest('[data-act]'); if(!b) return;
@@ -4646,6 +4652,223 @@ try{
  window.__SU.ok.push('Dashboard: today, attention, week, streaks, season, activity, goals');
 }catch(e){ window.__SU.fail.push(['Dashboard: today, attention, week, streaks, season, activity, goals', String(e && e.message || e)]); if(window.console) console.error('Dashboard', e); }
 
+/* ===== life-ui-upgrade.js ===== */
+/* Seasons: Interface upgrade ("life management" look and navigation).
+   PASTE this whole block at the very END of your second script block, after the Dashboard block and before the Reading block.
+   What it adds:
+   - A colour for each area: Spirit indigo, Soul plum, Body moss, Home brass (dark mode gets lighter versions)
+   - A banner on every page: Home greets you with three progress rings; Spirit, Soul and Body show their icon, a one-line purpose and today's ring
+   - A sticky jump bar: one chip per section on the page, highlights where you are, plus Collapse all / Expand all
+   - Weekly review and Season review move to the bottom of every page, so each page opens on its own content
+   - Slimmer top of page: the long intro is hidden on phones and the dark season card shrinks to one line on Spirit, Soul and Body (tap it to expand)
+   - A small progress ring on each tab, turning into a tick when that area's list for today is done
+   - Motion with a reason: rings draw in, a pulse when an area is completed, sections ease open (all switched off if the device asks for reduced motion)
+   It only reads data and changes the look. It needs the Dashboard block above it for the progress rings; without that the rings are simply left out. */
+window.__SU = window.__SU || { ok:[], fail:[] };
+try{
+(function(){
+  var ORDER = ['spirit','soul','body'];
+  var NAME = { home:'Home', spirit:'Spirit', soul:'Soul', body:'Body' };
+  var TAG = { spirit:'Scripture, prayer, stillness', soul:'Notes, reflection, reading', body:'Training, rest, daily habits' };
+  var SHORT = { 'Display and privacy':'Settings' };
+  var CHECK = '<path d="M4.5 8.2l2.4 2.4 4.6-4.8" stroke="var(--paper)" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/>';
+  var reduce = false; try{ reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches; }catch(e){}
+  var cur = 'home', prev = {}, secs = [], banner = null, jump = null, chipsEl = null, allBtn = null, tick = null;
+
+  function $(id){ return document.getElementById(id); }
+  function esc(s){ return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+  function icon(g){ var s = document.querySelector('#page-switch button[data-group="' + g + '"] svg'); return s ? s.outerHTML : ''; }
+  function counts(){ return window.__SU_today || null; }
+  function cnt(g){ var c = counts(); return (c && c[g]) || { done:0, total:0 }; }
+  function frac(c){ return c.total ? Math.min(1, c.done / c.total) : 0; }
+  function circ(r){ return 2 * Math.PI * r; }
+
+  /* ---------- styles ---------- */
+  var css = document.createElement('style'); css.id = 'life-ui-css';
+  css.textContent = [
+    ':root{--pc-home:#8F6B1E;--pc-spirit:#4A4FA3;--pc-soul:#9A4468;--pc-body:#3D7A55}',
+    'html[data-theme="dark"]{--pc-home:#E3C26E;--pc-spirit:#A9AEF5;--pc-soul:#EBA3C0;--pc-body:#8DD1A8}',
+    '[data-group="home"]{--grp:var(--pc-home)}[data-group="spirit"]{--grp:var(--pc-spirit)}[data-group="soul"]{--grp:var(--pc-soul)}[data-group="body"]{--grp:var(--pc-body)}',
+    'body[data-page="home"]{--pcur:var(--pc-home)}body[data-page="spirit"]{--pcur:var(--pc-spirit)}body[data-page="soul"]{--pcur:var(--pc-soul)}body[data-page="body"]{--pcur:var(--pc-body)}',
+    '.csec:not([data-group]){--grp:var(--pcur,var(--ink))}',
+    '.group-label{display:none!important}',
+    /* header */
+    '@media(max-width:859px){header{padding:.9rem 0 0;display:flex;align-items:baseline;gap:10px;text-align:left}header .eyebrow,header p{display:none}header h1{font-size:21px}header .by-line{margin:0}}',
+    /* banner */
+    '#life-banner{position:relative;display:flex;align-items:center;gap:14px;margin:.7rem 0 0;padding:1rem 1.1rem;border-radius:18px;background:color-mix(in srgb,var(--grp) 10%,var(--paper-raised));border:1px solid color-mix(in srgb,var(--grp) 24%,var(--line));box-shadow:var(--shadow)}',
+    '.life-bub{flex:0 0 46px;width:46px;height:46px;border-radius:50%;background:var(--grp);color:var(--paper);display:flex;align-items:center;justify-content:center}.life-bub svg{width:22px;height:22px}',
+    '.life-bt{flex:1;min-width:0}.life-bt h2{font-size:26px;line-height:1.15;letter-spacing:-.01em}.life-bt p{margin:3px 0 0;font-size:12.5px;color:var(--ink-soft);line-height:1.4}',
+    '.life-rings{display:flex;gap:8px;flex:0 0 auto}',
+    '.life-ring{position:relative;display:block;border:0;background:none;padding:0;color:var(--c);-webkit-appearance:none;appearance:none}button.life-ring{cursor:pointer}',
+    '.life-ring svg.r{display:block;transform:rotate(-90deg)}.life-ring .tr{fill:none;stroke:var(--line)}',
+    '.life-ring .pr{fill:none;stroke:var(--c);stroke-linecap:round;transition:stroke-dashoffset .9s cubic-bezier(.2,.8,.2,1)}',
+    '.life-ring .ic{position:absolute;left:0;top:0;right:0;bottom:0;display:flex;align-items:center;justify-content:center;font:600 12px "IBM Plex Mono",monospace;color:var(--c)}.life-ring .ic svg{width:42%;height:42%}',
+    '.life-ring.pop{animation:lifePop .6s cubic-bezier(.3,1.5,.5,1)}@keyframes lifePop{0%{transform:scale(1)}40%{transform:scale(1.2)}100%{transform:scale(1)}}',
+    '.life-bub{animation:lifeBub .5s cubic-bezier(.3,1.4,.5,1)}@keyframes lifeBub{from{transform:scale(.6);opacity:0}to{transform:none;opacity:1}}',
+    /* jump bar */
+    '#life-jump{position:sticky;top:env(safe-area-inset-top,0px);z-index:30;display:flex;align-items:center;gap:8px;margin:.8rem -1.3rem 0;padding:.5rem 1.3rem;background:color-mix(in srgb,var(--paper) 90%,transparent);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}',
+    '#life-jump::before{content:"";position:absolute;left:0;right:0;bottom:100%;height:env(safe-area-inset-top,0px);background:var(--paper)}',
+    '.lj-chips{display:flex;gap:6px;overflow-x:auto;flex:1;min-width:0;scrollbar-width:none;-webkit-overflow-scrolling:touch;padding:2px 0}.lj-chips::-webkit-scrollbar{display:none}',
+    '.lj-chip{flex:0 0 auto;border:1px solid var(--line);background:var(--paper-raised);color:var(--ink-soft);border-radius:999px;padding:6px 13px;font:500 12.5px/1.2 "Inter",sans-serif;cursor:pointer;white-space:nowrap}',
+    '.lj-chip.on{background:var(--grp);border-color:var(--grp);color:var(--paper)}',
+    '.lj-all{flex:0 0 auto;border:0;background:none;color:var(--ink-faint);font:11px "IBM Plex Mono",monospace;cursor:pointer;padding:6px 2px;white-space:nowrap}',
+    '.csec{scroll-margin-top:calc(env(safe-area-inset-top,0px) + 66px)}',
+    /* sections */
+    '.csec{border:1px solid transparent;transition:border-color .2s}.csec.open{border-color:color-mix(in srgb,var(--grp,var(--ink)) 20%,var(--line))}',
+    '.csec.open>.csec-head{background:color-mix(in srgb,var(--grp,var(--ink)) 7%,transparent)}.csec.open .csec-title{color:var(--grp,var(--ink))}',
+    '.csec.just-opened .csec-body{animation:lifeOpen .24s ease-out}@keyframes lifeOpen{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}',
+    /* season card: tinted by the area you are in */
+    '.today-card{background:color-mix(in srgb,var(--pcur,var(--ink)) 26%,var(--ink));transition:background .35s}',
+    'html[data-theme="dark"] .today-card{background:color-mix(in srgb,var(--pcur,var(--ink)) 18%,var(--paper-raised));color:var(--ink);border:1px solid color-mix(in srgb,var(--pcur,var(--ink)) 30%,var(--line))}',
+    'body[data-page="home"] .today-card{margin-top:.7rem}',
+    'body:not([data-page="home"]) .today-card{position:relative;cursor:pointer;margin-top:.6rem;padding:.75rem 2.6rem .75rem 1.1rem}',
+    'body:not([data-page="home"]) .today-card:not(.expanded)>:nth-child(n+3){display:none!important}',
+    'body:not([data-page="home"]) .today-card .today-heading{font-size:17px;margin-top:2px}',
+    'body:not([data-page="home"]) .today-card::after{content:"\\2304";position:absolute;right:1.1rem;top:.5rem;opacity:.55;transition:transform .2s}',
+    'body:not([data-page="home"]) .today-card.expanded::after{transform:rotate(180deg)}',
+    /* tabs */
+    '.page-switch button{position:relative}.page-switch button svg{color:var(--grp)}',
+    '.life-nb{position:absolute;width:16px;height:16px;pointer-events:none}.life-nb svg{display:block}',
+    '@media(max-width:859px){.page-switch button{border-radius:14px;margin:5px 3px}.page-switch button.active{background:color-mix(in srgb,var(--grp) 13%,transparent)}.life-nb{top:4px;left:calc(50% + 7px)}}',
+    '@media(min-width:860px){.page-switch button.active{background:color-mix(in srgb,var(--grp) 10%,var(--paper))}.life-nb{right:18px;top:50%;margin-top:-8px}',
+    '.wrap{margin-left:max(196px,calc(196px + (100vw - 196px - 720px) / 2));max-width:720px}}',
+    '#life-banner button:focus-visible,#life-jump button:focus-visible{outline:2px solid var(--grp,var(--ink));outline-offset:2px}',
+    '@media(prefers-reduced-motion:reduce){.life-bub,.life-ring,.life-ring .pr,.csec.just-opened .csec-body{animation:none!important;transition:none!important}}'
+  ].join('\n');
+  document.head.appendChild(css);
+
+  /* ---------- rings ---------- */
+  function ringHtml(g, size, sw, text, asButton){
+    var r = (size - sw) / 2, len = circ(r), tag = asButton ? 'button type="button" data-go="' + g + '"' : 'span';
+    return '<' + tag + ' class="life-ring" data-ring="' + g + '" data-text="' + (text ? 1 : 0) + '" style="--c:var(--pc-' + g + ');width:' + size + 'px;height:' + size + 'px" role="img" aria-label="' + NAME[g] + '">' +
+      '<svg class="r" width="' + size + '" height="' + size + '" viewBox="0 0 ' + size + ' ' + size + '"><circle class="tr" cx="' + size / 2 + '" cy="' + size / 2 + '" r="' + r + '" stroke-width="' + sw + '"/>' +
+      '<circle class="pr" cx="' + size / 2 + '" cy="' + size / 2 + '" r="' + r + '" stroke-width="' + sw + '" stroke-dasharray="' + len + '" stroke-dashoffset="' + len + '" data-len="' + len + '"/></svg>' +
+      '<span class="ic">' + (text ? '' : icon(g)) + '</span></' + (asButton ? 'button' : 'span') + '>';
+  }
+  function summary(){
+    var c = counts(); if(!c) return '';
+    var d = 0, t = 0; ORDER.forEach(function(g){ d += c[g].done; t += c[g].total; });
+    if(!t) return 'A quiet day. Nothing scheduled.';
+    if(d >= t) return 'Everything on today’s list is done.';
+    return d + ' of ' + t + ' done today';
+  }
+  function updateRings(animate){
+    var els = banner ? banner.querySelectorAll('[data-ring]') : [];
+    Array.prototype.forEach.call(els, function(el){
+      var g = el.getAttribute('data-ring'), c = cnt(g), f = frac(c), pr = el.querySelector('.pr'), len = parseFloat(pr.getAttribute('data-len'));
+      pr.style.strokeDashoffset = String(len * (1 - f));
+      var full = !!(c.total && f >= 1); el.classList.toggle('full', full);
+      el.setAttribute('aria-label', NAME[g] + ': ' + (c.total ? c.done + ' of ' + c.total + ' done today' : 'nothing scheduled today'));
+      if(el.getAttribute('data-text') === '1') el.querySelector('.ic').textContent = c.total ? c.done + '/' + c.total : 'rest';
+      if(full && prev[g] !== undefined && prev[g] < 1 && !reduce){ el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop'); }
+      prev[g] = f;
+    });
+    var s = $('life-sum'); if(s) s.textContent = summary();
+  }
+  function updateBadges(){
+    ORDER.forEach(function(g){
+      var b = document.querySelector('#page-switch button[data-group="' + g + '"]'); if(!b) return;
+      var n = b.querySelector('.life-nb'); if(!n){ n = document.createElement('span'); n.className = 'life-nb'; b.appendChild(n); }
+      var c = cnt(g), f = frac(c), col = 'var(--pc-' + g + ')';
+      if(!c.total){ n.innerHTML = ''; return; }
+      if(f >= 1){ n.innerHTML = '<svg viewBox="0 0 16 16" width="16" height="16"><circle cx="8" cy="8" r="8" fill="' + col + '"/>' + CHECK + '</svg>'; return; }
+      var r = 6, len = circ(r);
+      n.innerHTML = '<svg viewBox="0 0 16 16" width="16" height="16" style="transform:rotate(-90deg)"><circle cx="8" cy="8" r="' + r + '" fill="var(--paper)" stroke="var(--line)" stroke-width="2.4"/><circle cx="8" cy="8" r="' + r + '" fill="none" stroke="' + col + '" stroke-width="2.4" stroke-linecap="round" stroke-dasharray="' + len + '" stroke-dashoffset="' + (len * (1 - f)) + '"/></svg>';
+    });
+  }
+
+  /* ---------- banner ---------- */
+  function greet(){ var h = new Date().getHours(); return h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening'; }
+  function renderBanner(page){
+    banner.style.setProperty('--grp', 'var(--pc-' + page + ')');
+    var h;
+    if(page === 'home'){
+      h = '<div class="life-bt"><h2>' + greet() + '</h2><p id="life-sum">' + esc(summary()) + '</p></div><div class="life-rings">' + ORDER.map(function(g){ return ringHtml(g, 44, 4, false, true); }).join('') + '</div>';
+    } else {
+      h = '<span class="life-bub">' + icon(page) + '</span><div class="life-bt"><h2>' + NAME[page] + '</h2><p>' + TAG[page] + '</p></div>' + ringHtml(page, 54, 5, true, false);
+    }
+    banner.innerHTML = h;
+    var run = function(){ updateRings(); };
+    if(reduce) run(); else requestAnimationFrame(function(){ requestAnimationFrame(run); });
+  }
+
+  /* ---------- jump bar ---------- */
+  function setOpen(sec, open){
+    sec.classList.toggle('open', open);
+    try{ var k = sec.getAttribute('data-key'); if(k){ sectionState[k] = open; LS.set(SECTION_STATE_KEY, JSON.stringify(sectionState)); } }catch(e){}
+  }
+  function pulse(sec){ sec.classList.add('just-opened'); setTimeout(function(){ sec.classList.remove('just-opened'); }, 320); }
+  function syncAll(){ if(allBtn) allBtn.textContent = secs.some(function(s){ return s.classList.contains('open'); }) ? 'Collapse all' : 'Expand all'; }
+  function buildJump(page){
+    jump.style.setProperty('--grp', 'var(--pc-' + page + ')');
+    secs = Array.prototype.filter.call(document.querySelectorAll('.csec'), function(s){ return s.style.display !== 'none' && s.querySelector('.csec-title'); });
+    chipsEl.innerHTML = secs.map(function(s, i){ var t = s.querySelector('.csec-title').textContent; return '<button type="button" class="lj-chip" data-i="' + i + '">' + esc(SHORT[t] || t) + '</button>'; }).join('');
+    syncAll(); spy();
+  }
+  function spy(){
+    if(!jump) return;
+    var line = jump.getBoundingClientRect().bottom + 14, act = -1;
+    secs.forEach(function(s, i){ if(s.getBoundingClientRect().top <= line) act = i; });
+    var chips = chipsEl.children;
+    for(var i = 0; i < chips.length; i++) chips[i].classList.toggle('on', i === act);
+    var c = chips[act];
+    if(c){ var l = c.offsetLeft, r = l + c.offsetWidth, v0 = chipsEl.scrollLeft, v1 = v0 + chipsEl.clientWidth; if(l < v0 || r > v1){ try{ chipsEl.scrollTo({ left: Math.max(0, l - 24), behavior: reduce ? 'auto' : 'smooth' }); }catch(e){ chipsEl.scrollLeft = l - 24; } } }
+  }
+
+  /* ---------- page switching ---------- */
+  function onPage(page){
+    cur = page; document.body.setAttribute('data-page', page);
+    refresh();
+    renderBanner(page); buildJump(page); updateBadges();
+    var hero = $('today-card'); if(hero) hero.classList.remove('expanded');
+  }
+  function refresh(){ try{ if(window.__SU_dash) window.__SU_dash.refresh(); }catch(e){} }
+  function later(){ clearTimeout(tick); tick = setTimeout(function(){ refresh(); updateRings(); updateBadges(); var s = $('life-sum'); if(s) s.textContent = summary(); }, 450); }
+
+  function build(){
+    var today = $('today-card'); if(!today) throw new Error('Today card not found');
+    banner = document.createElement('div'); banner.id = 'life-banner';
+    jump = document.createElement('div'); jump.id = 'life-jump';
+    jump.innerHTML = '<div class="lj-chips"></div><button type="button" class="lj-all"></button>';
+    today.parentNode.insertBefore(banner, today); today.parentNode.insertBefore(jump, today.nextSibling);
+    /* the two cards shared by every page move to the bottom, so each page opens on its own content */
+    var tail = $('sec-xset');
+    if(tail) ['sec-review', 'sec-season'].forEach(function(id){ var s = $(id); if(s) tail.parentNode.insertBefore(s, tail); });
+    chipsEl = jump.querySelector('.lj-chips'); allBtn = jump.querySelector('.lj-all');
+
+    chipsEl.addEventListener('click', function(e){
+      var b = e.target.closest && e.target.closest('.lj-chip'); if(!b) return;
+      var s = secs[+b.getAttribute('data-i')]; if(!s) return;
+      if(!s.classList.contains('open')){ setOpen(s, true); pulse(s); }
+      try{ s.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' }); }catch(err){ s.scrollIntoView(); }
+      syncAll();
+    });
+    allBtn.addEventListener('click', function(){
+      var open = !secs.some(function(s){ return s.classList.contains('open'); });
+      secs.forEach(function(s){ setOpen(s, open); if(open) pulse(s); }); syncAll(); setTimeout(spy, 60);
+    });
+    banner.addEventListener('click', function(e){ var b = e.target.closest && e.target.closest('[data-go]'); if(!b) return; setActivePage(b.getAttribute('data-go')); try{ window.scrollTo({ top:0, behavior: reduce ? 'auto' : 'smooth' }); }catch(err){} });
+    today.addEventListener('click', function(){ if(cur !== 'home') today.classList.toggle('expanded'); });
+
+    document.addEventListener('click', function(e){
+      var h = e.target.closest && e.target.closest('.csec-head');
+      if(h){ setTimeout(function(){ var s = h.closest('.csec'); if(s && s.classList.contains('open')) pulse(s); syncAll(); }, 0); }
+      if(e.target.closest && e.target.closest('.wrap') && !e.target.closest('#life-jump') && !e.target.closest('#life-banner')) later();
+    }, true);
+    document.addEventListener('change', later, true);
+    document.addEventListener('visibilitychange', function(){ if(!document.hidden) later(); });
+    var raf = 0; window.addEventListener('scroll', function(){ if(raf) return; raf = requestAnimationFrame(function(){ raf = 0; spy(); }); }, { passive: true });
+  }
+
+  build();
+  var origPage = setActivePage;
+  setActivePage = function(page){ origPage(page); try{ onPage(page); }catch(e){ if(window.console) console.error('Interface', e); } };
+  setActivePage(LS.get('seasons-active-page') || 'home');
+})();
+
+ window.__SU.ok.push('Interface: area colours, page banners, jump bar, progress rings, motion');
+}catch(e){ window.__SU.fail.push(['Interface: area colours, page banners, jump bar, progress rings, motion', String(e && e.message || e)]); if(window.console) console.error('Interface', e); }
+
 /* ===== Reading add-on goes last, so it can see everything above ===== */
 /* ===== reading-upgrade.js ===== */
 /* Seasons: Reading add-on.
@@ -4656,6 +4879,8 @@ try{
    Reader (paste your own or public-domain text, read aloud), Stats and Next.
    It keeps its own data under the key "rc_v1" and does not touch any other Seasons data. It is added to the Soul
    export automatically. For the All export, add 'rc_v1' to the key list inside exportData (already done in the full file).
+   Notes can be edited, and anything deleted (notes, words, cards, characters, books) can be undone straight away or
+   restored for 30 days from Notes > Recently deleted.
    The Dashboard Shortcuts card already has a Reading button (included in the full file).
    Anything of your own can call window.openReading() to jump straight to it. */
 window.__SU = window.__SU || { ok:[], fail:[] };
@@ -4668,7 +4893,7 @@ try{
 var KEY = 'rc_v1', DAY = 864e5, INTERVALS = [1, 2, 4, 8, 16, 32];
 var S, root, tick = null;
 var ui = { tab: 'library', book: null, filter: 'all', spoil: false, pending: null, mc: false, picked: null, optFor: null,
-  reveal: false, nq: '', wq: '', fp: -1, sel: '', ttsOn: false, ttsId: 0, ol: [], olMsg: '', pick: null };
+  reveal: false, edit: null, editFocus: false, nq: '', wq: '', fp: -1, sel: '', ttsOn: false, ttsId: 0, ol: [], olMsg: '', pick: null };
 
 /* ---------- helpers ---------- */
 var uid = function () { return Math.random().toString(36).slice(2, 9) + Date.now().toString(36).slice(-4); };
@@ -4686,10 +4911,72 @@ var tags = function (s) { return String(s || '').split(/[,#]+/).map(function (x)
 
 function load() {
   var o = null; try { o = JSON.parse(localStorage.getItem(KEY)); } catch (e) {}
-  S = Object.assign({ books: [], vocab: [], cards: [], goal: 12, daily: 20, theme: 'auto', timer: null,
+  S = Object.assign({ books: [], vocab: [], cards: [], trash: [], goal: 12, daily: 20, theme: 'auto', timer: null,
     reader: { text: '', title: '', size: 19, lh: 1.7, font: 'serif', bg: 'paper', focus: true, rate: 1, pos: 0 } }, o || {});
   S.reader = Object.assign({ text: '', title: '', size: 19, lh: 1.7, font: 'serif', bg: 'paper', focus: true, rate: 1, pos: 0 }, S.reader || {});
   S.books.forEach(function (b) { b.sessions = b.sessions || []; b.notes = b.notes || []; b.cast = b.cast || []; b.events = b.events || []; });
+  purgeTrash();
+}
+/* ---------- recently deleted: 30 days, newest 60 ---------- */
+function purgeTrash() {
+  var cut = Date.now() - 30 * DAY;
+  S.trash = (S.trash || []).filter(function (t) { return t && t.at > cut; }).slice(-60);
+}
+function trashIt(kind, bookId, item, idx, extra, label) {
+  var id = uid(); S.trash.push({ id: id, kind: kind, bookId: bookId || '', item: item, idx: idx, extra: extra || null, at: Date.now() });
+  purgeTrash(); save(); render();
+  toast(label + ' deleted', function () { restore(id); });
+}
+function restore(id) {
+  var t = S.trash.find(function (x) { return x.id === id; }); if (!t) return;
+  var b = B(t.bookId), at = function (arr) { arr.splice(Math.min(Math.max(t.idx, 0), arr.length), 0, t.item); };
+  if (t.kind !== 'book' && t.kind !== 'word' && !b) { alert('Its book was deleted too. Restore the book first (Notes tab, Recently deleted).'); return; }
+  if (t.kind === 'note') at(b.notes);
+  else if (t.kind === 'cast') at(b.cast);
+  else if (t.kind === 'event') at(b.events);
+  else if (t.kind === 'card') at(S.cards);
+  else if (t.kind === 'word') at(S.vocab);
+  else if (t.kind === 'book') { at(S.books); S.cards = S.cards.concat(t.extra || []); }
+  S.trash = S.trash.filter(function (x) { return x !== t; }); save(); render(); toast('Restored');
+}
+var KINDS = { note: 'Note', cast: 'Character', event: 'Plot event', card: 'Quiz card', word: 'Word', book: 'Book' };
+function ago(ms) { var m = Math.round((Date.now() - ms) / 60000); if (m < 1) return 'just now'; if (m < 60) return m + ' min ago'; var h = Math.round(m / 60); if (h < 24) return h + ' h ago'; return Math.round(h / 24) + ' d ago'; }
+function preview(t) {
+  var i = t.item || {}, x = t.kind === 'note' ? i.text : t.kind === 'cast' ? i.name + (i.role ? ' — ' + i.role : '') : t.kind === 'event' ? i.text : t.kind === 'card' ? i.q : t.kind === 'word' ? i.word + (i.def ? ': ' + i.def : '') : i.title;
+  x = String(x || ''); return x.length > 140 ? x.slice(0, 140) + '…' : x;
+}
+function trashHtml() {
+  var h = '<div class="rc-top"><h3>Recently deleted' + (S.trash.length ? ' (' + S.trash.length + ')' : '') + '</h3>' + (S.trash.length ? '<button type="button" class="rc-chip" data-act="emptytrash">Empty</button>' : '') + '</div>';
+  if (!S.trash.length) return h + '<p class="rc-muted rc-sm">Nothing here. Deleted notes, words, cards and books stay for 30 days so you can bring them back.</p>';
+  return h + S.trash.slice().reverse().map(function (t) {
+    var b = B(t.bookId);
+    return '<div class="rc-card"><span class="rc-tag">' + KINDS[t.kind] + '</span>' + (b && t.kind !== 'book' ? '<b>' + esc(b.title) + '</b> ' : '') + '<span class="rc-muted rc-sm">deleted ' + ago(t.at) + '</span><div>' + esc(preview(t)) + '</div>' +
+      '<button type="button" class="rc-btn" data-act="restore" data-id="' + t.id + '">Restore</button><button type="button" class="rc-btn rc-ghost" data-act="purge" data-id="' + t.id + '">Delete for good</button></div>';
+  }).join('');
+}
+/* ---------- undo bar ---------- */
+var toastEl = null, toastT = null;
+function hideToast() { if (toastEl) toastEl.classList.remove('rc-show'); }
+function toast(msg, undoFn) {
+  if (!toastEl) { toastEl = document.createElement('div'); toastEl.className = 'rc-toast'; toastEl.setAttribute('role', 'status'); document.body.appendChild(toastEl); }
+  toastEl.textContent = ''; var m = document.createElement('span'); m.textContent = msg; toastEl.appendChild(m);
+  if (undoFn) { var b = document.createElement('button'); b.type = 'button'; b.textContent = 'Undo'; b.onclick = function () { hideToast(); undoFn(); }; toastEl.appendChild(b); }
+  toastEl.classList.add('rc-show'); clearTimeout(toastT); toastT = setTimeout(hideToast, undoFn ? 9000 : 2200);
+}
+/* ---------- one note, shown or being edited ---------- */
+function noteBlock(b, n, mode) {
+  if (ui.edit && ui.edit.id === n.id) {
+    var opt = function (v, l) { return '<option value="' + v + '"' + (n.type === v ? ' selected' : '') + '>' + l + '</option>'; };
+    return '<form data-form="editNote" data-b="' + b.id + '" data-id="' + n.id + '" class="rc-card"><div class="rc-row"><select name="type">' + opt('quote', 'Quote') + opt('thought', 'Thought') + opt('summary', 'Chapter summary') + '</select>' +
+      '<input name="chapter" placeholder="Chapter / page" value="' + esc(n.chapter) + '"></div><textarea name="text" rows="4" required>' + esc(n.text) + '</textarea>' +
+      '<input name="tags" placeholder="Tags, comma separated" value="' + esc((n.tags || []).join(', ')) + '"><button class="rc-btn">Save changes</button><button type="button" class="rc-btn rc-ghost" data-act="canceledit">Cancel</button></form>';
+  }
+  var body = '<span class="rc-tag">' + n.type + '</span>' + (mode === 'all' ? '<b>' + esc(b.title) + '</b>' : '') + (n.chapter ? ' <span class="rc-muted rc-sm">' + esc(n.chapter) + '</span>' : '') + (n.edited ? ' <span class="rc-muted rc-sm">(edited)</span>' : '') + '<div>' + esc(n.text) + '</div>' +
+    (n.tags || []).map(function (t) { return '<span class="rc-tag">#' + esc(t) + '</span>'; }).join('') +
+    '<div><button type="button" class="rc-chip" data-act="editnote" data-b="' + b.id + '" data-id="' + n.id + '">Edit</button>' +
+    (mode === 'book' ? '<button type="button" class="rc-chip" data-act="note2card" data-id="' + n.id + '">→ quiz card</button>' : '') +
+    '<button type="button" class="rc-chip" data-act="delnote" data-b="' + b.id + '" data-id="' + n.id + '">Delete</button></div>';
+  return mode === 'all' ? '<div class="rc-card">' + body + '</div>' : '<div class="rc-item">' + body + '</div>';
 }
 function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} }
 
@@ -4759,6 +5046,11 @@ var CSS = '.rc{--rc-bg:#faf8f4;--rc-fg:#222;--rc-card:#fff;--rc-muted:#777;--rc-
   '.rc .rc-rd p{margin:0 0 1em;padding:2px 6px;border-radius:6px;cursor:pointer}.rc .rc-rd.rc-focus p{opacity:.38}.rc .rc-rd.rc-focus p.rc-on{opacity:1;background:rgba(122,79,214,.16)}' +
   '.rc .rc-rd:not(.rc-focus) p.rc-on{background:rgba(122,79,214,.12)}';
 
+CSS += '.rc-toast{position:fixed;left:50%;bottom:calc(88px + env(safe-area-inset-bottom));transform:translate(-50%,16px);opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;background:var(--ink,#222);color:var(--paper,#fff);padding:11px 14px;border-radius:12px;display:flex;gap:16px;align-items:center;z-index:100000;font:14px/1.3 -apple-system,system-ui,sans-serif;max-width:92vw;box-shadow:0 6px 24px rgba(0,0,0,.25)}' +
+  '.rc-toast.rc-show{opacity:1;transform:translate(-50%,0);pointer-events:auto}.rc-toast button{background:none;border:0;color:inherit;font:inherit;font-weight:600;text-decoration:underline;cursor:pointer;padding:6px 4px}' +
+  '@media(prefers-reduced-motion:reduce){.rc-toast{transition:none}}' +
+  '.rc a[data-act]{color:var(--rc-acc);cursor:pointer}';
+
 /* ---------- views ---------- */
 var TABS = [['library', 'Library'], ['today', 'Today'], ['notes', 'Notes'], ['review', 'Review'], ['words', 'Words'], ['reader', 'Reader'], ['stats', 'Stats'], ['next', 'Next']];
 
@@ -4809,11 +5101,7 @@ function vBook(b) {
   h += '<form data-form="addNote" class="rc-card"><div class="rc-row"><select name="type"><option value="quote">Quote</option><option value="thought">Thought</option><option value="summary">Chapter summary</option></select><input name="chapter" placeholder="Chapter / page"></div>' +
     '<textarea name="text" rows="3" placeholder="Your note (for quotes, keep them short)" required></textarea><input name="tags" placeholder="Tags, comma separated"><button class="rc-btn">Add note</button></form>';
   h += '<div class="rc-card">' + (function () {
-    var out = b.notes.filter(function (n) { if (!vis(n)) { hidden++; return false; } return true; }).reverse().map(function (n) {
-      return '<div class="rc-item"><span class="rc-tag">' + n.type + '</span>' + (n.chapter ? '<span class="rc-muted rc-sm">' + esc(n.chapter) + '</span>' : '') + '<div>' + esc(n.text) + '</div>' +
-        (n.tags || []).map(function (t) { return '<span class="rc-tag">#' + esc(t) + '</span>'; }).join('') +
-        '<div><button type="button" class="rc-chip" data-act="note2card" data-id="' + n.id + '">→ quiz card</button><button type="button" class="rc-chip" data-act="delnote" data-id="' + n.id + '">Delete</button></div></div>';
-    }).join('');
+    var out = b.notes.filter(function (n) { if (!vis(n)) { hidden++; return false; } return true; }).reverse().map(function (n) { return noteBlock(b, n, 'book'); }).join('');
     return (out || '<p class="rc-muted">No notes yet.</p>') + (hidden ? '<p class="rc-muted rc-sm">' + hidden + ' note(s) from further ahead are hidden.</p>' : '');
   })() + '</div>';
 
@@ -4828,7 +5116,7 @@ function vBook(b) {
   h += '<h3>Quiz cards (' + cards.length + ')</h3><form data-form="addCard" class="rc-card"><input name="q" placeholder="Question" required><input name="a" placeholder="Answer" required><button class="rc-btn">Add card</button></form>';
   if (cards.length) h += '<div class="rc-card">' + cards.map(function (c) { return '<div class="rc-item">' + esc(c.q) + ' → <b>' + esc(c.a) + '</b> <button type="button" class="rc-chip" data-act="delcard" data-id="' + c.id + '">×</button></div>'; }).join('') + '</div>';
 
-  h += '<button type="button" class="rc-btn rc-warn" data-act="delbook">Delete this book</button>';
+  h += '<p class="rc-muted rc-sm">Deleted something by mistake? <a href="#" data-act="tab" data-v="notes">See Recently deleted</a>.</p><button type="button" class="rc-btn rc-warn" data-act="delbook">Delete this book</button>';
   return h;
 }
 
@@ -4856,9 +5144,9 @@ function notesList() {
   var q = ui.nq.toLowerCase(), out = [];
   S.books.forEach(function (b) { b.notes.forEach(function (n) { out.push({ b: b, n: n }); }); });
   out = out.filter(function (x) { return !q || (x.n.text + ' ' + x.n.chapter + ' ' + x.b.title + ' ' + (x.n.tags || []).join(' ')).toLowerCase().indexOf(q) >= 0; }).reverse();
-  return out.length ? out.map(function (x) { return '<div class="rc-card"><span class="rc-tag">' + x.n.type + '</span><b>' + esc(x.b.title) + '</b>' + (x.n.chapter ? ' <span class="rc-muted rc-sm">' + esc(x.n.chapter) + '</span>' : '') + '<div>' + esc(x.n.text) + '</div>' + (x.n.tags || []).map(function (t) { return '<span class="rc-tag">#' + esc(t) + '</span>'; }).join('') + '</div>'; }).join('') : '<p class="rc-muted">No notes found.</p>';
+  return out.length ? out.map(function (x) { return noteBlock(x.b, x.n, 'all'); }).join('') : '<p class="rc-muted">No notes found.</p>';
 }
-function vNotes() { return '<input data-live="nq" placeholder="Search all notes, quotes and tags" value="' + esc(ui.nq) + '"><button type="button" class="rc-btn rc-ghost" data-act="exportnotes">Export notes (Markdown)</button><div id="rc-results">' + notesList() + '</div>'; }
+function vNotes() { return '<input data-live="nq" placeholder="Search all notes, quotes and tags" value="' + esc(ui.nq) + '"><button type="button" class="rc-btn rc-ghost" data-act="exportnotes">Export notes (Markdown)</button><div id="rc-results">' + notesList() + '</div>' + trashHtml(); }
 
 function dueItems() {
   var t = iso();
@@ -4901,7 +5189,7 @@ function vWords() {
   return '<form data-form="addWord" class="rc-card"><h3>Save a word</h3><div class="rc-row"><input name="word" id="rc-word" placeholder="Word" required><button type="button" class="rc-btn rc-ghost" data-act="lookup">Look up</button></div>' +
     '<input name="def" id="rc-def" placeholder="Definition" required><input name="ex" placeholder="Example sentence (optional)"><select name="bookId"><option value="">From book…</option>' +
     S.books.map(function (b) { return '<option value="' + b.id + '">' + esc(b.title) + '</option>'; }).join('') + '</select><button class="rc-btn">Save word</button><div class="rc-muted rc-sm" id="rc-lookmsg"></div></form>' +
-    '<input data-live="wq" placeholder="Search words" value="' + esc(ui.wq) + '"><div id="rc-results">' + wordsList() + '</div>';
+    '<input data-live="wq" placeholder="Search words" value="' + esc(ui.wq) + '"><div id="rc-results">' + wordsList() + '</div><p class="rc-muted rc-sm">Deleted a word by mistake? <a href="#" data-act="tab" data-v="notes">See Recently deleted</a>.</p>';
 }
 
 function getParas() {
@@ -4976,8 +5264,9 @@ function render() {
   var th = S.theme;
   root.className = 'rc'; root.setAttribute('data-theme', th === 'light' ? 'light' : th);
   var views = { library: vLibrary, today: vToday, notes: vNotes, review: vReview, words: vWords, reader: vReader, stats: vStats, next: vNext };
-  root.innerHTML = '<div class="rc-top"><h2>📚 Reading Companion</h2></div><nav>' + TABS.map(function (t) { return '<button type="button" data-act="tab" data-v="' + t[0] + '" class="' + (ui.tab === t[0] ? 'rc-on' : '') + '">' + t[1] + '</button>'; }).join('') + '</nav>' + views[ui.tab]();
+  root.innerHTML = '<div class="rc-top rc-title"><h2>📚 Reading Companion</h2></div><nav>' + TABS.map(function (t) { return '<button type="button" data-act="tab" data-v="' + t[0] + '" class="' + (ui.tab === t[0] ? 'rc-on' : '') + '">' + t[1] + '</button>'; }).join('') + '</nav>' + views[ui.tab]();
   if (ui.tab === 'reader' && S.reader.text) { var p = root.querySelector('#rc-rd p.rc-on'); if (p && p.scrollIntoView && S.reader.pos > 0) p.scrollIntoView({ block: 'center' }); }
+  if (ui.editFocus) { ui.editFocus = false; var ta = root.querySelector('[data-form="editNote"] textarea'); if (ta) { ta.focus(); try { ta.setSelectionRange(ta.value.length, ta.value.length); } catch (e) {} } }
   updateTimer();
 }
 function updateTimer() {
@@ -5017,18 +5306,23 @@ function notesMd() {
 }
 var cur = function () { return B(ui.book); };
 var ACT = {
-  tab: function (t) { ui.tab = t.dataset.v; if (ui.tab !== 'library') ui.book = null; render(); },
-  open: function (t) { ui.tab = 'library'; ui.book = t.dataset.id; render(); global.scrollTo && global.scrollTo(0, 0); },
-  back: function () { ui.book = null; render(); },
+  tab: function (t, e) { if (e && e.preventDefault) e.preventDefault(); ui.edit = null; ui.tab = t.dataset.v; if (ui.tab !== 'library') ui.book = null; render(); },
+  open: function (t) { ui.edit = null; ui.tab = 'library'; ui.book = t.dataset.id; render(); global.scrollTo && global.scrollTo(0, 0); },
+  back: function () { ui.edit = null; ui.book = null; render(); },
   filter: function (t) { ui.filter = t.dataset.v; render(); },
   rate: function (t) { var b = cur(); b.rating = b.rating === +t.dataset.v ? 0 : +t.dataset.v; save(); render(); },
   spoil: function () { ui.spoil = !ui.spoil; render(); },
-  delbook: function () { var b = cur(); if (confirm('Delete “' + b.title + '” and all its notes?')) { S.books = S.books.filter(function (x) { return x !== b; }); S.cards = S.cards.filter(function (c) { return c.bookId !== b.id; }); ui.book = null; save(); render(); } },
-  delnote: function (t) { var b = cur(); b.notes = b.notes.filter(function (n) { return n.id !== t.dataset.id; }); save(); render(); },
-  delcast: function (t) { var b = cur(); b.cast = b.cast.filter(function (n) { return n.id !== t.dataset.id; }); save(); render(); },
-  delevent: function (t) { var b = cur(); b.events = b.events.filter(function (n) { return n.id !== t.dataset.id; }); save(); render(); },
-  delcard: function (t) { S.cards = S.cards.filter(function (c) { return c.id !== t.dataset.id; }); save(); render(); },
-  delword: function (t) { S.vocab = S.vocab.filter(function (c) { return c.id !== t.dataset.id; }); save(); render(); },
+  delbook: function () { var b = cur(), i = S.books.indexOf(b), cs = S.cards.filter(function (c) { return c.bookId === b.id; }); S.books.splice(i, 1); S.cards = S.cards.filter(function (c) { return c.bookId !== b.id; }); ui.book = null; trashIt('book', '', b, i, cs, 'Book'); },
+  delnote: function (t) { var b = B(t.dataset.b) || cur(), i = b.notes.findIndex(function (n) { return n.id === t.dataset.id; }); if (i < 0) return; var n = b.notes.splice(i, 1)[0]; if (ui.edit && ui.edit.id === n.id) ui.edit = null; trashIt('note', b.id, n, i, null, 'Note'); },
+  delcast: function (t) { var b = cur(), i = b.cast.findIndex(function (n) { return n.id === t.dataset.id; }); if (i < 0) return; trashIt('cast', b.id, b.cast.splice(i, 1)[0], i, null, 'Character'); },
+  delevent: function (t) { var b = cur(), i = b.events.findIndex(function (n) { return n.id === t.dataset.id; }); if (i < 0) return; trashIt('event', b.id, b.events.splice(i, 1)[0], i, null, 'Event'); },
+  delcard: function (t) { var i = S.cards.findIndex(function (c) { return c.id === t.dataset.id; }); if (i < 0) return; var c = S.cards.splice(i, 1)[0]; trashIt('card', c.bookId, c, i, null, 'Quiz card'); },
+  delword: function (t) { var i = S.vocab.findIndex(function (c) { return c.id === t.dataset.id; }); if (i < 0) return; trashIt('word', '', S.vocab.splice(i, 1)[0], i, null, 'Word'); },
+  editnote: function (t) { ui.edit = { id: t.dataset.id }; ui.editFocus = true; render(); },
+  canceledit: function () { ui.edit = null; render(); },
+  restore: function (t) { restore(t.dataset.id); },
+  purge: function (t) { if (!confirm('Delete this for good? It cannot be brought back.')) return; S.trash = S.trash.filter(function (x) { return x.id !== t.dataset.id; }); save(); render(); },
+  emptytrash: function () { if (!confirm('Delete everything in Recently deleted for good? It cannot be brought back.')) return; S.trash = []; save(); render(); },
   note2card: function (t) {
     var b = cur(), n = b.notes.find(function (x) { return x.id === t.dataset.id; });
     var q = n.type === 'quote' ? 'Who or what is this from, and what does it mean? “' + n.text.slice(0, 80) + '”' : n.type === 'summary' ? 'What happened / was the key idea in ' + (n.chapter || 'this section') + ' of ' + b.title + '?' : 'What was your thought on ' + (n.chapter || 'this part') + ' of ' + b.title + '?';
@@ -5078,6 +5372,12 @@ var FORM = {
   logSession: function (f, d) { logProgress(cur(), d.to, d.mins, d.date); render(); },
   finishLog: function (f, d) { var b = B(ui.pending.bookId); logProgress(b, d.to, ui.pending.mins); ui.pending = null; render(); },
   addNote: function (f, d) { var b = cur(); b.notes.push({ id: uid(), type: d.type, chapter: d.chapter.trim(), text: d.text.trim(), tags: tags(d.tags), date: iso(), at: b.progress }); save(); render(); },
+  editNote: function (f, d) {
+    var b = B(f.dataset.b), n = b && b.notes.find(function (x) { return x.id === f.dataset.id; }); if (!n) { ui.edit = null; render(); return; }
+    var old = JSON.parse(JSON.stringify(n)), bid = b.id;
+    n.type = d.type; n.chapter = d.chapter.trim(); n.text = d.text.trim(); n.tags = tags(d.tags); n.edited = iso(); ui.edit = null; save(); render();
+    toast('Note updated', function () { var bb = B(bid), i = bb ? bb.notes.findIndex(function (x) { return x.id === old.id; }) : -1; if (i < 0) return; bb.notes[i] = old; save(); render(); toast('Edit undone'); });
+  },
   addCast: function (f, d) { var b = cur(); b.cast.push({ id: uid(), name: d.name.trim(), role: d.role.trim(), at: b.progress }); save(); render(); },
   addEvent: function (f, d) { var b = cur(); b.events.push({ id: uid(), text: d.text.trim(), at: b.progress }); save(); render(); },
   addCard: function (f, d) { S.cards.push({ id: uid(), bookId: cur().id, q: d.q.trim(), a: d.a.trim(), box: 0, due: iso() }); save(); render(); },
@@ -5145,7 +5445,7 @@ function mount(el) {
 function unmount() {
   if (!root) return; root.removeEventListener('click', onClick); root.removeEventListener('submit', onSubmit); root.removeEventListener('change', onChange);
   root.removeEventListener('input', onInput); root.removeEventListener('mousedown', onDown); document.removeEventListener('selectionchange', onSel);
-  clearInterval(tick); stopTTS(); root = null;
+  clearInterval(tick); stopTTS(); clearTimeout(toastT); if (toastEl && toastEl.parentNode) toastEl.parentNode.removeChild(toastEl); toastEl = null; root = null;
 }
 
 if (!document.getElementById('rc-style')) { var st = document.createElement('style'); st.id = 'rc-style'; st.textContent = CSS; document.head.appendChild(st); }
@@ -5163,7 +5463,7 @@ global.ReadingCompanion = { mount: mount, unmount: unmount };
   css.textContent =
     '#sec-reading .rc{--rc-bg:var(--paper);--rc-fg:var(--ink);--rc-card:var(--paper-raised);--rc-muted:var(--ink-faint);--rc-acc:var(--ink);--rc-line:var(--line);--rc-on:var(--paper);' +
     'font:inherit;line-height:1.45;color:var(--ink);background:transparent;padding:0;max-width:none;margin:0;border-radius:0}' +
-    '#sec-reading .rc>.rc-top{display:none}' +
+    '#sec-reading .rc>.rc-title{display:none}' +
     '#sec-reading .rc h3{font-family:"Fraunces",serif;font-weight:500}' +
     '#sec-reading .rc .rc-card{background:var(--paper-raised)}';
   document.head.appendChild(css);
