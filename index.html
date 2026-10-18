@@ -558,6 +558,18 @@ const SEASONS = [
     values:['Alignment — stewardship','Resilience — governance','Mandate — govern','Plan / predict — process','Peace — joy','Obedience — shine','Wind — will','East — sustain','How long do I sustain?','Life stewarded with peace and authority']
   }
 ];
+/* Season names: "stages" (Vision, Values, Mission, Mandate; the default), "seasons" (Autumn...) or "phases" (Root, Stand, Release, Sustain).
+   Chosen in Display and privacy. Applied here, before anything is drawn. s.label is the long form used in headings. */
+(function(){
+  var mode = 'stages'; try{ mode = localStorage.getItem('seasons-names') || 'stages'; }catch(e){}
+  var PH = { autumn:'Root', winter:'Stand', spring:'Release', summer:'Sustain' };
+  SEASONS.forEach(function(s){
+    var cal = s.name; s.calName = cal;
+    if(mode === 'seasons'){ s.label = cal + ' \u00b7 ' + s.stage; }
+    else if(mode === 'phases'){ s.name = PH[s.key]; s.label = s.name + ' \u00b7 ' + s.stage + ' \u00b7 ' + cal; }
+    else { s.name = s.stage; s.label = s.stage + ' \u00b7 ' + cal; }
+  });
+})();
 
 const FOUNDATIONS = [
   { name:'Kingdom', full:'Kingdom of God', question:'Whose Kingdom am I representing?', establishes:'Authority, identity, belonging, order, purpose, government' },
@@ -920,7 +932,7 @@ function renderToday(){
   mount.innerHTML = `
     <div class="today-eyebrow">${today.toLocaleDateString(undefined,{weekday:'long', month:'long', day:'numeric'})} · Week ${String(nowWeek).padStart(2,'0')} of 52</div>
     <div class="today-heading">${w.t}</div>
-    <div class="today-season-meta">${s.name} · ${s.stage} · ${phaseForWeek(nowWeek).phaseName} — ${s.piece} — ${s.blurb}</div>
+    <div class="today-season-meta">${s.label} · ${phaseForWeek(nowWeek).phaseName} — ${s.piece} — ${s.blurb}</div>
     <div class="today-coord">This week's coordinate — <b>${COORD_LABELS[featuredCoordIndex]}</b>: ${s.values[featuredCoordIndex]}</div>
     <div class="today-q">${s.values[8]}</div>
     ${streak > 1 ? `<div class="today-streak">${streak}-week reading streak</div>` : ''}`;
@@ -1008,7 +1020,7 @@ function renderWeekDetail(){
       <div class="verse-text-box" data-box="${ref}"></div>
     </div>`;
   mount.innerHTML = `
-    <div class="wd-head"><h4>${w.t}</h4><span class="wd-week">W${String(w.w).padStart(2,'0')} · ${s.name} · ${phaseForWeek(w.w).stage} · ${phaseForWeek(w.w).phaseName}</span></div>
+    <div class="wd-head"><h4>${w.t}</h4><span class="wd-week">W${String(w.w).padStart(2,'0')} · ${s.label} · ${phaseForWeek(w.w).phaseName}</span></div>
     ${w.g ? `<div class="wd-subgroup">${w.g}</div>` : ''}
     <div class="wd-verses">${verseRow('Reveal', w.r)}${verseRow('Reframe', w.f)}${verseRow('Respond', w.s)}</div>
     <div class="wd-mark">
@@ -1477,7 +1489,7 @@ function renderGoals(pageKey){
     </div>`;
   }).join('');
   mount.innerHTML = `
-    <p class="lane-sub" style="margin:-4px 0 10px;">${s.name} is the ${s.stage} season (${s.stageQuestion}) — goals here are set within it, and can be tied to a coordinate, a foundation and a domain.</p>
+    <p class="lane-sub" style="margin:-4px 0 10px;">${s.label} (${s.stageQuestion}) — goals here are set within it, and can be tied to a coordinate, a foundation and a domain.</p>
     ${undoBanner}
     <div class="domain-tasks" style="margin-bottom:10px;">${rows || '<div class="empty-note">No goals yet this season.</div>'}</div>
     <div style="display:grid; gap:6px;">
@@ -2939,7 +2951,7 @@ try{
         var row = el('div', 'coord-row'); row.style.setProperty('--coord-color', 'var(--' + s.color + ')');
         var idx = el('div', 'coord-index', s.name.slice(0, 3).toUpperCase()); idx.style.width = '34px';
         var main = el('div', 'coord-main');
-        main.appendChild(el('div', 'coord-label', s.name + ' \u00b7 ' + s.stage));
+        main.appendChild(el('div', 'coord-label', s.label));
         var v = el('div', 'coord-value', s.values[i]); v.style.fontSize = '19px'; main.appendChild(v);
         row.appendChild(idx); row.appendChild(main); out.appendChild(row);
       });
@@ -3742,7 +3754,7 @@ try{
     var chips = el('div', 'stage-quick');
     SEASONS.forEach(function(x, i){ var b = el('button', i === seIdx ? 'active' : '', x.name); b.type = 'button'; b.onclick = function(){ seIdx = i; renderSeason(); }; chips.appendChild(b); });
     m.appendChild(chips);
-    var intro = el('div', null, S.name + ' · ' + S.stage + ' · ' + short(sIso) + ' to ' + short(eIso)); intro.style.cssText = 'font-size:13px;margin:8px 0 2px'; m.appendChild(intro);
+    var intro = el('div', null, S.label + ' · ' + short(sIso) + ' to ' + short(eIso)); intro.style.cssText = 'font-size:13px;margin:8px 0 2px'; m.appendChild(intro);
     if(S.piece){ var pc = el('div', null, S.piece); pc.style.cssText = 'font-size:12px;color:var(--ink-faint)'; m.appendChild(pc); }
     if(elapsed === 0){ m.appendChild(el('div', 'empty-note', 'This season has not started yet.')); }
     var ss = ssData(), weeks = [], k;
@@ -3774,7 +3786,7 @@ try{
     }
     head(m, 'My reflection');
     var key = 's' + seIdx, rv = (p.reviews || {})[key] || {}, nextS = SEASONS[(seIdx + 1) % 4];
-    [['grew', 'What grew in me this season?'], ['hard', 'What was hard, and what did it teach me?'], ['carry', 'What do I carry into ' + nextS.name + ' (' + nextS.stage + ')?']].forEach(function(f){
+    [['grew', 'What grew in me this season?'], ['hard', 'What was hard, and what did it teach me?'], ['carry', 'What do I carry into ' + nextS.label + '?']].forEach(function(f){
       var lb = el('div', null, f[1]); lb.style.cssText = 'font-size:12px;color:var(--ink-faint);margin:6px 0 2px'; m.appendChild(lb);
       var ta = el('textarea', 'journal-input'); ta.style.minHeight = '60px'; ta.value = rv[f[0]] || ''; ta.setAttribute('aria-label', f[1]);
       ta.addEventListener('input', function(){ var d = load(); d.reviews = d.reviews || {}; d.reviews[key] = d.reviews[key] || {}; d.reviews[key][f[0]] = ta.value; save(d); });
@@ -4530,7 +4542,7 @@ try{
     Object.keys(PAGES).forEach(function(pg){ getGoalsFor(pg).list.forEach(function(g){ gt++; if(g.done) gd++; }); });
     var pct = Math.round(100 * wIn / 13), ci = coordIndexForWeek(nowWeek);
     cards.season.mount.innerHTML =
-      '<div class="d-sum"><b>' + S.name + ' \u00b7 ' + S.stage + '</b><span>week ' + wIn + ' of 13</span></div>' +
+      '<div class="d-sum"><b>' + S.label + '</b><span>week ' + wIn + ' of 13</span></div>' +
       '<div class="d-bar" style="--c:var(--' + S.color + ')"><i style="width:' + pct + '%"></i></div>' +
       '<div class="d-sub">' + esc(S.stageQuestion) + ' You are in the <b>' + ph.phaseName + '</b> phase' + (next ? '; <b>' + next.name + '</b> begins in week ' + next.wk : '; the season closes after this phase') + '. ' + left + ' day' + (left === 1 ? '' : 's') + ' left in the season.</div>' +
       '<div class="d-strip" style="--c:var(--' + S.color + ')">' + strip + '</div>' +
@@ -4583,7 +4595,7 @@ try{
     }
     if(!total) h += '<div class="d-empty">No goals set for ' + S.name + '. Add some under Goals on each page, linked to a coordinate, foundation and domain.</div>';
     cards.goals.mount.innerHTML = h;
-    setMeta('goals', S.name + ' \u00b7 ' + S.stage);
+    setMeta('goals', S.label);
   }
 
   /* ---------- render all (each card isolated so one failure never blanks the rest) ---------- */
@@ -5974,6 +5986,33 @@ try{
 
  window.__SU.ok.push('Coordinates: focus card, grid and across-the-year strip');
 }catch(e){ window.__SU.fail.push(['Coordinates: focus card, grid and across-the-year strip', String(e && e.message || e)]); if(window.console) console.error('Coordinates', e); }
+
+/* ===== season-names-upgrade.js (part 2: the setting) ===== */
+/* Adds "Season names" to Display and privacy: Stages / Seasons / Phase words. Changing it reloads the app once. */
+window.__SU = window.__SU || { ok:[], fail:[] };
+try{
+(function(){
+  var K = 'seasons-names', xm = document.getElementById('sec-xset-mount'); if(!xm) throw new Error('Display and privacy not found');
+  function cur(){ return LS.get(K) || 'stages'; }
+  function attach(){
+    if(xm.querySelector('#sn-set')) return;
+    var w = document.createElement('div'); w.id = 'sn-set';
+    var lab = document.createElement('div'); lab.className = 'entry-meta'; lab.style.marginTop = '14px'; lab.textContent = 'Season names'; w.appendChild(lab);
+    var row = document.createElement('div'); row.className = 'x-row';
+    [['stages', 'Vision, Values…'], ['seasons', 'Autumn, Winter…'], ['phases', 'Root, Stand…']].forEach(function(o){
+      var b = document.createElement('button'); b.type = 'button'; b.textContent = o[1]; b.className = 'x-btn' + (cur() === o[0] ? ' on' : ''); b.setAttribute('aria-pressed', cur() === o[0] ? 'true' : 'false');
+      b.onclick = function(){ if(cur() === o[0]) return; LS.set(K, o[0]); location.reload(); };
+      row.appendChild(b);
+    });
+    w.appendChild(row);
+    var h = document.createElement('div'); h.style.cssText = 'font-size:.78rem;color:var(--ink-faint);margin-top:.35rem'; h.textContent = 'Only the names shown change. Your notes, goals and weeks are untouched.'; w.appendChild(h);
+    xm.appendChild(w);
+  }
+  attach(); new MutationObserver(attach).observe(xm, { childList:true });
+})();
+
+ window.__SU.ok.push('Season names setting');
+}catch(e){ window.__SU.fail.push(['Season names setting', String(e && e.message || e)]); if(window.console) console.error('Season names', e); }
 
 </script>
 </body>
