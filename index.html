@@ -3829,8 +3829,8 @@ try{
   mkSec('sec-prac-spirit', 'prac-spirit', 'spirit', 'Practices', 'your spiritual disciplines', 'prac-spirit', 'sec-goals-spirit', 'Choose the disciplines you want to keep, set how many days a week, and tick them off daily.');
   mkSec('sec-prac-soul', 'prac-soul', 'soul', 'Practices', 'your soul care', 'prac-soul', 'sec-goals-soul', 'Choose the habits that feed your mind and heart, set a weekly target, and tick them off daily.');
   mkSec('sec-prac-body', 'prac-body', 'body', 'Practices', 'daily body habits', 'prac-body', 'sec-goals-body', 'Water, sleep, walking, stretching: the habits that make training work. Tick them off daily.');
-  mkSec('sec-review', 'review', null, 'Weekly review', 'Sunday to Saturday', 'rev-mount', 'today-card', 'Your week across Spirit, Soul and Body, with a preview of next week.');
-  mkSec('sec-season', 'season', null, 'Season review', 'look back over 13 weeks', 'season-mount', 'sec-review', 'See how a whole season went across Spirit, Soul and Body, and write what you carry forward.');
+  mkSec('sec-review', 'review', 'home', 'Weekly review', 'Sunday to Saturday', 'rev-mount', 'today-card', 'Your week across Spirit, Soul and Body, with a preview of next week.');
+  mkSec('sec-season', 'season', 'home', 'Season review', 'look back over 13 weeks', 'season-mount', 'sec-review', 'See how a whole season went across Spirit, Soul and Body, and write what you carry forward.');
   renderAll();
   document.addEventListener('visibilitychange', function(){ if(!document.hidden) renderAll(); });
 
@@ -3871,8 +3871,8 @@ try{
   var css = el('style');
   css.textContent =
     'html[data-theme="dark"]{color-scheme:dark;--paper:#16150F;--paper-raised:#212017;--ink:#ECE8DA;--ink-soft:#B9B5A5;--ink-faint:#85826F;--line:#38362B;--shadow:0 1px 2px rgba(0,0,0,.4);' +
-      '--autumn:#C9955E;--autumn-bg:#3B2E1F;--autumn-ink:#EBD4B4;--winter:#5BB8CE;--winter-bg:#1D3F47;--winter-ink:#C2E6EE;--spring:#6FB07F;--spring-bg:#223A2B;--spring-ink:#CBE6D1;--summer:#E26A60;--summer-bg:#4B2522;--summer-ink:#F2C8C3;--accent:#E26A60;--accent-ink:#F4B8B2}' +
-    'html[data-theme="dark"] .page-switch{background:rgba(33,32,23,.92)}' +
+      '--autumn:#C9955E;--autumn-bg:#3B2E1F;--autumn-ink:#EBD4B4;--winter:#5BB8CE;--winter-bg:#1D3F47;--winter-ink:#C2E6EE;--spring:#6FB07F;--spring-bg:#223A2B;--spring-ink:#CBE6D1;--summer:#E26A60;--summer-bg:#4B2522;--summer-ink:#F2C8C3;--accent:#E26A60;--accent-ink:#F4B8B2;--accent-bg:#4B2522}' +
+    'html[data-theme="dark"] .page-switch{background:rgba(33,32,23,.98)}' +
     'mark{background:var(--spring-bg);color:var(--spring-ink);border-radius:3px;padding:0 2px}' +
     '.x-btn{font-family:"IBM Plex Mono",monospace;font-size:10.5px;border:1px solid var(--line);border-radius:7px;background:var(--paper-raised);color:var(--ink-soft);padding:7px 9px;cursor:pointer}' +
     '.x-btn.on{background:var(--ink);color:var(--paper);border-color:var(--ink)}' +
@@ -4169,7 +4169,7 @@ try{
   }
   function buildSettings(){
     var tuck = document.querySelector('.foot-tuck'); if(!tuck) return;
-    var m = mkSec('sec-xset', 'xset', null, 'Display and privacy', 'theme, text size, journal lock', 'Preferences for this device. They are not part of Export.', tuck);
+    var m = mkSec('sec-xset', 'xset', 'home', 'Display and privacy', 'theme, text size, journal lock', 'Preferences for this device. They are not part of Export.', tuck);
     if(!m || ST) return; ST = m; renderSettings();
   }
 
@@ -4309,7 +4309,8 @@ try{
   }
   function go(page, secId, tab){
     setActivePage(page);
-    if(tab){ var tb = document.querySelector('#notes-tab-switch button[data-notes-tab="' + tab + '"]'); if(tb) tb.click(); }
+    if(tab === 'cal' || tab === 'fit'){ try{ if(window.__bodyTab) window.__bodyTab(tab); }catch(e){} }
+    else if(tab){ var tb = document.querySelector('#notes-tab-switch button[data-notes-tab="' + tab + '"]'); if(tb) tb.click(); }
     if(secId === 'sec-weekly' && activeWeek !== nowWeek){ activeWeek = nowWeek; try{ renderWeekDetail(); }catch(e){} }
     var sec = secId ? $(secId) : null;
     if(sec){ openSec(sec); setTimeout(function(){ try{ sec.scrollIntoView({ behavior:'smooth', block:'start' }); }catch(e){} }, 60); }
@@ -4370,10 +4371,10 @@ try{
     if(DUE[c.dow]) items.push({ pillar:'spirit', label:'Scripture: ' + cap(DUE[c.dow]), sub:w ? w.t : '', done:!!c.ticks[DUE[c.dow]], go:['spirit','sec-weekly'] });
     if(ptEnabled()){
       var kind = ptKind(c.ts);
-      if(kind) items.push({ pillar:'body', label:'Training: ' + PT_DAY_TYPE_INFO[kind].name, done:ptDone(c.ts), go:['body','sec-body'] });
-      else if(ptDayTypeForDate(c.ts) === 'X') items.push({ pillar:'body', label:'Training: catch-up day', sub:'Make up a missed session, or rest', done:ptDone(c.ts), optional:true, go:['body','sec-body'] });
+      if(kind) items.push({ pillar:'body', label:'Training: ' + PT_DAY_TYPE_INFO[kind].name, done:ptDone(c.ts), go:['body','sec-body','fit'] });
+      else if(ptDayTypeForDate(c.ts) === 'X') items.push({ pillar:'body', label:'Training: catch-up day', sub:'Make up a missed session, or rest', done:ptDone(c.ts), optional:true, go:['body','sec-body','fit'] });
     }
-    if(calOn(c) && CALS[c.dow]) items.push({ pillar:'body', label:'Calisthenics: ' + CALS[c.dow], done:hasWork(c.C.done && c.C.done[c.ts]), optional:!!CAL_OPT[c.dow], go:['body', $('sec-calisthenics') ? 'sec-calisthenics' : 'sec-body'] });
+    if(calOn(c) && CALS[c.dow]) items.push({ pillar:'body', label:'Calisthenics: ' + CALS[c.dow], done:hasWork(c.C.done && c.C.done[c.ts]), optional:!!CAL_OPT[c.dow], go:['body','sec-body','cal'] });
     c.P.list.forEach(function(p){
       items.push({ pillar:p.group, label:p.name, sub:pracWeekCount(c, p) + '/' + p.target + ' this week \u00b7 ' + PAGES[p.group], done:(c.P.log[c.ts] || []).indexOf(p.id) >= 0, tick:p.id });
     });
@@ -4397,7 +4398,7 @@ try{
       ['Learning note', 'capture something', ['soul','sec-notes','learning']],
       ['Journal', 'points taken', ['soul','sec-notes','journal']],
       ['Reading', 'books and notes', ['soul','sec-reading']],
-      ['Log a workout', 'training and calisthenics', ['body', $('sec-calisthenics') ? 'sec-calisthenics' : 'sec-body']],
+      ['Log a workout', 'training and calisthenics', ['body','sec-body','cal']],
       ['Weekly review', 'this week so far', ['home','sec-review']],
       ['Season review', 'look back', ['home','sec-season']]
     ];
@@ -4419,14 +4420,14 @@ try{
       c.wk.forEach(function(d){
         if(d >= c.ts || d < ptState.startDate) return;
         var k = ptKind(d);
-        if(k && !ptDone(d)) push(1, 'Training: missed ' + shortDay(d) + ' (' + PT_DAY_TYPE_INFO[k].name + '). Saturday\u2019s catch-up day can cover it.', { kind:'go', page:'body', sec:'sec-body' });
+        if(k && !ptDone(d)) push(1, 'Training: missed ' + shortDay(d) + ' (' + PT_DAY_TYPE_INFO[k].name + '). Saturday\u2019s catch-up day can cover it.', { kind:'go', page:'body', sec:'sec-body', tab:'fit' });
       });
     }
     if(calOn(c)){
       c.wk.forEach(function(d){
         var n = new Date(d + 'T12:00:00').getDay();
         if(d >= c.ts || d < c.C.start || !CALS[n] || CAL_OPT[n]) return;
-        if(!hasWork(c.C.done && c.C.done[d])) push(1, 'Calisthenics: missed ' + CALS[n] + ' (' + shortDay(d) + ').', { kind:'go', page:'body', sec:$('sec-calisthenics') ? 'sec-calisthenics' : 'sec-body' });
+        if(!hasWork(c.C.done && c.C.done[d])) push(1, 'Calisthenics: missed ' + CALS[n] + ' (' + shortDay(d) + ').', { kind:'go', page:'body', sec:'sec-body', tab:'cal' });
       });
     }
     Object.keys(PAGES).forEach(function(pg){
@@ -4459,7 +4460,7 @@ try{
         if(a.kind === 'goal') btn = '<button class="d-go pri" data-act="goal" data-page="' + a.page + '" data-id="' + esc(a.id) + '">Done</button>';
         else if(a.kind === 'task') btn = '<button class="d-go pri" data-act="task" data-domain="' + a.domain + '" data-id="' + esc(a.id) + '">Done</button>';
         else if(a.kind === 'backup') btn = '<button class="d-go pri" data-act="backup">Back up</button>';
-        else btn = '<button class="d-go" data-act="go" data-page="' + a.page + '" data-sec="' + a.sec + '">Open</button>';
+        else btn = '<button class="d-go" data-act="go" data-page="' + a.page + '" data-sec="' + a.sec + '"' + (a.tab ? ' data-tab="' + a.tab + '"' : '') + '>Open</button>';
       }
       return '<div class="d-row"><span class="d-flag"><i class="s' + o.sev + '"></i></span><div class="d-main"><b>' + esc(o.text) + '</b></div>' + btn + '</div>';
     }).join('') + (out.length > 12 ? '<div class="d-sub">+ ' + (out.length - 12) + ' more</div>' : '');
@@ -4975,6 +4976,7 @@ function noteBlock(b, n, mode) {
     (n.tags || []).map(function (t) { return '<span class="rc-tag">#' + esc(t) + '</span>'; }).join('') +
     '<div><button type="button" class="rc-chip" data-act="editnote" data-b="' + b.id + '" data-id="' + n.id + '">Edit</button>' +
     (mode === 'book' ? '<button type="button" class="rc-chip" data-act="note2card" data-id="' + n.id + '">→ quiz card</button>' : '') +
+    '<button type="button" class="rc-chip" data-act="tolearn" data-b="' + b.id + '" data-id="' + n.id + '">' + (n.learnId ? 'In Learning ✓' : '→ Learning') + '</button>' +
     '<button type="button" class="rc-chip" data-act="delnote" data-b="' + b.id + '" data-id="' + n.id + '">Delete</button></div>';
   return mode === 'all' ? '<div class="rc-card">' + body + '</div>' : '<div class="rc-item">' + body + '</div>';
 }
@@ -5248,7 +5250,7 @@ function vStats() {
   h += '<div class="rc-card"><h3>Last 14 days (minutes)</h3><div class="rc-bars">' + days.map(function (x) { return '<div title="' + x.d + ': ' + x.m + ' min" style="height:' + Math.round(x.m / mx * 100) + '%"></div>'; }).join('') + '</div></div>';
   h += '<div class="rc-card"><h3>Settings</h3><div class="rc-row"><div><label class="rc-muted rc-sm">Books to read this year</label><input type="number" min="1" data-change="goal" value="' + S.goal + '"></div><div><label class="rc-muted rc-sm">Daily minutes target</label><input type="number" min="1" data-change="daily" value="' + S.daily + '"></div></div>' +
     '<label class="rc-muted rc-sm">Theme</label><select data-change="theme"><option value="auto"' + (S.theme === 'auto' ? ' selected' : '') + '>Auto</option><option value="light"' + (S.theme === 'light' ? ' selected' : '') + '>Light</option><option value="dark"' + (S.theme === 'dark' ? ' selected' : '') + '>Dark</option></select>' +
-    '<button type="button" class="rc-btn rc-ghost" data-act="exportjson">Back up (JSON)</button><label class="rc-btn rc-ghost" style="display:inline-block">Restore backup<input type="file" accept=".json,application/json" data-change="import" style="display:none"></label></div>';
+    '<p class="rc-muted rc-sm" style="margin:12px 0 0">Your Reading data is saved with the rest of Seasons: use Export (All or Soul) at the bottom of the Dashboard, and Import to restore it.</p></div>';
   return h;
 }
 
@@ -5334,6 +5336,17 @@ var ACT = {
   delevent: function (t) { var b = cur(), i = b.events.findIndex(function (n) { return n.id === t.dataset.id; }); if (i < 0) return; trashIt('event', b.id, b.events.splice(i, 1)[0], i, null, 'Event'); },
   delcard: function (t) { var i = S.cards.findIndex(function (c) { return c.id === t.dataset.id; }); if (i < 0) return; var c = S.cards.splice(i, 1)[0]; trashIt('card', c.bookId, c, i, null, 'Quiz card'); },
   delword: function (t) { var i = S.vocab.findIndex(function (c) { return c.id === t.dataset.id; }); if (i < 0) return; trashIt('word', '', S.vocab.splice(i, 1)[0], i, null, 'Word'); },
+  tolearn: function (t) {
+    var b = B(t.dataset.b) || cur(), n = b && b.notes.find(function (x) { return x.id === t.dataset.id; }); if (!n) return;
+    if (n.learnId) { toast('Already saved in Learning'); return; }
+    try {
+      var list = window.loadLearningEntries(), id = 'l' + Date.now() + Math.random().toString(36).slice(2, 7);
+      list.unshift({ id: id, ts: Date.now(), source: b.title + (n.chapter ? ' · ' + n.chapter : ''), takeaway: n.text, action: 'Saved from Reading. Decide what to do with it.', weekNum: nowWeek, seasonKey: SEASONS[currentSeasonIndex].key, photo: null });
+      window.saveLearningEntries(list); n.learnId = id; save(); render();
+      try { window.renderLearningEntries(); window.renderSoulOverview(); } catch (e) {}
+      toast('Saved to Learning (Soul > Notes)');
+    } catch (e) { toast('Could not save to Learning'); }
+  },
   editnote: function (t) { ui.edit = { id: t.dataset.id }; ui.editFocus = true; render(); },
   canceledit: function () { ui.edit = null; render(); },
   restore: function (t) { restore(t.dataset.id); },
@@ -5658,16 +5671,16 @@ try{
     summer: { cols:['#F5D76E','#FFE9A0','#FFF3C4'], g:[2,4.5], vy:[-14,-34], sway:.8, rot:0, shape:'glow' }
   };
   function seasonKey(){ try{ return SEASONS[seasonIndexForWeek(nowWeek)].key; }catch(e){ return 'autumn'; } }
-  function count(){ var a = Math.min(1, (W * H) / (390 * 800)); return Math.round((mode === 'lively' ? 46 : 18) * Math.max(.7, a)); }
+  function count(){ var a = Math.min(1, (W * H) / (390 * 800)); return Math.round((mode === 'lively' ? 34 : 9) * Math.max(.7, a)); }
   function rnd(a, b){ return a + Math.random() * (b - a); }
   function spawn(k, initial){
     var K = KINDS[k], up = K.vy[0] < 0;
-    return { x:rnd(0, W), y: initial ? rnd(0, H) : (up ? H + 20 : -20), s:rnd(K.g[0], K.g[1]), vy:rnd(Math.abs(K.vy[0]), Math.abs(K.vy[1])) * (up ? -1 : 1),
+    return { x:rnd(0, W), y: initial ? rnd(0, H) : (up ? H + 20 : -20), s:rnd(K.g[0], K.g[1]) * (mode === 'lively' ? 1 : .7), vy:rnd(Math.abs(K.vy[0]), Math.abs(K.vy[1])) * (up ? -1 : 1),
       ph:rnd(0, 6.28), sw:rnd(.5, 1.4) * K.sway, r:rnd(0, 6.28), vr:K.rot ? rnd(-1.2, 1.2) : 0, c:K.cols[(Math.random() * K.cols.length) | 0], a:rnd(.35, .75) };
   }
   function size(){ dpr = Math.min(2, window.devicePixelRatio || 1); W = window.innerWidth; H = window.innerHeight; cv.width = W * dpr; cv.height = H * dpr; cx.setTransform(dpr, 0, 0, dpr, 0, 0); }
   function draw(p, shape){
-    cx.save(); cx.globalAlpha = p.a * (mode === 'lively' ? .95 : .55); cx.translate(p.x, p.y); cx.rotate(p.r); cx.fillStyle = p.c;
+    cx.save(); cx.globalAlpha = p.a * (mode === 'lively' ? .8 : .28); cx.translate(p.x, p.y); cx.rotate(p.r); cx.fillStyle = p.c;
     if(shape === 'leaf'){ cx.beginPath(); cx.moveTo(0, -p.s / 2); cx.quadraticCurveTo(p.s / 2, 0, 0, p.s / 2); cx.quadraticCurveTo(-p.s / 2, 0, 0, -p.s / 2); cx.fill(); cx.strokeStyle = 'rgba(0,0,0,.18)'; cx.lineWidth = .8; cx.beginPath(); cx.moveTo(0, -p.s / 2); cx.lineTo(0, p.s / 2); cx.stroke(); }
     else if(shape === 'petal'){ cx.beginPath(); cx.ellipse(0, 0, p.s / 2.2, p.s / 1.4, 0, 0, 6.283); cx.fill(); }
     else if(shape === 'glow'){ var g = cx.createRadialGradient(0, 0, 0, 0, 0, p.s * 2.2); g.addColorStop(0, p.c); g.addColorStop(1, 'rgba(255,230,140,0)'); cx.fillStyle = g; cx.beginPath(); cx.arc(0, 0, p.s * 2.2, 0, 6.283); cx.fill(); }
@@ -5725,6 +5738,163 @@ try{
 
  window.__SU.ok.push('About me card, seasonal effect');
 }catch(e){ window.__SU.fail.push(['About me card, seasonal effect', String(e && e.message || e)]); if(window.console) console.error('About me / effect', e); }
+
+/* ===== body-merge-upgrade.js ===== */
+/* Seasons: merges "Body" (4-week fitness test) and "Calisthenics plan" (12 weeks) into ONE "Body" card with two tabs.
+   PASTE at the very END of your second script block (after the Calisthenics block and the Dashboard). Nothing is deleted:
+   both programmes keep their own data and behaviour; only the layout changes. */
+window.__SU = window.__SU || { ok:[], fail:[] };
+try{
+(function(){
+  var body = document.getElementById('sec-body'), cal = document.getElementById('sec-calisthenics');
+  if(!body || !cal) throw new Error('Body or Calisthenics card not found');
+  var KEY = 'seasons-body-tab';
+  var bb = body.querySelector('.csec-body'), cb = cal.querySelector('.csec-body');
+  var paneFit = document.createElement('div'), paneCal = document.createElement('div');
+  paneFit.className = 'bm-pane'; paneCal.className = 'bm-pane';
+  while(bb.firstChild) paneFit.appendChild(bb.firstChild);          /* tagline + pt-mount move as they are */
+  while(cb.firstChild) paneCal.appendChild(cb.firstChild);          /* intro + cal-mount move as they are */
+  var tabs = document.createElement('div'); tabs.className = 'bm-tabs'; tabs.setAttribute('role', 'tablist');
+  tabs.innerHTML = '<button type="button" role="tab" data-t="cal">12-week plan</button><button type="button" role="tab" data-t="fit">Fitness test</button>';
+  bb.appendChild(tabs); bb.appendChild(paneCal); bb.appendChild(paneFit);
+  var st = document.createElement('style');
+  st.textContent = '.bm-tabs{display:flex;gap:6px;margin:2px 0 12px;padding:4px;background:var(--paper);border:1px solid var(--line);border-radius:12px}' +
+    '.bm-tabs button{flex:1;font:inherit;font-size:.9rem;padding:8px 6px;border:0;border-radius:9px;background:transparent;color:var(--ink-soft);cursor:pointer}' +
+    '.bm-tabs button.on{background:var(--ink);color:var(--paper);font-weight:600}.bm-pane{display:none}.bm-pane.on{display:block}';
+  document.head.appendChild(st);
+  function pick(t){
+    if(t !== 'fit') t = 'cal';
+    tabs.querySelectorAll('button').forEach(function(b){ var on = b.getAttribute('data-t') === t; b.classList.toggle('on', on); b.setAttribute('aria-selected', on ? 'true' : 'false'); });
+    paneCal.classList.toggle('on', t === 'cal'); paneFit.classList.toggle('on', t === 'fit');
+    try{ LS.set(KEY, t); }catch(e){}
+  }
+  tabs.addEventListener('click', function(e){ var b = e.target.closest && e.target.closest('button[data-t]'); if(b) pick(b.getAttribute('data-t')); });
+  pick(LS.get(KEY) || 'cal');
+  window.__bodyTab = pick;
+
+  /* ---- link: Fitness test level suggests the 12-week plan's starting profile ---- */
+  var MAP = { beginner:['new','New to training'], intermediate:['some','Some experience'], advanced:['trained','Trained before'] };
+  var hint = document.createElement('div'); hint.className = 'bm-hint'; hint.style.display = 'none';
+  paneCal.insertBefore(hint, paneCal.firstChild);
+  st.textContent += '.bm-hint{margin:0 0 12px;padding:10px 12px;border-radius:10px;border-left:3px solid var(--pc-body,var(--accent));background:var(--paper);font-size:.9rem;line-height:1.5;color:var(--ink)}' +
+    '.bm-hint button{font:inherit;font-size:.85rem;margin:8px 8px 0 0;padding:6px 12px;border-radius:9px;border:1px solid var(--line);background:var(--paper-raised);color:var(--ink);cursor:pointer}' +
+    '.bm-hint button.pri{background:var(--ink);color:var(--paper);border-color:var(--ink)}';
+  var busy = false;
+  function pt(){ try{ var v = JSON.parse(LS.get('seasons-pt-state') || 'null'); return v && v.level ? v : null; }catch(e){ return null; } }
+  function refreshHint(){
+    var mnt = document.getElementById('cal-mount'); if(!mnt) return;
+    var notStarted = !!Array.prototype.find.call(mnt.querySelectorAll('button'), function(b){ return /^start today$/i.test(b.textContent.trim()); });
+    if(!notStarted){ hint.style.display = 'none'; return; }
+    var p = pt(), m = p && MAP[p.level];
+    if(m){
+      var cur = mnt.querySelector('[data-act="exp"].active'), already = cur && cur.getAttribute('data-v') === m[0];
+      hint.innerHTML = already
+        ? 'Your starting profile matches your Fitness test level (<b>' + p.level + '</b>). Change it below if it feels wrong.'
+        : 'Your Fitness test level is <b>' + p.level + '</b>, so <b>' + m[1] + '</b> is a good starting profile.<br><button type="button" class="pri" data-bm="use">Use ' + m[1] + '</button>';
+    } else {
+      hint.innerHTML = 'Not sure where to start? Take the 4-week <b>Fitness test</b> first and this plan will suggest a starting profile.<br><button type="button" class="pri" data-bm="fit">Open Fitness test</button>';
+    }
+    hint.style.display = '';
+    hint.setAttribute('data-m', m ? m[0] : '');
+  }
+  hint.addEventListener('click', function(e){
+    var b = e.target.closest && e.target.closest('[data-bm]'); if(!b) return;
+    if(b.getAttribute('data-bm') === 'fit'){ pick('fit'); return; }
+    var chip = document.querySelector('#cal-mount [data-act="exp"][data-v="' + hint.getAttribute('data-m') + '"]'); if(chip) chip.click();
+  });
+  var cm = document.getElementById('cal-mount');
+  if(cm) new MutationObserver(function(){ if(busy) return; busy = true; setTimeout(function(){ busy = false; refreshHint(); }, 0); }).observe(cm, { childList:true, subtree:true });
+  document.addEventListener('visibilitychange', function(){ if(!document.hidden) refreshHint(); });
+  tabs.addEventListener('click', function(){ setTimeout(refreshHint, 0); });
+  refreshHint();
+  /* one card: title, hint, and it opens if either old card was open */
+  var head = body.querySelector('.csec-head-left');
+  if(head && !head.querySelector('.csec-meta')){ var m = document.createElement('span'); m.className = 'csec-meta'; m.textContent = '12-week plan · fitness test'; head.appendChild(m); }
+  if(sectionState.calisthenics === true && !body.classList.contains('open')){ body.classList.add('open'); sectionState.body = true; LS.set(SECTION_STATE_KEY, JSON.stringify(sectionState)); }
+  cal.remove();
+  setActivePage(LS.get(PAGE_KEY) || 'spirit');
+})();
+
+ window.__SU.ok.push('Body: 12-week plan and fitness test in one card');
+}catch(e){ window.__SU.fail.push(['Body: 12-week plan and fitness test in one card', String(e && e.message || e)]); if(window.console) console.error('Body merge', e); }
+
+/* ===== soul-links-upgrade.js ===== */
+/* Seasons: connects Reading to the rest of Soul.
+   PASTE at the very END of your second script block, after the Reading add-on.
+   1. Search my notes also finds your Reading notes, book titles and vocabulary.
+   2. Reading something (a logged session or the timer) ticks your "Reading" practice for the day, once a day.
+      If you untick it yourself, it stays unticked for that day.
+   (The third link, "-> Learning" on a Reading note, lives inside the Reading block itself.)
+   Reads 'rc_v1' and writes only to your Practices log. */
+window.__SU = window.__SU || { ok:[], fail:[] };
+try{
+(function(){
+  var RK = 'rc_v1', GK = 'seasons-goals', DK = 'seasons-reading-autotick';
+  function rc(){ try{ return JSON.parse(localStorage.getItem(RK) || 'null') || {}; }catch(e){ return {}; } }
+  function esc(s){ return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  function day(d){ return ptFmtDate(d || new Date()); }
+
+  /* ---------- 1. Reading counts as a Practice ---------- */
+  var syncing = false;
+  function readToday(){
+    var t = day(), S = rc(), hit = false;
+    (S.books || []).forEach(function(b){ (b.sessions || []).forEach(function(x){ if(x.date === t && (x.mins > 0 || x.to > x.from)) hit = true; }); });
+    return hit;
+  }
+  function syncPractice(){
+    if(syncing) return; syncing = true;
+    try{
+      var t = day(); if(LS.get(DK) === t) return;           /* already handled today */
+      if(!readToday()) return;
+      var a = JSON.parse(LS.get(GK) || '{}'), p = a.__prac; if(!p || !p.list) return;
+      var item = p.list.filter(function(x){ return /^reading$/i.test(String(x.name || '').trim()); })[0];
+      if(!item) return;                                      /* no Reading practice set up: nothing to tick */
+      p.log = p.log || {}; p.log[t] = p.log[t] || [];
+      if(p.log[t].indexOf(item.id) < 0) p.log[t].push(item.id);
+      a.__prac = p; LS.set(GK, JSON.stringify(a)); LS.set(DK, t);
+      document.dispatchEvent(new Event('visibilitychange'));   /* let Practices and the Dashboard redraw */
+    }catch(e){} finally{ syncing = false; }
+  }
+  var sec = document.getElementById('sec-reading');
+  if(sec) sec.addEventListener('click', function(){ setTimeout(syncPractice, 400); }, true);
+  if(sec) sec.addEventListener('submit', function(){ setTimeout(syncPractice, 400); }, true);
+  document.addEventListener('visibilitychange', function(){ if(!document.hidden) syncPractice(); });
+  syncPractice();
+
+  /* ---------- 2. Search my notes also searches Reading ---------- */
+  var mount = document.getElementById('sec-xsoul-mount');
+  if(mount){
+    var meta = document.querySelector('#sec-xsoul .csec-meta'); if(meta) meta.textContent = 'journal, learning, reading';
+    var busy = false;
+    function addReading(){
+      var out = mount.querySelector('.x-out'), inp = mount.querySelector('input'); if(!out || !inp || busy) return;
+      var q = inp.value.trim(), ql = q.toLowerCase(); if(q.length < 2 || out.querySelector('[data-rcx]')) return;
+      var S = rc(), items = [];
+      (S.books || []).forEach(function(b){
+        if(((b.title || '') + ' ' + (b.author || '')).toLowerCase().indexOf(ql) >= 0) items.push({ l:'Book', t:b.title + (b.author ? ' by ' + b.author : '') });
+        (b.notes || []).forEach(function(n){ if(((n.text || '') + ' ' + (n.chapter || '') + ' ' + (n.tags || []).join(' ')).toLowerCase().indexOf(ql) >= 0) items.push({ l:b.title + ' · ' + n.type + (n.chapter ? ' · ' + n.chapter : ''), t:n.text }); });
+      });
+      (S.vocab || []).forEach(function(w){ if(((w.word || '') + ' ' + (w['def'] || '') + ' ' + (w.ex || '')).toLowerCase().indexOf(ql) >= 0) items.push({ l:'Word', t:w.word + ' — ' + (w['def'] || '') }); });
+      if(!items.length) return;
+      busy = true;
+      var empty = out.querySelector('.empty-note'); if(empty && /Nothing found/i.test(empty.textContent)) empty.remove();
+      var h = document.createElement('div'); h.className = 'entry-meta'; h.setAttribute('data-rcx', '1'); h.style.marginTop = '12px';
+      h.textContent = 'In Reading (' + items.length + ')'; out.appendChild(h);
+      items.slice(0, 25).forEach(function(i){
+        var b = document.createElement('button'); b.type = 'button'; b.className = 'x-hit'; b.setAttribute('data-rcx', '1');
+        var sm = document.createElement('small'); sm.textContent = i.l; b.appendChild(sm);
+        var d = document.createElement('div'); d.innerHTML = esc(i.t).replace(new RegExp('(' + q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'ig'), '<mark>$1</mark>'); b.appendChild(d);
+        b.onclick = function(){ if(window.openReading) window.openReading(); };
+        out.appendChild(b);
+      });
+      busy = false;
+    }
+    new MutationObserver(function(){ addReading(); }).observe(mount, { childList:true, subtree:true });
+  }
+})();
+
+ window.__SU.ok.push('Soul links: Reading in search, Reading ticks the practice');
+}catch(e){ window.__SU.fail.push(['Soul links: Reading in search, Reading ticks the practice', String(e && e.message || e)]); if(window.console) console.error('Soul links', e); }
 
 </script>
 </body>
