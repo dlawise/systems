@@ -563,7 +563,7 @@ const FOUNDATIONS = [
   { name:'Kingdom', full:'Kingdom of God', question:'Whose Kingdom am I representing?', establishes:'Authority, identity, belonging, order, purpose, government' },
   { name:'Righteousness', full:'Righteousness', question:'Is this right and aligned?', establishes:'Integrity, character, alignment, justice, consistency, right action' },
   { name:'Fear of God', full:'Fear of God', question:'Am I operating in reverence and submission to God?', establishes:'Reverence, wisdom, humility, obedience, accountability, restraint' },
-  { name:'Power', full:'Power', question:'What capacity has been given and how is it being exercised?', establishes:'Capacity, ability, strength, authority in action, expression, impact' }
+  { name:'Glory', full:'Glory', question:'What capacity has been given and how is it being exercised?', establishes:'Capacity, ability, strength, authority in action, expression, impact' }
 ];
 function renderFoundations(){
   const mount = document.getElementById('foundations-mount');
@@ -5895,6 +5895,85 @@ try{
 
  window.__SU.ok.push('Soul links: Reading in search, Reading ticks the practice');
 }catch(e){ window.__SU.fail.push(['Soul links: Reading in search, Reading ticks the practice', String(e && e.message || e)]); if(window.console) console.error('Soul links', e); }
+
+/* ===== coordinates-upgrade.js ===== */
+/* Seasons: a shorter, easier Coordinates card.
+   PASTE at the very END of your second script block (after the Dashboard and the other add-ons).
+   Instead of ten tall rows, the card now shows ONE coordinate at a time in a focus card (this week's by default),
+   with its value across all four seasons underneath (this replaces the "Across the year" dropdown).
+   Tap a dot on the wheel, or any tile in the grid, to look at another coordinate; use the arrows to step through them.
+   The season picker, wheel and the ten coordinates are the same ones as before; only the layout changed.
+   Nothing is stored or removed. */
+window.__SU = window.__SU || { ok:[], fail:[] };
+try{
+(function(){
+  var sec = document.getElementById('sec-coordinates'), list = document.getElementById('coord-list'), wheel = document.getElementById('coord-wheel-wrap'), info = document.getElementById('coord-season-info');
+  if(!sec || !list || !wheel || !info) throw new Error('Coordinates card not found');
+  var sel = featuredCoordIndex;
+
+  var css = document.createElement('style');
+  css.textContent =
+    '#coord-list{display:grid;grid-template-columns:1fr 1fr;gap:8px}' +
+    '#coord-list .coord-row{flex-direction:column;gap:2px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--paper);cursor:pointer;margin:0;transition:border-color .15s,background .15s}' +
+    '#coord-list .coord-row:first-child{border-top:1px solid var(--line)}' +
+    '#coord-list .coord-index{width:auto;padding:0;font-size:10px}' +
+    '#coord-list .coord-label{font-size:12px;margin:0;color:var(--ink-faint)}' +
+    '#coord-list .coord-value{font-size:16px;line-height:1.25}' +
+    '#coord-list .coord-def{display:none}' +
+    '#coord-list .coord-row.cx-sel{border-color:var(--coord-color);background:color-mix(in srgb,var(--coord-color) 12%,var(--paper))}' +
+    '#coord-list .coord-row.spotlight{background:var(--paper)}#coord-list .coord-row.spotlight.cx-sel{background:color-mix(in srgb,var(--coord-color) 12%,var(--paper))}' +
+    '#coord-wheel-wrap{margin:-.9rem 0 -.5rem}#coord-wheel-wrap svg{max-width:230px!important}' +
+    '#coord-across{display:none!important}' +
+    '.cx-card{margin:0 0 .9rem;padding:16px 16px 12px;border-radius:16px;background:var(--paper);border:1px solid var(--line);border-top:3px solid var(--coord-color)}' +
+    '.cx-top{display:flex;align-items:center;gap:8px;font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--coord-color)}' +
+    '.cx-top .cx-n{letter-spacing:.06em}.cx-top .cx-badge{padding:1px 8px;border-radius:999px;border:1px solid var(--coord-color);font-size:9.5px;letter-spacing:.06em;text-transform:uppercase}' +
+    '.cx-top .cx-nav{margin-left:auto;display:flex;gap:6px}' +
+    '.cx-nav button{width:32px;height:32px;border-radius:50%;border:1px solid var(--line);background:var(--paper-raised);color:var(--ink);font-size:16px;line-height:1;cursor:pointer}' +
+    '.cx-label{font-family:"Fraunces",serif;font-size:14px;color:var(--ink-soft);margin-top:10px}' +
+    '.cx-value{font-family:"Cormorant Garamond",serif;font-weight:500;font-size:30px;line-height:1.2;color:var(--ink);margin-top:2px}' +
+    '.cx-def{font-family:"IBM Plex Mono",monospace;font-size:11px;font-style:italic;color:var(--ink-faint);margin-top:4px}' +
+    '.cx-year{margin-top:14px;padding-top:10px;border-top:1px solid var(--line)}' +
+    '.cx-year-h{font-family:"IBM Plex Mono",monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:4px}' +
+    '.cx-yr{display:flex;gap:10px;align-items:baseline;padding:6px 8px;border-radius:8px;font-size:14px;color:var(--ink-soft)}' +
+    '.cx-yr b{flex:0 0 34px;font:500 10px "IBM Plex Mono",monospace;letter-spacing:.06em}' +
+    '.cx-yr.now{background:color-mix(in srgb,var(--c) 14%,transparent);color:var(--ink)}.cx-yr b{color:var(--c)}';
+  document.head.appendChild(css);
+
+  var card = document.createElement('div'); card.className = 'cx-card'; card.id = 'cx-focus';
+  info.parentNode.insertBefore(card, wheel);
+
+  function season(){ return SEASONS.filter(function(s){ return s.key === viewSeasonKey; })[0] || SEASONS[0]; }
+  function esc(s){ return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  function draw(){
+    var s = season(), i = sel;
+    card.style.setProperty('--coord-color', 'var(--' + s.color + ')');
+    card.innerHTML =
+      '<div class="cx-top"><span class="cx-n">' + String(i + 1).padStart(2, '0') + ' / ' + COORD_LABELS.length + '</span>' +
+      (i === featuredCoordIndex ? '<span class="cx-badge">this week</span>' : '') +
+      '<span class="cx-nav"><button type="button" data-cx="-1" aria-label="Previous coordinate">‹</button><button type="button" data-cx="1" aria-label="Next coordinate">›</button></span></div>' +
+      '<div class="cx-label">' + esc(COORD_LABELS[i]) + '</div><div class="cx-value">' + esc(s.values[i]) + '</div><div class="cx-def">' + esc(COORD_DEFINITIONS[i]) + '</div>' +
+      '<div class="cx-year"><div class="cx-year-h">' + esc(COORD_LABELS[i]) + ' across the year</div>' +
+      SEASONS.map(function(x){ return '<div class="cx-yr' + (x.key === s.key ? ' now' : '') + '" style="--c:var(--' + x.color + ')"><b>' + x.name.slice(0, 3).toUpperCase() + '</b><span>' + esc(x.values[i]) + '</span></div>'; }).join('') + '</div>';
+    Array.prototype.forEach.call(list.querySelectorAll('.coord-row'), function(r, k){ r.classList.toggle('cx-sel', k === i); r.setAttribute('role', 'button'); r.setAttribute('tabindex', '0'); });
+    Array.prototype.forEach.call(wheel.querySelectorAll('.wheel-dot circle'), function(c, k){ c.setAttribute('stroke', k === i ? 'var(--ink)' : 'var(--line)'); c.setAttribute('stroke-width', k === i ? '2' : '1'); });
+  }
+  function select(i, scroll){
+    sel = ((i % COORD_LABELS.length) + COORD_LABELS.length) % COORD_LABELS.length; draw();
+    if(scroll){ try{ card.scrollIntoView({ behavior:'smooth', block:'nearest' }); }catch(e){ card.scrollIntoView(); } }
+  }
+  card.addEventListener('click', function(e){ var b = e.target.closest && e.target.closest('[data-cx]'); if(b) select(sel + Number(b.getAttribute('data-cx'))); });
+  list.addEventListener('click', function(e){ var r = e.target.closest && e.target.closest('.coord-row'); if(!r) return; select(Array.prototype.indexOf.call(list.children, r), true); });
+  list.addEventListener('keydown', function(e){ if(e.key !== 'Enter' && e.key !== ' ') return; var r = e.target.closest && e.target.closest('.coord-row'); if(!r) return; e.preventDefault(); select(Array.prototype.indexOf.call(list.children, r), true); });
+
+  /* the wheel, the "this week" callouts and season changes all go through these two functions */
+  jumpToCoordRow = function(i){ select(i, true); };
+  var origSet = setViewSeason;
+  setViewSeason = function(key){ origSet(key); draw(); };
+  draw();
+})();
+
+ window.__SU.ok.push('Coordinates: focus card, grid and across-the-year strip');
+}catch(e){ window.__SU.fail.push(['Coordinates: focus card, grid and across-the-year strip', String(e && e.message || e)]); if(window.console) console.error('Coordinates', e); }
 
 </script>
 </body>
