@@ -3011,16 +3011,16 @@ try{
   ];
   var SCHED = { 1:'U', 2:'L', 3:'K', 4:'C', 6:'F' };   /* Mon Upper, Tue Lower, Wed Cardio (optional), Thu Core, Sat Full body */
   var SESS = {
-    U:{ n:'Upper', t:'Upper body: chest, shoulders, arms, back', ex:['push','pike','updown','superman'] },
-    L:{ n:'Lower', t:'Lower body: legs, glutes, calves', ex:['squat','widesquat','lunge','bridge','calf','wall'] },
-    C:{ n:'Core', t:'Core and conditioning: abs, obliques, lower back', ex:['plank','sideplank','legraise','kneeraise','bicycle','deadbug'] },
+    U:{ n:'Upper', t:'Upper body: chest, shoulders, arms, back', ex:['push','pike','walkout','updown','dips','superman'] },
+    L:{ n:'Lower', t:'Lower body: legs, glutes, calves', ex:['squat','lunge','bridge','sldl','calf','wall'], exB:['widesquat','lunge','abduct','bridge','sldl','calf'] },
+    C:{ n:'Core', t:'Core and conditioning: abs, obliques, lower back', ex:['plank','sideplank','legraise','revcrunch','deadbug','bicycle'], exB:['plank','sprot','flutter','rtwist','kneein','kneeraise'] },
     F:{ n:'Full body', t:'Full-body session', ex:['push','latlunge','bridge','superman','plank','climber'] },
     K:{ n:'Cardio (optional)', t:'Optional cardio and agility day. Skip it if you are tired.', ex:['jacks','hiknee','buttkick','clap','kneebend','skater','burpee'], opt:true }
   };
   /* lo-hi = the rep (or seconds) range. Reach hi on every set, then move up a variation. */
   var EX = {
     push:{ n:'Chest, shoulders, triceps', u:'reps', lo:8, hi:15, lv:2, tip:'Body in one straight line. Lower your chest to the floor, elbows about 45 degrees from your sides.',
-      lad:['Wall push-up','Incline push-up (hands on stairs or a table)','Knee push-up','Standard push-up','Close-grip push-up (triceps)','Feet-up push-up (feet on a stair)'] },
+      lad:['Wall push-up','Incline push-up (hands on stairs or a table)','Knee push-up','Standard push-up','Close-grip push-up (triceps)','Feet-up push-up (feet on a stair)','Rotational push-up (T push-up)'] },
     pike:{ n:'Shoulders', u:'reps', lo:6, hi:12, lv:0, tip:'Hips high in an upside-down V. Bend the elbows so your head moves toward the floor.',
       lad:['Plank shoulder taps','Pike push-up','Feet-up pike push-up'] },
     updown:{ n:'Triceps and arms', u:'reps', lo:6, hi:12, lv:0, tip:'From forearms to hands and back, one arm at a time, keeping your hips still.',
@@ -3030,7 +3030,7 @@ try{
     squat:{ n:'Quads, glutes', u:'reps', lo:12, hi:25, lv:1, tip:'Feet shoulder-width, chest up, sit back and down, drive through your heels.',
       lad:['Chair squat (sit down and stand up)','Bodyweight squat','Jump squat'] },
     lunge:{ n:'Legs and balance (each leg)', u:'reps', lo:8, hi:15, lv:1, tip:'Step back, lower until both knees bend about 90 degrees, push through the front heel.',
-      lad:['Split squat','Reverse lunge','Jumping lunge'] },
+      lad:['Split squat','Reverse lunge','Jumping lunge','Bulgarian split squat (back foot on a chair)'] },
     latlunge:{ n:'Inner and outer thighs (each side)', u:'reps', lo:8, hi:14, lv:0, tip:'Step wide, sit back over one leg with the other straight, then push back to the middle.',
       lad:['Side lunge','Curtsy lunge'] },
     bridge:{ n:'Glutes, hamstrings', u:'reps', lo:12, hi:20, lv:0, tip:'Feet flat. Squeeze your glutes to lift hips until shoulders, hips and knees line up.',
@@ -3040,11 +3040,11 @@ try{
     wall:{ n:'Quads and endurance', u:'sec', lo:30, hi:60, lv:0, tip:'Back flat against a wall, thighs level with the floor, breathe steadily.',
       lad:['Wall sit'] },
     plank:{ n:'Deep core', u:'sec', lo:20, hi:60, lv:1, tip:'Elbows under shoulders, body straight from head to heels, no sagging.',
-      lad:['Knee plank','Forearm plank','Plank shoulder taps'] },
+      lad:['Knee plank','Forearm plank','Plank shoulder taps','Plank with arm raise (hold each arm)'] },
     sideplank:{ n:'Obliques (each side)', u:'sec', lo:15, hi:45, lv:0, tip:'Elbow under your shoulder, hips lifted so your body forms one straight line.',
       lad:['Knee side plank','Side plank'] },
-    legraise:{ n:'Lower abs', u:'reps', lo:8, hi:15, lv:0, tip:'Press your lower back into the floor and lower your legs slowly.',
-      lad:['Bent-knee leg raise','Straight leg raise'] },
+    legraise:{ n:'Lower abs', u:'reps', lo:8, hi:15, lv:0, tip:'Press your lower back into the floor and lower your legs slowly. On scissors, one full cross of both legs counts as one rep.',
+      lad:['Bent-knee leg raise','Straight leg raise','Scissor leg raise'] },
     bicycle:{ n:'Abs and obliques', u:'reps', lo:12, hi:24, lv:0, tip:'Slow and controlled. Bring the opposite elbow toward the knee without pulling on your neck.',
       lad:['Slow bicycle crunch','Bicycle crunch'] },
     deadbug:{ n:'Core control (each side)', u:'reps', lo:8, hi:14, lv:0, tip:'Opposite arm and leg lower together while your back stays flat.',
@@ -3070,8 +3070,26 @@ try{
     lad:['Standing knee raise','Lying knee tuck (knees to chest)','Lying knee tuck with leg extension'] };
   EX.clap = { n:'Coordination, balance, light cardio', u:'reps', lo:12, hi:30, lv:0, tip:'Lift one knee, pass your hands under that thigh and clap, then switch legs. Stand tall and stay light on your feet.',
     lad:['Slow under-leg claps','Under-leg claps (quick)'] };
+  EX.revcrunch = { n:'Lower abs', u:'reps', lo:10, hi:20, lv:0, tip:'Lie on your back, knees bent over your hips. Curl your hips off the floor using your abs, not momentum, then lower slowly.',
+    lad:['Reverse crunch (knees bent)','Reverse crunch (legs straighter)'] };
+  EX.flutter = { n:'Lower abs, hip flexors', u:'sec', lo:20, hi:45, lv:0, tip:'Lower back pressed into the floor. Small, quick kicks, legs low but only as low as your back allows.',
+    lad:['Flutter kicks (knees bent)','Flutter kicks (straight legs)'] };
+  EX.rtwist = { n:'Obliques (count each side)', u:'reps', lo:12, hi:24, lv:0, tip:'Sit tall, lean back a little, and rotate from your ribs, not just your arms. Heels down first, then lift your feet.',
+    lad:['Russian twist (feet down)','Russian twist (feet up)'] };
+  EX.sprot = { n:'Obliques, shoulders (each side)', u:'reps', lo:8, hi:14, lv:0, tip:'From a side plank, reach your top arm through under your body, then open it to the ceiling. Keep your hips lifted.',
+    lad:['Side plank rotation (from your knees)','Side plank rotation'] };
+  EX.kneein = { n:'Core, hip flexors', u:'reps', lo:10, hi:20, lv:0, tip:'In a strong plank, draw one knee toward your chest, return it, and switch. Hips stay level.',
+    lad:['Plank knee-ins (slow)','Plank knee-ins'] };
+  EX.dips = { n:'Triceps, shoulders', u:'reps', lo:8, hi:15, lv:0, tip:'Hands on a sturdy chair or step behind you, elbows pointing back. Lower until your elbows reach about 90 degrees, then press up.',
+    lad:['Bench dip (knees bent)','Bench dip (legs straight)'] };
+  EX.walkout = { n:'Shoulders, core', u:'reps', lo:5, hi:10, lv:0, tip:'Stand, fold forward, walk your hands out to a plank, then walk them back slowly. Keep your legs as straight as you can.',
+    lad:['Walk-out to plank','Walk-out with a push-up'] };
+  EX.sldl = { n:'Hamstrings, glutes, balance (each leg)', u:'reps', lo:8, hi:12, lv:0, tip:'Hinge at the hip, back leg reaching behind you, back flat. Soft knee on the standing leg. Return by squeezing your glute.',
+    lad:['Single-leg deadlift (fingertips on a wall or chair)','Single-leg deadlift'] };
+  EX.abduct = { n:'Outer glutes, hips (each side)', u:'reps', lo:12, hi:20, lv:0, tip:'Lie on your side, body in one line. Lift your top leg, toes pointing forward, without rolling your hips back.',
+    lad:['Side-lying leg raise','Side-lying leg raise with a 2-second hold'] };
   var LOW = { squat:1, lunge:1, widesquat:1, kneebend:1, skater:0, jacks:0, hiknee:0, buttkick:0, burpee:0 };
-  var CAPS = { low:LOW, knees:LOW, back:{ legraise:0, superman:0, burpee:0 }, shoulders:{ push:2, pike:0, updown:0, climber:0, burpee:0 }, wrists:{ push:2, pike:0, updown:0, climber:0 } };
+  var CAPS = { low:LOW, knees:LOW, back:{ legraise:0, superman:0, burpee:0, revcrunch:0, flutter:0, rtwist:0, sldl:0 }, shoulders:{ push:2, pike:0, updown:0, climber:0, burpee:0, dips:0, walkout:0, kneein:0, sprot:0 }, wrists:{ push:2, pike:0, updown:0, climber:0, dips:0, walkout:0, kneein:0 } };
   function startLevel(pr, id){
     var e = EX[id], d = pr.exp === 'new' ? -1 : pr.exp === 'trained' ? 1 : 0;
     var lv = Math.max(0, Math.min(e.lad.length - 1, e.lv + d));
@@ -3094,14 +3112,17 @@ try{
      They have not been play-tested from here. If a video is removed later, the player tries the next one, then shows links.
      Moves with no entry (double knee bend, under-leg claps) have no default video: paste your own in the panel. */
   var VMAP = {
-    push:[['YB0egDzsu18'],['DhXlLypHyUw'],['1nAsgpufzhc'],['WDIpL0pjun0']],
+    push:[['YB0egDzsu18'],['DhXlLypHyUw'],['1nAsgpufzhc'],['WDIpL0pjun0'],['WDIpL0pjun0'],['WDIpL0pjun0'],['iChMWu10hVc','miN74vJbE_w']],
     pike:[['CDBKxS-a4qQ']], updown:[['9CvuiMeWQZo']], superman:[['UXUGfiNL1lI']],
     squat:[['ITv-_BkcrD0'],['P-yaD24bUE8','m0GcZ24pK6k']], widesquat:[['r8DRxdM4HeI']],
-    lunge:[['REflwhg0jNs'],['94AXT7D3bKY','7pkeQFzJR9g']], latlunge:[['apsp_uuXZTU']],
+    lunge:[['REflwhg0jNs'],['94AXT7D3bKY','7pkeQFzJR9g'],['94AXT7D3bKY','7pkeQFzJR9g'],['zFbhMqkvg6o','VPhhE6bBzZE']], latlunge:[['apsp_uuXZTU']],
     bridge:[['bpUudcsZQ8g'],['bpUudcsZQ8g'],['egs6m4J8u8c','bpUudcsZQ8g']], calf:[['2tvsvCRCQZY']], wall:[['JaZNYM3zAP0']],
-    plank:[['ic40NXcsQ2M'],['mwlp75MS6Rg']], sideplank:[['oaJ15vYERoU']], legraise:[['xJJu-WiROM8']], kneeraise:[['zRpLATPywZA']],
+    plank:[['ic40NXcsQ2M'],['mwlp75MS6Rg'],['mwlp75MS6Rg'],['tA0au5tGN6o','kIY_Rw8xlIk']], sideplank:[['oaJ15vYERoU']], legraise:[['xJJu-WiROM8'],['xJJu-WiROM8'],['pksHNelgSsY','UNS4ojyGvGk']], kneeraise:[['zRpLATPywZA']],
     bicycle:[['wnuLak2onoA']], deadbug:[['bxn9FBrt4-A']], climber:[['De3Gl-nC7IQ']], burpee:[['auBLPXO8Fww']],
     jacks:[['uLVt6u15L98','DSa8jU_ON3c']], hiknee:[['OpN2Y712k6Y','DSa8jU_ON3c']], buttkick:[['oMW59TKZvaI']], skater:[['BCPoHelNIEg']],
+    revcrunch:[['nYcE7-Dhpzk','7VH0UB44RT0']], flutter:[['6D23AyECRGQ','ienrk_pN5w0']], rtwist:[['jjyR6Z1U4dA','9V9csctSKj0']],
+    sprot:[['QILW9qpLwm8'],['DXQ9YKHtcsk']], kneein:[['YTo8-Lcmdgo','tMmv7NACWe8']], dips:[['WVeZDBhZwLA','AWz_7B1cch0']],
+    walkout:[['dUoWvQZeuAA','jmkHd1orkBw'],['IwnEoy_FnqI']], sldl:[['FujJkRLG1Fg','akylwnzaEWA']], abduct:[['nn5AtZNjnIE','g9FtnmsIYgI']],
     __warm:[['LKSC_KujZ4g','DSa8jU_ON3c']], __cool:[['QF7pYMrGeCY']]
   };
   function vidsFor(s, key){
@@ -3372,9 +3393,11 @@ try{
     var b = tbar(); b.classList.remove('done'); b.classList.add('show'); draw(); wake(true);
     TM.iv = setInterval(tick, 250);
   }
+  function exFor(k, wk){ var S = SESS[k]; return (S.exB && wk % 2 === 0) ? S.exB : S.ex; }   /* odd weeks version A, even weeks version B */
+  function inCore(id){ return SESS.C.ex.indexOf(id) >= 0 || SESS.C.exB.indexOf(id) >= 0; }
   function restFor(s, id){
     if(s.rest && s.rest !== 'auto') return Number(s.rest);
-    return (EX[id].u === 'sec' || id === 'plank' || SESS.C.ex.indexOf(id) >= 0 || SESS.K.ex.indexOf(id) >= 0) ? 40 : 75;
+    return (EX[id].u === 'sec' || id === 'plank' || inCore(id) || SESS.K.ex.indexOf(id) >= 0) ? 40 : 75;
   }
   function holdTarget(s, t, id){
     var e = EX[id], last = lastTime(s, t, id), best = last ? Math.max.apply(null, last) : 0;
@@ -3419,9 +3442,9 @@ try{
     if(s.paused){ h += '<div class="empty-note">The plan is paused, so no sessions are shown. Resume when you are ready.</div>'; }
     else if(!sess){ h += '<div class="empty-note">Rest day. Recovery is where the progress happens. A walk or light stretching is perfect.</div>'; }
     else {
-      h += '<div class="entry-meta" style="margin-bottom:6px">' + SESS[sess].t + '</div>';
+      h += '<div class="entry-meta" style="margin-bottom:6px">' + SESS[sess].t + (SESS[sess].exB ? ' \u00b7 version ' + (wk % 2 === 0 ? 'B' : 'A') + ' this week (alternates weekly)' : '') + '</div>';
       h += '<div class="cal-row"><button class="cal-mini" data-act="rest">Rest timer</button><button class="cal-mini" data-act="vid" data-id="__warm">' + (openVid === '__warm' ? 'Hide warm-up video' : 'Warm-up video') + '</button></div>' + (openVid === '__warm' ? vidPanel(s, '__warm') : '');
-      SESS[sess].ex.forEach(function(id){
+      exFor(sess, wk).forEach(function(id){
         var e = EX[id], lv = lvOf(s, id), a = arr(s, t, id), last = lastTime(s, t, id), inputs = '';
         for(var i = 0; i < P.sets; i++) inputs += '<input class="cal-in cal-set" type="number" min="0" inputmode="numeric" data-id="' + id + '" data-i="' + i + '" value="' + (a[i] > 0 ? a[i] : '') + '" data-was="' + (a[i] > 0 ? '1' : '') + '" placeholder="' + (i + 1) + '" aria-label="' + e.lad[lv] + ' set ' + (i + 1) + '">';
         h += '<div class="pt-exercise"><div class="pt-ex-top"><span class="pt-ex-name">' + e.lad[lv] + '</span><span class="pt-ex-target">' + P.sets + ' sets \u00b7 ' + e.lo + '\u2013' + e.hi + ' ' + e.u + '</span></div>' +
