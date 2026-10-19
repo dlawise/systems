@@ -3131,7 +3131,43 @@ try{
     var i = key.indexOf('__') === 0 ? 0 : Math.min(lvOf(s, key), m.length - 1);
     return m[i] || m[m.length - 1];
   }
-  var openVid = null;
+  var openVid = null, openInfo = null;
+  var INFO = {
+    "push": "Builds pressing strength through the chest, shoulders and triceps, and teaches the whole body to stay braced in one straight line. It carries over to pushing a door, getting up from the floor and keeping good posture.",
+    "pike": "Builds shoulder strength and control by pressing your bodyweight overhead. It is the main stepping stone towards handstand-style pressing, and it helps with lifting things above your head.",
+    "updown": "Strengthens the triceps and the front of the shoulders while the core keeps you steady. Good for firm, stronger arms and for the pushing phase of everyday movements.",
+    "superman": "Strengthens the muscles along the back of your body: lower back, upper back and glutes. It counters long hours of sitting and helps posture and a healthy back.",
+    "squat": "Builds the big muscles of the thighs and glutes, and keeps hips, knees and ankles moving well. It is the movement behind sitting down, standing up and climbing stairs.",
+    "widesquat": "Shifts more of the work to the glutes and inner thighs, and opens up the hips. Useful for balanced leg strength and hip mobility.",
+    "lunge": "Builds single-leg strength, balance and hip stability, and shows up any strength gap between your two sides. It carries over to walking, running and stairs.",
+    "latlunge": "Trains the legs side to side, which most exercises miss. It strengthens the inner and outer thighs and the glutes, and helps balance and knee stability.",
+    "bridge": "Wakes up and strengthens the glutes and hamstrings, and takes pressure off the lower back. Great for hip strength, posture after sitting, and running or walking power.",
+    "calf": "Strengthens the calves and ankles. It helps balance, walking and running, and protects the Achilles tendon and ankles.",
+    "wall": "Builds endurance in the thighs and the mental toughness to hold a tough position. It improves how long your legs can work before tiring.",
+    "plank": "Builds deep core strength: the muscles that brace the spine and keep your trunk steady. It protects the lower back and improves posture and every other exercise.",
+    "sideplank": "Strengthens the side of the trunk and the hips, which keep your spine stable when you carry things or move side to side. It is a key move for back health.",
+    "legraise": "Targets the lower part of the abdominals and the hip flexors. It builds control of the pelvis, which helps the lower back and a flatter, stronger midsection.",
+    "bicycle": "Works the upper and lower abs and the obliques together, with a twist that trains the core to rotate under control. Good for waist strength and coordination.",
+    "deadbug": "Teaches the core to stay steady while your arms and legs move, which is what it does in daily life. Very kind to the lower back and excellent for control.",
+    "climber": "Raises your heart rate while the core and shoulders hold a plank. It combines cardio with core strength and builds stamina.",
+    "burpee": "A full-body move that trains strength and heart fitness at the same time. It builds stamina and power, and burns a lot of energy for the time spent.",
+    "jacks": "Gets the heart rate up with a simple whole-body rhythm. It warms you up, improves stamina and coordination, and is easy to do anywhere.",
+    "hiknee": "Raises your heart rate and wakes up the hip flexors and core. A quick way to boost stamina and warm the legs.",
+    "buttkick": "Raises your heart rate while working the hamstrings. Good for cardio, leg warm-up and keeping the knees moving freely.",
+    "clap":"Raises your heart rate with a playful, coordinated move that has you lifting a knee and clapping under it. It builds stamina, balance and hip flexor control.",
+    "kneeraise":"Trains the lower abs and hip flexors while you balance, driving a knee up with control. It builds core strength and balance with very little impact.",
+    "kneebend": "A gentle leg-and-heart move with a small bend, good for building stamina without the impact of jumping. Suitable when you want cardio that is easier on the joints.",
+    "skater": "Trains balance, side-to-side power and the glutes, with a cardio boost. It improves stability, agility and knee control.",
+    "revcrunch": "Targets the lower abs by curling the pelvis up rather than lifting the shoulders. It builds core control and avoids straining the neck.",
+    "flutter": "Works the lower abs and hip flexors with small, controlled kicks. It builds endurance in the core and teaches you to keep the lower back steady.",
+    "rtwist": "Trains the abs and obliques to rotate with control. It builds waist strength and helps in any sport or task that involves turning the body.",
+    "sprot": "Strengthens the obliques and the shoulder while teaching the trunk to rotate under control. It adds rotation to the side plank and improves stability.",
+    "kneein": "Works the core and hip flexors while the shoulders hold you up. It builds control of the trunk while you move one leg at a time.",
+    "dips": "Builds the triceps and the front of the shoulders. It is a strong arm exercise that needs only a chair or sturdy bench.",
+    "walkout": "Combines a hamstring stretch with shoulder and core strength as you walk the hands out to a plank. It builds control and shoulder stability, and it warms up the whole body.",
+    "sldl": "Strengthens the hamstrings, glutes and lower back on one leg, and trains balance. It protects the back by teaching you to hinge at the hips.",
+    "abduct": "Strengthens the side of the hips and glutes, which keep your pelvis level when you walk or run. It helps knee and hip stability and eases pressure on the lower back."
+    };
   function ytId(u){
     u = String(u || '').trim();
     if(/^[A-Za-z0-9_-]{11}$/.test(u)) return u;
@@ -3152,6 +3188,10 @@ try{
     if(key === '__warm') return 'warm up exercises at home before workout';
     if(key === '__cool') return 'cool down stretches after workout';
     return EX[key].lad[lvOf(s, key)] + ' exercise proper form';
+  }
+  function infoPanel(id, lv){
+    var e = EX[id];
+    return '<div class="cal-infop"><div class="cal-infoh">What it does</div><div>' + INFO[id] + '</div><div class="cal-infoh">Works</div><div>' + e.n + '</div><div class="cal-infoh">How to do it</div><div>' + e.tip + '</div></div>';
   }
   function vidPanel(s, key){
     var q = encodeURIComponent(vidQuery(s, key)), has = !!s.video[key];
@@ -3204,6 +3244,8 @@ try{
   var css = document.createElement('style');
   css.textContent =
     '.cal-mini{font-family:"IBM Plex Mono",monospace;font-size:10.5px;border:1px solid var(--line);border-radius:7px;background:var(--paper-raised);color:var(--ink-soft);padding:7px 9px;cursor:pointer}' +
+    '.cal-info{width:20px;height:20px;margin-left:6px;padding:0;border-radius:50%;border:1px solid var(--line);background:var(--paper-raised);color:var(--ink-soft);font:italic 600 12px "Fraunces",serif;line-height:1;cursor:pointer;vertical-align:middle}.cal-info[aria-expanded="true"]{background:var(--ink);color:var(--paper);border-color:var(--ink)}' +
+    '.cal-infop{margin-top:8px;padding:10px 12px;border-radius:10px;border-left:3px solid var(--pc-body,var(--accent));background:var(--paper);font-size:.88rem;line-height:1.5;color:var(--ink)}.cal-infoh{font:10px "IBM Plex Mono",monospace;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-faint);margin:8px 0 2px}.cal-infoh:first-child{margin-top:0}' +
     '.cal-row{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:8px}' +
     '.cal-in{width:100%;border:1px solid var(--line);border-radius:7px;padding:8px;font:13px "IBM Plex Mono",monospace;background:var(--paper-raised);color:var(--ink)}' +
     '.cal-set{width:64px;text-align:center}' +
@@ -3448,11 +3490,11 @@ try{
       exFor(sess, wk).forEach(function(id){
         var e = EX[id], lv = lvOf(s, id), a = arr(s, t, id), last = lastTime(s, t, id), inputs = '';
         for(var i = 0; i < P.sets; i++) inputs += '<input class="cal-in cal-set" type="number" min="0" inputmode="numeric" data-id="' + id + '" data-i="' + i + '" value="' + (a[i] > 0 ? a[i] : '') + '" data-was="' + (a[i] > 0 ? '1' : '') + '" placeholder="' + (i + 1) + '" aria-label="' + e.lad[lv] + ' set ' + (i + 1) + '">';
-        h += '<div class="pt-exercise"><div class="pt-ex-top"><span class="pt-ex-name">' + e.lad[lv] + '</span><span class="pt-ex-target">' + P.sets + ' sets \u00b7 ' + e.lo + '\u2013' + e.hi + ' ' + e.u + '</span></div>' +
+        h += '<div class="pt-exercise"><div class="pt-ex-top"><span class="pt-ex-name">' + e.lad[lv] + (INFO[id] ? ' <button type="button" class="cal-info" data-act="info" data-id="' + id + '" aria-label="What this exercise does" aria-expanded="' + (openInfo === id) + '">i</button>' : '') + '</span><span class="pt-ex-target">' + P.sets + ' sets \u00b7 ' + e.lo + '\u2013' + e.hi + ' ' + e.u + '</span></div>' +
           '<div style="font-size:12px;color:var(--ink-faint)">' + e.n + (last ? ' \u00b7 last time: ' + last.filter(function(v){ return v > 0; }).join(', ') : '') + '</div>' +
           '<div style="font-size:12.5px;color:var(--ink-soft);margin:4px 0 8px">' + e.tip + '</div>' +
           '<div class="cal-row">' + inputs + '</div><div class="cal-adv" id="cal-adv-' + id + '">' + advice(s, t, id, P.sets) + '</div>' +
-          '<div class="cal-row">' + (e.u === 'sec' ? '<button class="cal-mini" data-act="hold" data-id="' + id + '">Timer ' + holdTarget(s, t, id) + 's</button>' : '') + '<button class="cal-mini" data-act="vid" data-id="' + id + '">' + (openVid === id ? 'Hide video' : 'Watch') + '</button>' + (lv > 0 ? '<button class="cal-mini" data-act="lv" data-id="' + id + '" data-d="-1">Easier</button>' : '') + (lv < e.lad.length - 1 ? '<button class="cal-mini" data-act="lv" data-id="' + id + '" data-d="1">Harder</button>' : '') + '</div>' + (openVid === id ? vidPanel(s, id) : '') + '</div>';
+          '<div class="cal-row">' + (e.u === 'sec' ? '<button class="cal-mini" data-act="hold" data-id="' + id + '">Timer ' + holdTarget(s, t, id) + 's</button>' : '') + '<button class="cal-mini" data-act="vid" data-id="' + id + '">' + (openVid === id ? 'Hide video' : 'Watch') + '</button>' + (lv > 0 ? '<button class="cal-mini" data-act="lv" data-id="' + id + '" data-d="-1">Easier</button>' : '') + (lv < e.lad.length - 1 ? '<button class="cal-mini" data-act="lv" data-id="' + id + '" data-d="1">Harder</button>' : '') + '</div>' + (openInfo === id ? infoPanel(id, lv) : '') + (openVid === id ? vidPanel(s, id) : '') + '</div>';
       });
       h += '<div class="cal-row"><button class="cal-mini" data-act="vid" data-id="__cool">' + (openVid === '__cool' ? 'Hide cool-down video' : 'Cool-down video') + '</button></div>' + (openVid === '__cool' ? vidPanel(s, '__cool') : '');
     }
@@ -3497,6 +3539,7 @@ try{
     var b = ev.target.closest('[data-act]'); if(!b) return;
     var s = load(), t = ptFmtDate(new Date()), a = b.dataset.act, id = b.dataset.id;
     if(a === 'vid'){ openVid = (openVid === id) ? null : id; render(); return; }
+    if(a === 'info'){ openInfo = (openInfo === id) ? null : id; render(); return; }
     if(a === 'hold'){ begin('hold', holdTarget(s, t, id), id, true); return; }
     if(a === 'rest'){ begin('rest', 60, null, false); return; }
     if(a === 'pause'){ s.paused = t; }
