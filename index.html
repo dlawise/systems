@@ -2451,7 +2451,7 @@ const EXPORT_KEY_GROUPS = {
 const LAST_BACKUP_KEY = 'seasons-last-backup';
 async function exportData(scope){
   const keys = scope === 'all'
-    ? ['seasons-completed-weeks','seasons-journal-entries','seasons-domain-tasks','seasons-share-bg-photo','seasons-section-state','seasons-verse-cache','seasons-learning-entries','seasons-pt-state','seasons-active-page','seasons-goals','rc_v1','seasons-profile']
+    ? ['seasons-completed-weeks','seasons-journal-entries','seasons-domain-tasks','seasons-share-bg-photo','seasons-section-state','seasons-verse-cache','seasons-learning-entries','seasons-pt-state','seasons-active-page','seasons-goals','rc_v1','seasons-profile','seasons-names','seasons-learning-weekly','seasons-learning-season']
     : (EXPORT_KEY_GROUPS[scope] || []);
   const data = {};
   keys.forEach(k=>{ const v = LS.get(k); if(v!==null) data[k]=v; });
@@ -3198,7 +3198,8 @@ try{
     }
     play(0);
   }
-  var TESTS = [['push','Push-ups (max, no time limit)'],['squat','Squats in 60 seconds'],['situp','Sit-ups in 60 seconds'],['plank','Plank hold (seconds)'],['wall','Wall sit (seconds)']];
+  var TESTS = [['push','Push-ups (max, no time limit)'],['squat','Squats in 60 seconds'],['situp','Sit-ups in 60 seconds'],['plank','Plank hold (seconds)'],['wall','Wall sit (seconds)'],['legr','Straight leg raises (max reps, slow)'],['sidep','Side plank hold, weaker side (seconds)'],['bal','Single-leg balance, weaker leg (seconds, eyes open)']];
+  var CHECKS = [['pre','Start',1],['w4','Week 4',4],['w8','Week 8',8],['post','Final',12]];
 
   var css = document.createElement('style');
   css.textContent =
@@ -3426,7 +3427,7 @@ try{
     var sched = SCHED[new Date().getDay()], sess = (s.viewDate === t && s.view) ? s.view : sched;
     var h = '<div class="week-detail"><div class="pt-day-banner"><span class="pt-dt-name">Week ' + w + ' of 12</span><span class="pt-dt-tag">' + P.block.n + (P.deload ? ' \u00b7 deload' : P.test ? ' \u00b7 test week' : '') + '</span></div>';
     h += '<div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:10px">' + P.effort + ' ' + P.block.tempo + ' Rest 60 to 90 seconds between strength sets, 30 to 45 for core and cardio.</div>';
-    if(wk > 12) h += '<div class="pt-banner levelup">The 12 weeks are complete. Take the final test below and compare your numbers.</div>';
+    if(wk > 12) h += '<div class="pt-banner levelup">The 12 weeks are complete. Take the final check below and compare your numbers.</div>';
     if(s.paused){
       h += '<div class="pt-banner nudge">Plan paused since ' + s.paused + '. Week ' + w + ' is saved for you. <button class="cal-mini" data-act="resume">Resume the plan</button></div>';
     } else {
@@ -3464,18 +3465,28 @@ try{
       '<li>Without a bar, pulling work is limited to the floor moves here. A towel row under a sturdy table, or a backpack curl, can fill the gap if you want it.</li></ul></details>';
     h += det('hist', 'Progress history', histHTML(s, t)) + det('ctl', 'Plan controls and missed weeks', ctlHTML(s, wk));
     h += '<div class="pt-extra-block"><h4>Benchmark tests</h4>';
-    function form(k, title){
+    function form(k, title, label){
+      var pre = s.tests.pre || {};
       return '<div style="font-size:12.5px;margin-bottom:6px">' + title + '</div>' + TESTS.map(function(x){
-        return '<div class="pt-set-input" style="margin-bottom:6px"><label>' + x[1] + '</label><input class="cal-in" type="number" min="0" inputmode="numeric" id="cal-t-' + k + '-' + x[0] + '"></div>';
-      }).join('') + '<button class="mark-btn" data-act="test" data-k="' + k + '">Save ' + (k === 'pre' ? 'starting' : 'final') + ' test</button>';
+        return '<div class="pt-set-input" style="margin-bottom:6px"><label>' + x[1] + '</label><input class="cal-in" type="number" min="0" inputmode="numeric" id="cal-t-' + k + '-' + x[0] + '" placeholder="' + (k !== 'pre' && pre[x[0]] ? 'Start: ' + pre[x[0]] : '') + '"></div>';
+      }).join('') + '<button class="mark-btn" data-act="test" data-k="' + k + '">Save ' + label.toLowerCase() + ' check</button>';
     }
-    if(!s.tests.pre) h += form('pre', 'Do this once in week 1 before your first session. Rest between tests.');
-    if(!s.tests.post) h += (wk >= 12 ? form('post', 'Final test. Same five tests as the start.') : '<div class="empty-note">The final test unlocks in week 12.</div>');
+    var missing = CHECKS.filter(function(c){ return wk >= c[2] && !s.tests[c[0]]; });
+    var nextC = CHECKS.filter(function(c){ return wk < c[2]; })[0];
+    h += '<div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:8px">Eight simple tests, repeated at the start, week 4, week 8 and the end, so you can see your progress along the way. Rest between tests.</div>';
+    missing.forEach(function(c, i){
+      var intro = c[0] === 'pre' ? 'Do this once in week 1 before your first session.' : c[0] === 'post' ? 'Final test. Same eight tests as the start.' : 'Quick check. Same eight tests as the start. Do it in this easy week.';
+      h += '<details class="cal-tab"' + (i === missing.length - 1 ? ' open' : '') + '><summary>' + c[1] + ' check</summary>' + form(c[0], intro, c[1]) + '</details>';
+    });
+    if(nextC) h += '<div class="empty-note">Next check: ' + nextC[1].toLowerCase() + (nextC[0] === 'post' ? ' (week 12)' : '') + '.</div>';
     if(s.tests.pre){
-      h += '<table class="pt-prog-table"><tr><th>Test</th><th>Start</th><th>Final</th><th>Change</th></tr>' + TESTS.map(function(x){
-        var a = s.tests.pre[x[0]], b = s.tests.post && s.tests.post[x[0]];
-        return '<tr><td>' + x[1].replace(/ \(.*\)/, '') + '</td><td>' + a + '</td><td>' + (b != null ? b : '\u2013') + '</td><td>' + (b != null ? (b - a >= 0 ? '+' : '') + (b - a) : '') + '</td></tr>';
-      }).join('') + '</table>';
+      var got = CHECKS.filter(function(c){ return s.tests[c[0]]; });
+      h += '<div style="overflow-x:auto"><table class="pt-prog-table"><tr><th>Test</th>' + got.map(function(c){ return '<th>' + c[1] + '</th>'; }).join('') + (got.length > 1 ? '<th>Change</th>' : '') + '</tr>' + TESTS.map(function(x){
+        var vals = got.map(function(c){ var v = s.tests[c[0]][x[0]]; return v ? v : null; });
+        var a0 = vals[0], last = null; vals.slice(1).forEach(function(v){ if(v != null) last = v; });
+        var ch = (a0 != null && last != null) ? ((last - a0 >= 0 ? '+' : '') + (last - a0)) : '';
+        return '<tr><td>' + x[1].replace(/ \(.*\)/, '') + '</td>' + vals.map(function(v){ return '<td>' + (v != null ? v : '–') + '</td>'; }).join('') + (got.length > 1 ? '<td>' + ch + '</td>' : '') + '</tr>';
+      }).join('') + '</table></div>';
     }
     h += '</div></div>';
     m.innerHTML = h;
@@ -3522,7 +3533,7 @@ try{
     else if(a === 'lv') s.lv[id] = Math.max(0, Math.min(EX[id].lad.length - 1, lvOf(s, id) + Number(b.dataset.d)));
     else if(a === 'test'){
       var o = {}, ok = false;
-      TESTS.forEach(function(x){ var v = document.getElementById('cal-t-' + b.dataset.k + '-' + x[0]).value; if(v !== ''){ o[x[0]] = Number(v); ok = true; } else o[x[0]] = 0; });
+      TESTS.forEach(function(x){ var v = document.getElementById('cal-t-' + b.dataset.k + '-' + x[0]).value; if(v !== ''){ o[x[0]] = Number(v); ok = true; } });
       if(!ok) return;
       s.tests[b.dataset.k] = o;
     }
@@ -6036,6 +6047,238 @@ try{
 
  window.__SU.ok.push('Season names setting');
 }catch(e){ window.__SU.fail.push(['Season names setting', String(e && e.message || e)]); if(window.console) console.error('Season names', e); }
+
+/* ===== sync-upgrade.js ===== */
+/* Seasons: keeps your iPhone and MacBook in step, with an iCloud Drive copy as a second safety net.
+   PASTE at the very END of your second script block (after the other add-ons).
+   1. Automatic sync: your data is encrypted on the device with your passphrase, then stored in a secret GitHub Gist.
+      GitHub only ever sees scrambled text. Each item keeps its own "last changed" time and the newest one wins.
+      It syncs when you open the app, shortly after you change something, and when you leave the app.
+   2. iCloud Drive copy: one tap saves a backup file through the share sheet (Save to Files, iCloud Drive); one tap loads it.
+   Not synced (they stay per device): theme, text size, effect, journal lock PIN, open cards, and the cover photo.
+   Everything else saves on the device as you go, as before. The token and passphrase live only on each device. */
+window.__SU = window.__SU || { ok:[], fail:[] };
+try{
+(function(){
+  var CFG = 'seasons-sync-cfg', META = 'seasons-sync-meta', PRE = 'seasons-sync-prebackup', DESC = 'Seasons sync (encrypted)', FNAME = 'seasons-sync-meta.json';
+  var KEYS = ['seasons-completed-weeks','seasons-journal-entries','seasons-domain-tasks','seasons-learning-entries','seasons-learning-weekly','seasons-learning-season','seasons-pt-state','seasons-goals','rc_v1','seasons-profile','seasons-names'];
+  var host = document.getElementById('sec-xset'); if(!host) throw new Error('Dashboard cards not found');
+  var enc = new TextEncoder(), dec = new TextDecoder();
+
+  /* ---------- small helpers ---------- */
+  function jget(k, d){ try{ var v = JSON.parse(LS.get(k) || 'null'); return v == null ? d : v; }catch(e){ return d; } }
+  function cfg(){ return jget(CFG, null); }
+  function meta(){ return jget(META, {}); }
+  function saveMeta(m){ LS.set(META, JSON.stringify(m)); }
+  function hash(s){ var h = 5381, i = s.length; while(i) h = (h * 33) ^ s.charCodeAt(--i); return (h >>> 0).toString(36) + ':' + s.length; }
+  function b64(buf){ var a = new Uint8Array(buf), s = '', i; for(i = 0; i < a.length; i += 8192) s += String.fromCharCode.apply(null, a.subarray(i, i + 8192)); return btoa(s); }
+  function unb64(s){ var b = atob(s), a = new Uint8Array(b.length), i; for(i = 0; i < b.length; i++) a[i] = b.charCodeAt(i); return a; }
+  function two(n){ return (n < 10 ? '0' : '') + n; }
+  function clock(t){ var d = new Date(t); return two(d.getHours()) + ':' + two(d.getMinutes()); }
+
+  /* ---------- encryption (passphrase -> AES-GCM) ---------- */
+  var keyCache = null;
+  function deriveKey(pass, salt){
+    var ck = pass + '|' + b64(salt); if(keyCache && keyCache.id === ck) return Promise.resolve(keyCache.key);
+    return crypto.subtle.importKey('raw', enc.encode(pass), 'PBKDF2', false, ['deriveKey']).then(function(base){
+      return crypto.subtle.deriveKey({ name:'PBKDF2', salt:salt, iterations:200000, hash:'SHA-256' }, base, { name:'AES-GCM', length:256 }, false, ['encrypt','decrypt']);
+    }).then(function(k){ keyCache = { id:ck, key:k }; return k; });
+  }
+  function seal(key, text){
+    var iv = crypto.getRandomValues(new Uint8Array(12));
+    return crypto.subtle.encrypt({ name:'AES-GCM', iv:iv }, key, enc.encode(text)).then(function(ct){ return { iv:b64(iv), ct:b64(ct) }; });
+  }
+  function open(key, o){ return crypto.subtle.decrypt({ name:'AES-GCM', iv:unb64(o.iv) }, key, unb64(o.ct)).then(function(p){ return dec.decode(p); }); }
+
+  /* ---------- GitHub Gist ---------- */
+  function gh(path, opt){
+    var c = cfg(); opt = opt || {};
+    opt.headers = Object.assign({ 'Accept':'application/vnd.github+json', 'Authorization':'Bearer ' + c.token, 'Content-Type':'application/json' }, opt.headers || {});
+    return fetch('https://api.github.com' + path, opt).then(function(r){
+      if(r.status === 401) throw new Error('GitHub did not accept the token. Make a new one and connect again.');
+      if(r.status === 403 || r.status === 429) throw new Error('GitHub is limiting requests. Try again in a few minutes.');
+      if(!r.ok && r.status !== 404) throw new Error('GitHub error ' + r.status);
+      return r.status === 404 ? null : r.json();
+    });
+  }
+  function findGist(){
+    return gh('/gists?per_page=100').then(function(list){
+      var g = (list || []).filter(function(x){ return x.description === DESC; })[0]; return g ? g.id : null;
+    });
+  }
+  function readFile(f){
+    if(!f) return Promise.resolve(null);
+    if(!f.truncated && f.content != null) return Promise.resolve(f.content);
+    return fetch(f.raw_url).then(function(r){ return r.text(); });
+  }
+  function fileName(k){ return k + '.enc.json'; }
+
+  /* ---------- change tracking: when did each item last change on this device? ---------- */
+  function detect(){
+    var m = meta(), changed = false;
+    KEYS.forEach(function(k){
+      var v = LS.get(k), h = v == null ? '' : hash(v), e = m[k];
+      if(!e){ if(v != null){ m[k] = { ts:0, h:h, fresh:1 }; changed = true; } return; }
+      if(e.h !== h){ e.h = h; if(v != null) e.ts = Date.now(); delete e.fresh; changed = true; }
+    });
+    if(changed) saveMeta(m);
+    return changed;
+  }
+
+  /* ---------- UI ---------- */
+  var sec = document.createElement('section'); sec.className = 'csec' + (sectionState.sync === true ? ' open' : ''); sec.id = 'sec-sync'; sec.setAttribute('data-key', 'sync'); sec.setAttribute('data-group', 'home');
+  sec.innerHTML = '<button class="csec-head"><div class="csec-head-left"><span class="csec-title">Sync and backup</span><span class="csec-meta" id="sy-meta">iPhone and Mac, iCloud copy</span></div><span class="csec-chevron">⌄</span></button><div class="csec-body"><p class="csec-sub">Everything already saves on this device as you go. Connect once on each device to keep them in step.</p><div id="sy-mount"></div></div>';
+  host.parentNode.insertBefore(sec, host.nextSibling);
+  sec.querySelector('.csec-head').onclick = function(){ var o = sec.classList.toggle('open'); sectionState.sync = o; LS.set(SECTION_STATE_KEY, JSON.stringify(sectionState)); };
+  sec.style.display = (LS.get(PAGE_KEY) || 'spirit') === 'home' ? '' : 'none';
+  var css = document.createElement('style');
+  css.textContent = '#sy-mount .sy-h{font:11px "IBM Plex Mono",monospace;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-faint);margin:16px 0 6px}#sy-mount .sy-h:first-child{margin-top:0}' +
+    '#sy-mount .sy-st{padding:10px 12px;border-radius:10px;border-left:3px solid var(--line);background:var(--paper);font-size:.9rem;line-height:1.45;color:var(--ink)}#sy-mount .sy-st.ok{border-left-color:var(--pc-body,var(--accent))}#sy-mount .sy-st.bad{border-left-color:var(--accent)}' +
+    '#sy-mount input{width:100%;box-sizing:border-box;margin:4px 0 8px;padding:10px;border:1px solid var(--line);border-radius:9px;background:var(--paper-raised);color:var(--ink);font:inherit;font-size:16px}' +
+    '#sy-mount .sy-b{font:inherit;font-size:.9rem;margin:4px 8px 0 0;padding:9px 14px;border-radius:10px;border:1px solid var(--line);background:var(--paper-raised);color:var(--ink);cursor:pointer}#sy-mount .sy-b.pri{background:var(--ink);color:var(--paper);border-color:var(--ink)}#sy-mount .sy-b[disabled]{opacity:.5}' +
+    '#sy-mount .sy-n{font-size:.8rem;line-height:1.5;color:var(--ink-faint);margin:6px 0}#sy-mount a{color:var(--ink)}' +
+    '#sy-banner{position:fixed;left:12px;right:12px;bottom:calc(76px + env(safe-area-inset-bottom));z-index:90;display:none;align-items:center;gap:10px;padding:10px 14px;border-radius:12px;background:var(--ink);color:var(--paper);font-size:.9rem;box-shadow:0 6px 20px rgba(0,0,0,.25)}#sy-banner.show{display:flex}#sy-banner button{margin-left:auto;font:inherit;padding:6px 12px;border-radius:9px;border:1px solid rgba(255,255,255,.4);background:none;color:var(--paper);cursor:pointer}';
+  document.head.appendChild(css);
+  var banner = document.createElement('div'); banner.id = 'sy-banner'; banner.innerHTML = '<span>Updated from your other device.</span><button type="button">Reload</button>'; document.body.appendChild(banner);
+  banner.querySelector('button').onclick = function(){ location.reload(); };
+  var mount = document.getElementById('sy-mount');
+
+  var state = { busy:false, msg:'', bad:false, last:Number(LS.get('seasons-sync-last') || 0) };
+  function status(){
+    var c = cfg();
+    if(!c) return '<div class="sy-st">Not connected. This device keeps its own copy.</div>';
+    if(state.busy) return '<div class="sy-st">Syncing…</div>';
+    if(state.bad) return '<div class="sy-st bad">' + esc(state.msg) + '</div>';
+    return '<div class="sy-st ok">Connected. ' + (state.last ? 'Last synced at ' + clock(state.last) + '.' : 'Not synced yet.') + '</div>';
+  }
+  function esc(s){ return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  function draw(){
+    var c = cfg(), h = '<div class="sy-h">Sync between devices</div>' + status();
+    if(c){
+      h += '<div><button type="button" class="sy-b pri" data-sy="now"' + (state.busy ? ' disabled' : '') + '>Sync now</button><button type="button" class="sy-b" data-sy="off">Disconnect this device</button></div>' +
+        '<div class="sy-n">Disconnecting keeps the data on this device. It just stops syncing.</div>';
+    } else {
+      h += '<div class="sy-n"><b>On each device, once:</b><br>1. Make a GitHub token that can only use Gists: <a href="https://github.com/settings/tokens/new?scopes=gist&description=Seasons%20sync" target="_blank" rel="noopener">create it here</a> (choose "Generate token", copy it).<br>2. Paste it below and choose a passphrase. Use the <b>same passphrase on both devices</b>. It scrambles your data before it leaves the device, so GitHub cannot read it. If you forget it, the synced copy cannot be opened (your device data is not affected).</div>' +
+        '<input type="password" id="sy-tok" placeholder="GitHub token" autocomplete="off" autocapitalize="off" spellcheck="false"><input type="password" id="sy-pass" placeholder="Passphrase" autocomplete="off" autocapitalize="off" spellcheck="false">' +
+        '<button type="button" class="sy-b pri" data-sy="on"' + (state.busy ? ' disabled' : '') + '>Connect and sync</button>';
+    }
+    h += '<div class="sy-h">iCloud Drive copy</div><div class="sy-n">A backup file you keep yourself. Tap Save, then choose <b>Save to Files</b> and pick iCloud Drive. To bring it onto another device, tap Load and choose the file.</div>' +
+      '<div><button type="button" class="sy-b pri" data-sy="save">Save a copy to iCloud Drive</button><button type="button" class="sy-b" data-sy="load">Load a copy</button></div>' +
+      '<div class="sy-n">Loading a copy replaces what is on this device with what is in the file.</div>';
+    var keep = { t:(document.getElementById('sy-tok') || {}).value, p:(document.getElementById('sy-pass') || {}).value };
+    mount.innerHTML = h;
+    var t = document.getElementById('sy-tok'), p = document.getElementById('sy-pass'); if(t && keep.t) t.value = keep.t; if(p && keep.p) p.value = keep.p;
+    var mt = document.getElementById('sy-meta'); if(mt) mt.textContent = c ? (state.bad ? 'needs attention' : state.last ? 'synced ' + clock(state.last) : 'connected') : 'iPhone and Mac, iCloud copy';
+  }
+  mount.addEventListener('click', function(e){
+    var b = e.target.closest && e.target.closest('[data-sy]'); if(!b) return; var a = b.getAttribute('data-sy');
+    if(a === 'on') connect();
+    else if(a === 'now') syncNow('manual');
+    else if(a === 'off'){ if(confirm('Stop syncing on this device? Your data stays here.')){ LS.remove(CFG); state.bad = false; draw(); } }
+    else if(a === 'save'){ try{ exportData('all'); }catch(err){} }
+    else if(a === 'load'){ var i = document.getElementById('import-btn'); if(i) i.click(); }
+  });
+
+  /* ---------- the sync itself ---------- */
+  function setErr(e){ state.bad = true; state.msg = String(e && e.message || e); if(/Failed to fetch|NetworkError|Load failed/i.test(state.msg)) state.msg = 'Could not reach GitHub. It will try again when you are back online.'; }
+  function connect(){
+    var tok = (document.getElementById('sy-tok').value || '').trim(), pass = document.getElementById('sy-pass').value || '';
+    if(!tok || pass.length < 6){ state.bad = true; state.msg = 'Paste the token and choose a passphrase of at least 6 characters.'; draw(); return; }
+    LS.set(CFG, JSON.stringify({ token:tok, pass:pass })); state.bad = false; syncNow('connect');
+  }
+  var timer = null;
+  function schedule(ms){ clearTimeout(timer); timer = setTimeout(function(){ syncNow('auto'); }, ms); }
+
+  function syncNow(why){
+    var c = cfg(); if(!c || state.busy) return Promise.resolve();
+    if(!window.crypto || !crypto.subtle){ setErr('This browser cannot encrypt, so sync is off.'); draw(); return Promise.resolve(); }
+    state.busy = true; state.bad = false; draw();
+    var applied = 0, pushed = 0;
+    return Promise.resolve().then(function(){
+      detect();
+      return c.gist ? c.gist : findGist();
+    }).then(function(id){
+      if(id){ c.gist = id; LS.set(CFG, JSON.stringify(c)); return gh('/gists/' + id); }
+      return null;
+    }).then(function(g){
+      var files = g ? g.files : null;
+      var salt, ready;
+      if(!files || !files[FNAME]){
+        /* first device ever: make the gist */
+        salt = crypto.getRandomValues(new Uint8Array(16));
+        ready = deriveKey(c.pass, salt).then(function(key){ return seal(key, 'seasons').then(function(chk){
+          var body = { description:DESC, public:false, files:{} }; body.files[FNAME] = { content:JSON.stringify({ v:1, salt:b64(salt), check:chk }) };
+          return gh('/gists', { method:'POST', body:JSON.stringify(body) }).then(function(made){ c.gist = made.id; LS.set(CFG, JSON.stringify(c)); return { files:made.files, key:key, first:true }; });
+        }); });
+      } else {
+        ready = readFile(files[FNAME]).then(function(txt){
+          var mm = JSON.parse(txt); salt = unb64(mm.salt);
+          return deriveKey(c.pass, salt).then(function(key){
+            return open(key, mm.check).then(function(v){ if(v !== 'seasons') throw 0; return { files:files, key:key }; }, function(){ throw new Error('That passphrase does not match the one used on your other device.'); });
+          });
+        });
+      }
+      return ready;
+    }).then(function(ctx){
+      var m = meta(), files = ctx.files, key = ctx.key, remote = {}, jobs = [];
+      /* read the small timestamp header of each remote item */
+      KEYS.forEach(function(k){ var f = files[fileName(k)]; if(f) jobs.push(readFile(f).then(function(t){ try{ remote[k] = JSON.parse(t); }catch(e){} })); });
+      return Promise.all(jobs).then(function(){
+        var hasRemote = Object.keys(remote).length > 0;
+        var anyFresh = KEYS.some(function(k){ return m[k] && m[k].fresh && LS.get(k) != null; });
+        var preferRemote = false;
+        if(hasRemote && anyFresh && !cfg().joined){
+          preferRemote = confirm('This device already has data, and so does your synced copy.\n\nOK = use the synced copy (this device’s data is replaced; a safety copy is kept on this device).\nCancel = keep this device’s data and replace the synced copy.');
+          if(preferRemote){ try{ var snap = {}; KEYS.forEach(function(k){ var v = LS.get(k); if(v != null) snap[k] = v; }); LS.set(PRE, JSON.stringify(snap)); }catch(e){} }
+        }
+        var c2 = cfg(); c2.joined = true; LS.set(CFG, JSON.stringify(c2));
+        var push = {}, work = [];
+        KEYS.forEach(function(k){
+          var r = remote[k], lm = m[k] || { ts:0, h:'' }, lv = LS.get(k), rts = r ? Number(r.ts) || 0 : 0, lts = lv == null ? 0 : (lm.fresh ? (preferRemote ? 0 : Date.now()) : lm.ts);
+          if(r && rts > lts){
+            work.push(open(key, r).then(function(v){ LS.set(k, v); m[k] = { ts:rts, h:hash(v) }; applied++; }));
+          } else if(lv != null && lts > rts){
+            work.push(seal(key, lv).then(function(o){ o.ts = lts; push[fileName(k)] = { content:JSON.stringify(o) }; m[k] = { ts:lts, h:hash(lv) }; pushed++; }));
+          } else if(lv != null && lm.fresh){ m[k] = { ts:lm.ts, h:hash(lv) }; }
+        });
+        return Promise.all(work).then(function(){
+          saveMeta(m);
+          if(!Object.keys(push).length) return;
+          return gh('/gists/' + cfg().gist, { method:'PATCH', body:JSON.stringify({ files:push }) });
+        });
+      });
+    }).then(function(){
+      state.last = Date.now(); LS.set('seasons-sync-last', String(state.last));
+    }).catch(function(e){ setErr(e); }).then(function(){
+      state.busy = false; draw();
+      if(applied){
+        var f = sessionStorage.getItem('seasons-sync-reload');
+        if(why === 'start' && (!f || Date.now() - Number(f) > 60000)){ try{ sessionStorage.setItem('seasons-sync-reload', String(Date.now())); }catch(e){} location.reload(); }
+        else banner.classList.add('show');
+      }
+    });
+  }
+
+  /* ---------- when to sync ---------- */
+  setInterval(function(){ if(cfg() && detect()) schedule(6000); }, 10000);
+  document.addEventListener('visibilitychange', function(){
+    if(!cfg()) return;
+    if(document.hidden){ if(detect()) syncNow('leave'); }
+    else syncNow('back');
+  });
+  window.addEventListener('online', function(){ if(cfg()) schedule(1500); });
+  window.addEventListener('pagehide', function(){ if(cfg() && detect()) syncNow('leave'); });
+  window.__syncNow = syncNow;
+  draw();
+  if(cfg()) setTimeout(function(){ syncNow('start'); }, 1200);
+  var origSet = setActivePage;
+  setActivePage = function(p){ origSet(p); sec.style.display = p === 'home' ? '' : 'none'; };
+  setActivePage(LS.get(PAGE_KEY) || 'spirit');
+})();
+
+ window.__SU.ok.push('Sync: encrypted Gist sync and iCloud Drive copy');
+}catch(e){ window.__SU.fail.push(['Sync: encrypted Gist sync and iCloud Drive copy', String(e && e.message || e)]); if(window.console) console.error('Sync', e); }
+
 
 </script>
 </body>
