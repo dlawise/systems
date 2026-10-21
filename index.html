@@ -4982,7 +4982,7 @@ try{
 'use strict';
 var KEY = 'rc_v1', DAY = 864e5, INTERVALS = [1, 2, 4, 8, 16, 32];
 var S, root, tick = null;
-var ui = { tab: 'library', book: null, filter: 'all', spoil: false, pending: null, mc: false, picked: null, optFor: null,
+var ui = { tab: 'library', book: null, filter: 'all', spoil: true, bt: 'overview', chsort: 'old', chopen: {}, bq: '', btype: 'all', lq: '', sort: 'recent', ntype: 'all', pending: null, mc: false, picked: null, optFor: null,
   reveal: false, edit: null, editFocus: false, nq: '', wq: '', fp: -1, sel: '', ttsOn: false, ttsId: 0, ol: [], olMsg: '', pick: null };
 
 /* ---------- helpers ---------- */
@@ -4999,8 +4999,10 @@ var pct = function (b) { return b.total ? Math.min(100, Math.round(b.progress / 
 var prog = function (b) { return b.unit === '%' ? b.progress + '%' : b.total ? b.progress + '/' + b.total + ' ' + unitLabel(b) : b.progress + ' ' + unitLabel(b); };
 var tags = function (s) { return String(s || '').split(/[,#]+/).map(function (x) { return x.trim(); }).filter(Boolean); };
 
+var lastRaw = null;
 function load() {
   var o = null; try { o = JSON.parse(localStorage.getItem(KEY)); } catch (e) {}
+  lastRaw = localStorage.getItem(KEY);
   S = Object.assign({ books: [], vocab: [], cards: [], trash: [], goal: 12, daily: 20, theme: 'auto', timer: null,
     reader: { text: '', title: '', size: 20, lh: 1.75, font: 'serif', bg: 'paper', focus: true, rate: 1, pos: 0 } }, o || {});
   S.reader = Object.assign({ text: '', title: '', size: 20, lh: 1.75, font: 'serif', bg: 'paper', focus: true, rate: 1, pos: 0 }, S.reader || {});
@@ -5069,12 +5071,62 @@ function noteBlock(b, n, mode) {
     '<button type="button" class="rc-chip" data-act="delnote" data-b="' + b.id + '" data-id="' + n.id + '">Delete</button></div>';
   return mode === 'all' ? '<div class="rc-card">' + body + '</div>' : '<div class="rc-item">' + body + '</div>';
 }
-function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} }
+/* ---------- merging two copies (used when another device or window changed the data) ---------- */
+var RANK = { 'to-read': 0, reading: 1, finished: 2 };
+function copy(o) { return JSON.parse(JSON.stringify(o)); }
+function byId(a) { var m = {}; (a || []).forEach(function (x) { if (x && x.id != null) m[x.id] = x; }); return m; }
+function unionId(a, b, pick, trashed) {
+  var mb = byId(b), seen = {}, out = [];
+  (a || []).forEach(function (x) { if (!x) return; seen[x.id] = 1; out.push(mb[x.id] && pick ? pick(x, mb[x.id]) : x); });
+  (b || []).forEach(function (y) { if (y && !seen[y.id] && !(trashed && trashed[y.id])) { seen[y.id] = 1; out.push(y); } });
+  return out;
+}
+function pickNote(x, y) { var r = (y.edited || '') > (x.edited || '') ? y : x; if (!r.learnId) { var l = x.learnId || y.learnId; if (l) { r = copy(r); r.learnId = l; } } return r; }
+function pickBox(x, y) { return (y.box || 0) > (x.box || 0) ? y : x; }
+function mergeBook(x, y, tr) {
+  var o = copy(x), seen = {};
+  o.progress = Math.max(x.progress || 0, y.progress || 0);
+  if ((RANK[y.status] || 0) > (RANK[x.status] || 0)) o.status = y.status;
+  o.rating = x.rating || y.rating || 0;
+  o.started = [x.started, y.started].filter(Boolean).sort()[0] || '';
+  o.finished = [x.finished, y.finished].filter(Boolean).sort().pop() || '';
+  o.kind = x.kind || y.kind || 'fiction'; o.deadline = x.deadline || y.deadline || ''; o.total = x.total || y.total || 0;
+  o.sessions = []; (x.sessions || []).concat(y.sessions || []).forEach(function (q) { var k = q.date + '|' + q.from + '|' + q.to + '|' + q.mins; if (!seen[k]) { seen[k] = 1; o.sessions.push(q); } });
+  o.sessions.sort(function (p, q) { return p.date < q.date ? -1 : p.date > q.date ? 1 : 0; });
+  o.notes = unionId(x.notes, y.notes, pickNote, tr); o.cast = unionId(x.cast, y.cast, null, tr); o.events = unionId(x.events, y.events, null, tr);
+  return o;
+}
+/* a is this copy (wins ties); b is the other copy. Nothing is lost: items from both are kept, except things a has already deleted. */
+function normT(x) { return String(x || '').trim().toLowerCase().replace(/\s+/g, ' '); }
+function sameBook(x, y) { return normT(x.title) && normT(x.title) === normT(y.title) && (!normT(x.author) || !normT(y.author) || normT(x.author) === normT(y.author)); }
+function mergeRC(a, b) {
+  a = a || {}; b = b || {}; var o = copy(a), tr = {};
+  /* the same book added separately on two devices (different ids) is treated as one book */
+  b = copy(b); var remap = {};
+  (b.books || []).forEach(function (y) { if (!y) return; var m = (a.books || []).filter(function (x) { return x && (x.id === y.id || sameBook(x, y)); })[0]; if (m && m.id !== y.id) { remap[y.id] = m.id; y.id = m.id; } });
+  (b.cards || []).forEach(function (c) { if (c && remap[c.bookId]) c.bookId = remap[c.bookId]; });
+  (b.vocab || []).forEach(function (c) { if (c && remap[c.bookId]) c.bookId = remap[c.bookId]; });
+  (a.trash || []).forEach(function (t) { if (t && t.item && t.item.id != null) tr[t.item.id] = 1; });
+  o.books = unionId(a.books, b.books, function (x, y) { return mergeBook(x, y, tr); }, tr);
+  o.cards = unionId(a.cards, b.cards, pickBox, tr); o.vocab = unionId(a.vocab, b.vocab, pickBox, tr);
+  var tids = {}; o.trash = []; (a.trash || []).concat(b.trash || []).forEach(function (t) { if (t && !tids[t.id]) { tids[t.id] = 1; o.trash.push(t); } });
+  o.trash = o.trash.slice(-60);
+  if (!(o.reader && o.reader.text) && b.reader) o.reader = b.reader;
+  return o;
+}
+global.__mergeRC = function (aText, bText) { return JSON.stringify(mergeRC(JSON.parse(aText), JSON.parse(bText))); };
+function save() {
+  try {
+    var now = localStorage.getItem(KEY);
+    if (now && lastRaw !== null && now !== lastRaw) { try { S = mergeRC(S, JSON.parse(now)); } catch (e) {} }
+    var out = JSON.stringify(S); localStorage.setItem(KEY, out); lastRaw = out;
+  } catch (e) {}
+}
 
 function newBook(o) {
   var unit = o.unit || (o.format === 'audio' ? 'min' : 'pages');
   return { id: uid(), title: o.title, author: o.author || '', format: o.format || 'physical', unit: unit,
-    total: unit === '%' ? 100 : Math.max(0, num(o.total)), progress: 0, status: o.status || 'to-read', rating: 0,
+    kind: o.kind === 'nonfiction' ? 'nonfiction' : 'fiction', total: unit === '%' ? 100 : Math.max(0, num(o.total)), progress: 0, status: o.status || 'to-read', rating: 0,
     started: '', finished: '', deadline: '', added: iso(), sessions: [], notes: [], cast: [], events: [] };
 }
 
@@ -5137,6 +5189,10 @@ var CSS = '.rc{--rc-bg:#faf8f4;--rc-fg:#222;--rc-card:#fff;--rc-muted:#777;--rc-
   '.rc .rc-rd p{margin:0 0 1em;padding:2px 6px;border-radius:6px;cursor:pointer}.rc .rc-rd.rc-focus p{opacity:.38}.rc .rc-rd.rc-focus p.rc-on{opacity:1;background:rgba(122,79,214,.16)}' +
   '.rc .rc-rd:not(.rc-focus) p.rc-on{background:rgba(122,79,214,.12)}';
 
+CSS += '.rc .rc-bookrow{display:flex;gap:12px;align-items:flex-start}.rc .rc-bmain{flex:1 1 auto;min-width:0}.rc .rc-cover{flex:0 0 46px;height:62px;border-radius:6px;display:flex;align-items:center;justify-content:center;color:#fff;font-family:"Fraunces",Georgia,serif;font-size:1.4rem;box-shadow:inset 0 0 0 1px rgba(255,255,255,.12)}' +
+  '.rc .rc-sub{display:flex;gap:6px;overflow-x:auto;margin:4px 0 12px;padding-bottom:4px}.rc .rc-sub .rc-chip{flex:0 0 auto;white-space:nowrap}' +
+  '.rc .rc-ch{border-top:1px solid var(--rc-line);padding:2px 0}.rc .rc-ch:first-child{border-top:0}.rc .rc-chh{display:flex;gap:8px;align-items:baseline;padding:9px 2px;cursor:pointer}.rc .rc-chh>span:last-child{flex:1;min-width:0}.rc .rc-pv{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.rc .rc-chev{color:var(--rc-muted);width:12px;flex:0 0 12px}' +
+  '.rc .rc-bt b{overflow-wrap:anywhere}';
 /* ---------- typography ---------- */
 var FH = "'Fraunces',Georgia,'Times New Roman',serif", FB = "'Inter',-apple-system,system-ui,'Segoe UI',sans-serif", FM = "'IBM Plex Mono',ui-monospace,Menlo,monospace", FQ = "'Cormorant Garamond',Georgia,serif";
 CSS += '.rc{font-family:' + FB + ';font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased}' +
@@ -5163,66 +5219,122 @@ var TABS = [['library', 'Library'], ['today', 'Today'], ['notes', 'Notes'], ['re
 
 function chips(items, cur, act) { return items.map(function (i) { return '<button type="button" class="rc-chip' + (cur === i[0] ? ' rc-on' : '') + '" data-act="' + act + '" data-v="' + i[0] + '">' + i[1] + '</button>'; }).join(''); }
 
+function coverHue(t) { var h = 0, i; for (i = 0; i < t.length; i++) h = (h * 31 + t.charCodeAt(i)) % 360; return h; }
+function lastRead(b) { var d = ''; b.sessions.forEach(function (x) { if (x.date > d) d = x.date; }); return d || b.added || ''; }
+function libList() {
+  var q = ui.lq.trim().toLowerCase();
+  var list = S.books.filter(function (b) { return (ui.filter === 'all' || b.status === ui.filter) && (!q || (b.title + ' ' + b.author).toLowerCase().indexOf(q) >= 0); });
+  list.sort(function (a, b) {
+    if (ui.sort === 'title') return a.title.toLowerCase() < b.title.toLowerCase() ? -1 : 1;
+    if (ui.sort === 'progress') return pct(b) - pct(a);
+    var ra = a.status === 'reading' ? 0 : 1, rb = b.status === 'reading' ? 0 : 1; if (ra !== rb) return ra - rb;
+    return lastRead(a) < lastRead(b) ? 1 : -1;
+  });
+  return list.length ? list.map(function (b) {
+    var ns = b.notes.length, chs = b.notes.filter(function (n) { return n.type === 'summary'; }).length;
+    return '<div class="rc-card rc-book rc-bookrow" data-act="open" data-id="' + b.id + '"><div class="rc-cover" style="background:hsl(' + coverHue(b.title) + ',32%,34%)">' + esc((b.title || '?').charAt(0).toUpperCase()) + '</div>' +
+      '<div class="rc-bmain"><div class="rc-bt"><b>' + esc(b.title) + '</b><span class="rc-muted rc-sm">' + esc(b.author) + '</span></div>' +
+      '<div class="rc-bar"><i style="width:' + pct(b) + '%"></i></div><div class="rc-muted rc-sm"><span class="rc-tag">' + b.status + '</span> ' + prog(b) + (b.rating ? ' · ' + '★'.repeat(b.rating) : '') +
+      (chs ? ' · ' + chs + ' chapter' + (chs === 1 ? '' : 's') : '') + (ns - chs ? ' · ' + (ns - chs) + ' note' + (ns - chs === 1 ? '' : 's') : '') + '</div></div></div>';
+  }).join('') : '<p class="rc-muted">' + (S.books.length ? 'No books match.' : 'Nothing here yet.') + '</p>';
+}
 function vLibrary() {
   if (ui.book && B(ui.book)) return vBook(B(ui.book));
-  var list = S.books.filter(function (b) { return ui.filter === 'all' || b.status === ui.filter; });
+  var cnt = function (st) { return S.books.filter(function (b) { return b.status === st; }).length; };
   var h = '<form data-form="addBook" class="rc-card"><h3>Add a book</h3><div class="rc-row"><input name="title" placeholder="Title" required><input name="author" placeholder="Author"></div>' +
     '<div class="rc-row"><select name="format"><option value="physical">Physical book</option><option value="ebook">E-book</option><option value="audio">Audiobook</option></select>' +
     '<select name="unit"><option value="">Units: auto</option><option value="pages">Pages</option><option value="%">Percent</option><option value="min">Minutes</option></select>' +
     '<input name="total" type="number" min="1" inputmode="numeric" placeholder="Total pages / minutes"></div>' +
-    '<select name="status"><option value="to-read">To read</option><option value="reading">Reading now</option></select><button class="rc-btn">Add book</button></form>';
+    '<div class="rc-row"><select name="kind"><option value="fiction">Fiction (story with characters)</option><option value="nonfiction">Non-fiction</option></select><select name="status"><option value="to-read">To read</option><option value="reading">Reading now</option></select></div><button class="rc-btn">Add book</button></form>';
+  h += '<div class="rc-muted rc-sm" style="margin:2px 0 8px">' + cnt('reading') + ' reading · ' + cnt('to-read') + ' to read · ' + cnt('finished') + ' finished</div>';
+  h += '<input data-live="lq" placeholder="Search your books" value="' + esc(ui.lq) + '">';
   h += '<div>' + chips([['all', 'All'], ['reading', 'Reading'], ['to-read', 'To read'], ['finished', 'Finished']], ui.filter, 'filter') + '</div>';
-  h += list.length ? list.map(function (b) {
-    return '<div class="rc-card rc-book" data-act="open" data-id="' + b.id + '"><div class="rc-bt"><b>' + esc(b.title) + '</b><span class="rc-muted rc-sm">' + esc(b.author) + '</span></div>' +
-      '<div class="rc-bar"><i style="width:' + pct(b) + '%"></i></div><div class="rc-muted rc-sm">' + b.status + ' · ' + prog(b) + (b.rating ? ' · ' + '★'.repeat(b.rating) : '') + '</div></div>';
-  }).join('') : '<p class="rc-muted">Nothing here yet.</p>';
+  h += '<div class="rc-muted rc-sm" style="margin:6px 0 2px">Sort</div><div>' + chips([['recent', 'Recent'], ['title', 'Title'], ['progress', 'Progress']], ui.sort, 'sort') + '</div>';
+  h += '<div id="rc-lib" style="margin-top:8px">' + libList() + '</div>';
   return h;
 }
 
+function isFic(b) { return b.kind !== 'nonfiction'; }
+function hasCast(b) { return isFic(b) || b.cast.length > 0 || b.events.length > 0; }
+function sumNotes(b) { return b.notes.filter(function (n) { return n.type === 'summary'; }); }
+function bookMd(b) {
+  var out = '# ' + b.title + (b.author ? ' — ' + b.author : '') + '\n', ss = sumNotes(b).slice().sort(function (x, y) { return (x.at || 0) - (y.at || 0); });
+  if (ss.length) out += '\n## Chapter summaries\n\n' + ss.map(function (n) { return '### ' + (n.chapter || 'Untitled') + '\n' + n.text; }).join('\n\n') + '\n';
+  var o = b.notes.filter(function (n) { return n.type !== 'summary'; });
+  if (o.length) out += '\n## Notes\n\n' + o.map(function (n) { return '- **' + n.type + '**' + (n.chapter ? ' (' + n.chapter + ')' : '') + ': ' + n.text; }).join('\n') + '\n';
+  return out;
+}
+function bookNotesList(b) {
+  var q = ui.bq.trim().toLowerCase();
+  var list = b.notes.filter(function (n) { return n.type !== 'summary' && (ui.btype === 'all' || n.type === ui.btype) && (!q || ((n.text || '') + ' ' + (n.chapter || '') + ' ' + (n.tags || []).join(' ')).toLowerCase().indexOf(q) >= 0); }).reverse();
+  return list.length ? list.map(function (n) { return noteBlock(b, n, 'book'); }).join('') : '<p class="rc-muted">' + (b.notes.some(function (n) { return n.type !== 'summary'; }) ? 'Nothing matches.' : 'No quotes or thoughts yet.') + '</p>';
+}
+function chaptersHtml(b) {
+  var ss = sumNotes(b).map(function (n, i) { return { n: n, i: i }; });
+  ss.sort(function (x, y) { return ((x.n.at || 0) - (y.n.at || 0)) || (x.i - y.i); });
+  if (ui.chsort === 'new') ss.reverse();
+  var h = '<form data-form="addNote" class="rc-card"><h3>Add a chapter summary</h3><input type="hidden" name="type" value="summary">' +
+    '<div class="rc-row"><input name="chapter" placeholder="Chapter or title"><input name="tags" placeholder="Tags (optional)"></div>' +
+    '<textarea name="text" rows="4" placeholder="What happened, or the key idea" required></textarea><button class="rc-btn">Save chapter summary</button></form>';
+  h += '<h3 style="margin-top:6px">' + ss.length + ' chapter' + (ss.length === 1 ? '' : 's') + ' summarised</h3><div style="margin-bottom:8px">' + chips([['old', 'Oldest first'], ['new', 'Newest first']], ui.chsort, 'chsort') + '</div>';
+  if (!ss.length) return h + '<p class="rc-muted">Chapter summaries you save appear here, all of them, in order. Tap one to read or edit it.</p>';
+  h += '<div class="rc-card">' + ss.map(function (x) {
+    var n = x.n, open = ui.chopen[n.id] || (ui.edit && ui.edit.id === n.id), pv = String(n.text || '').replace(/\s+/g, ' ');
+    return '<div class="rc-ch"><div class="rc-chh" data-act="chtoggle" data-id="' + n.id + '" role="button" tabindex="0" aria-expanded="' + (open ? 'true' : 'false') + '"><span class="rc-chev">' + (open ? '▾' : '▸') + '</span><span><b>' + esc(n.chapter || 'Untitled') + '</b>' +
+      (open ? '' : '<span class="rc-muted rc-sm rc-pv">' + esc(pv.length > 90 ? pv.slice(0, 90) + '…' : pv) + '</span>') + '</span></div>' + (open ? noteBlock(b, n, 'book') : '') + '</div>';
+  }).join('') + '</div>';
+  h += '<div><button type="button" class="rc-btn rc-ghost" data-act="chall" data-v="1">Open all</button><button type="button" class="rc-btn rc-ghost" data-act="chall" data-v="0">Close all</button>' +
+    '<button type="button" class="rc-btn rc-ghost" data-act="copysums">Copy all summaries</button><button type="button" class="rc-btn rc-ghost" data-act="exportbook">Export this book</button></div>';
+  return h;
+}
 function vBook(b) {
   var vis = function (x) { return ui.spoil || (x.at || 0) <= b.progress; };
-  var hidden = 0;
+  var ss = sumNotes(b), others = b.notes.length - ss.length, cards = S.cards.filter(function (c) { return c.bookId === b.id; });
   var h = '<button type="button" class="rc-btn rc-ghost" data-act="back">← Library</button>';
-  h += '<div class="rc-card"><h2>' + esc(b.title) + '</h2><div class="rc-muted">' + esc(b.author) + ' · ' + b.format + '</div>' +
-    '<div class="rc-bar"><i style="width:' + pct(b) + '%"></i></div><div class="rc-muted rc-sm">' + prog(b) + (b.total ? ' (' + pct(b) + '%)' : '') + '</div>' +
-    '<div class="rc-row"><select data-change="status"><option value="to-read"' + (b.status === 'to-read' ? ' selected' : '') + '>To read</option><option value="reading"' + (b.status === 'reading' ? ' selected' : '') + '>Reading</option><option value="finished"' + (b.status === 'finished' ? ' selected' : '') + '>Finished</option></select></div>' +
+  h += '<div class="rc-card rc-bookrow"><div class="rc-cover" style="background:hsl(' + coverHue(b.title) + ',32%,34%)">' + esc((b.title || '?').charAt(0).toUpperCase()) + '</div><div class="rc-bmain"><h2>' + esc(b.title) + '</h2><div class="rc-muted">' + esc(b.author) + ' · ' + b.format + '</div>' +
+    '<div class="rc-bar"><i style="width:' + pct(b) + '%"></i></div><div class="rc-muted rc-sm">' + prog(b) + (b.total ? ' (' + pct(b) + '%)' : '') + '</div></div></div>';
+  h += '<div class="rc-sub">' + chips([['overview', 'Overview'], ['chapters', 'Chapters' + (ss.length ? ' (' + ss.length + ')' : '')], ['notes', 'Notes' + (others ? ' (' + others + ')' : '')]].concat(hasCast(b) ? [['cast', 'Cast & plot']] : []).concat([['quiz', 'Quiz' + (cards.length ? ' (' + cards.length + ')' : '')]]), ui.bt, 'bt') + '</div>';
+
+  if (ui.bt === 'chapters') return h + chaptersHtml(b);
+
+  if (ui.bt === 'notes') {
+    h += '<form data-form="addNote" class="rc-card"><div class="rc-row"><select name="type"><option value="quote">Quote</option><option value="thought">Thought</option></select><input name="chapter" placeholder="Chapter / page"></div>' +
+      '<textarea name="text" rows="3" placeholder="Your note (for quotes, keep them short)" required></textarea><input name="tags" placeholder="Tags, comma separated"><button class="rc-btn">Add note</button></form>';
+    h += '<input data-live="bq" placeholder="Search this book’s notes" value="' + esc(ui.bq) + '"><div>' + chips([['all', 'All'], ['quote', 'Quotes'], ['thought', 'Thoughts']], ui.btype, 'btype') + '</div>';
+    return h + '<div class="rc-card" id="rc-bres">' + bookNotesList(b) + '</div>';
+  }
+
+  if (ui.bt === 'cast' && hasCast(b)) {
+    h += '<div class="rc-top"><h3>Characters &amp; plot</h3><button type="button" class="rc-chip' + (ui.spoil ? ' rc-on' : '') + '" data-act="spoil">Entries from further ahead: ' + (ui.spoil ? 'shown' : 'hidden') + '</button></div>';
+    h += '<form data-form="addCast" class="rc-card"><div class="rc-row"><input name="name" placeholder="Name" required><input name="role" placeholder="Who they are / relationships"></div><button class="rc-btn">Add character</button></form>';
+    var cast = b.cast.filter(vis);
+    h += '<div class="rc-card">' + (cast.length ? cast.map(function (c) { return '<div class="rc-item"><b>' + esc(c.name) + '</b> <span class="rc-muted">' + esc(c.role) + '</span> <button type="button" class="rc-chip" data-act="delcast" data-id="' + c.id + '">×</button></div>'; }).join('') : '<p class="rc-muted">No characters yet.</p>') + '</div>';
+    h += '<form data-form="addEvent" class="rc-card"><input name="text" placeholder="Plot event for the timeline" required><button class="rc-btn">Add event</button></form>';
+    var ev = b.events.filter(vis);
+    return h + '<div class="rc-card">' + (ev.length ? ev.map(function (x, i) { return '<div class="rc-item">' + (i + 1) + '. ' + esc(x.text) + ' <span class="rc-muted rc-sm">(' + x.at + ' ' + unitLabel(b) + ')</span> <button type="button" class="rc-chip" data-act="delevent" data-id="' + x.id + '">×</button></div>'; }).join('') : '<p class="rc-muted">No events yet.</p>') + '</div>';
+  }
+
+  if (ui.bt === 'quiz') {
+    h += '<form data-form="addCard" class="rc-card"><input name="q" placeholder="Question" required><input name="a" placeholder="Answer" required><button class="rc-btn">Add card</button></form>';
+    return h + (cards.length ? '<div class="rc-card">' + cards.map(function (c) { return '<div class="rc-item">' + esc(c.q) + ' → <b>' + esc(c.a) + '</b> <button type="button" class="rc-chip" data-act="delcard" data-id="' + c.id + '">×</button></div>'; }).join('') + '</div>' : '<p class="rc-muted">No quiz cards for this book yet. You can also turn any note into one.</p>');
+  }
+
+  /* overview */
+  h += '<div class="rc-card"><div class="rc-row"><select data-change="kind"><option value="fiction"' + (isFic(b) ? ' selected' : '') + '>Fiction</option><option value="nonfiction"' + (isFic(b) ? '' : ' selected') + '>Non-fiction</option></select><select data-change="status"><option value="to-read"' + (b.status === 'to-read' ? ' selected' : '') + '>To read</option><option value="reading"' + (b.status === 'reading' ? ' selected' : '') + '>Reading</option><option value="finished"' + (b.status === 'finished' ? ' selected' : '') + '>Finished</option></select></div>' +
     '<div class="rc-stars">' + [1, 2, 3, 4, 5].map(function (n) { return '<button type="button" data-act="rate" data-v="' + n + '" class="' + (b.rating >= n ? 'rc-on' : '') + '">★</button>'; }).join('') + '</div>' +
     '<div class="rc-muted rc-sm">' + (b.started ? 'Started ' + fmt(b.started) : '') + (b.finished ? ' · Finished ' + fmt(b.finished) : '') + '</div></div>';
-
   h += '<form data-form="logSession" class="rc-card"><h3>Log reading</h3><div class="rc-row"><input name="to" type="number" step="any" inputmode="decimal" placeholder="Now at (' + unitLabel(b) + ')" value="' + b.progress + '" required>' +
     '<input name="mins" type="number" min="0" inputmode="numeric" placeholder="Minutes (optional)"><input name="date" type="date" value="' + iso() + '"></div><button class="rc-btn">Save</button></form>';
-
-  var pl = perDayNeeded(b), e = eta(b);
+  var pl = perDayNeeded(b), e = eta(b), last = b.sessions[b.sessions.length - 1];
   h += '<div class="rc-card"><h3>Plan</h3><label class="rc-muted rc-sm">Finish by</label><input type="date" data-change="deadline" value="' + esc(b.deadline) + '">' +
     (pl ? '<p>' + (pl.late ? 'Deadline passed — ' : '') + '<b>' + pl.need + ' ' + (b.unit === 'min' ? 'min' : b.unit === '%' ? '%' : 'pages') + '/day</b> over ' + pl.days + ' day' + (pl.days > 1 ? 's' : '') + '.</p>' : '') +
     (e ? '<p class="rc-muted">At your recent pace you would finish around <b>' + fmt(e) + '</b>.</p>' : '') + '</div>';
-
-  var sums = b.notes.filter(function (n) { return n.type === 'summary' && vis(n); }).slice(-3);
-  var last = b.sessions[b.sessions.length - 1];
   if (b.status !== 'to-read') {
+    var rec = ss.slice().sort(function (x, y) { return (x.at || 0) - (y.at || 0); }).slice(-3);
     h += '<div class="rc-card"><h3>Previously…</h3>' + (last ? '<p class="rc-muted rc-sm">Last read ' + fmt(last.date) + ', you were at ' + b.progress + ' ' + unitLabel(b) + '.</p>' : '') +
-      (sums.length ? sums.map(function (n) { return '<p>' + (n.chapter ? '<b>' + esc(n.chapter) + ':</b> ' : '') + esc(n.text) + '</p>'; }).join('') : '<p class="rc-muted">Add chapter summaries below and they will appear here as a refresher.</p>') + '</div>';
+      (rec.length ? rec.map(function (n) { return '<p>' + (n.chapter ? '<b>' + esc(n.chapter) + ':</b> ' : '') + esc(n.text) + '</p>'; }).join('') + (ss.length > rec.length ? '<button type="button" class="rc-chip" data-act="bt" data-v="chapters">See all ' + ss.length + ' chapters</button>' : '') :
+        '<p class="rc-muted">Add chapter summaries in the Chapters tab and the latest ones appear here as a refresher.</p>') + '</div>';
   }
-
-  h += '<div class="rc-top"><h3>Notes</h3><button type="button" class="rc-chip' + (ui.spoil ? ' rc-on' : '') + '" data-act="spoil">Spoilers: ' + (ui.spoil ? 'shown' : 'hidden') + '</button></div>';
-  h += '<form data-form="addNote" class="rc-card"><div class="rc-row"><select name="type"><option value="quote">Quote</option><option value="thought">Thought</option><option value="summary">Chapter summary</option></select><input name="chapter" placeholder="Chapter / page"></div>' +
-    '<textarea name="text" rows="3" placeholder="Your note (for quotes, keep them short)" required></textarea><input name="tags" placeholder="Tags, comma separated"><button class="rc-btn">Add note</button></form>';
-  h += '<div class="rc-card">' + (function () {
-    var out = b.notes.filter(function (n) { if (!vis(n)) { hidden++; return false; } return true; }).reverse().map(function (n) { return noteBlock(b, n, 'book'); }).join('');
-    return (out || '<p class="rc-muted">No notes yet.</p>') + (hidden ? '<p class="rc-muted rc-sm">' + hidden + ' note(s) from further ahead are hidden.</p>' : '');
-  })() + '</div>';
-
-  h += '<h3>Characters &amp; plot</h3><form data-form="addCast" class="rc-card"><div class="rc-row"><input name="name" placeholder="Name" required><input name="role" placeholder="Who they are / relationships"></div><button class="rc-btn">Add character</button></form>';
-  var cast = b.cast.filter(vis);
-  h += '<div class="rc-card">' + (cast.length ? cast.map(function (c) { return '<div class="rc-item"><b>' + esc(c.name) + '</b> <span class="rc-muted">' + esc(c.role) + '</span> <button type="button" class="rc-chip" data-act="delcast" data-id="' + c.id + '">×</button></div>'; }).join('') : '<p class="rc-muted">No characters yet.</p>') + '</div>';
-  h += '<form data-form="addEvent" class="rc-card"><input name="text" placeholder="Plot event for the timeline" required><button class="rc-btn">Add event</button></form>';
-  var ev = b.events.filter(vis);
-  h += '<div class="rc-card">' + (ev.length ? ev.map(function (x, i) { return '<div class="rc-item">' + (i + 1) + '. ' + esc(x.text) + ' <span class="rc-muted rc-sm">(' + x.at + ' ' + unitLabel(b) + ')</span> <button type="button" class="rc-chip" data-act="delevent" data-id="' + x.id + '">×</button></div>'; }).join('') : '<p class="rc-muted">No events yet.</p>') + '</div>';
-
-  var cards = S.cards.filter(function (c) { return c.bookId === b.id; });
-  h += '<h3>Quiz cards (' + cards.length + ')</h3><form data-form="addCard" class="rc-card"><input name="q" placeholder="Question" required><input name="a" placeholder="Answer" required><button class="rc-btn">Add card</button></form>';
-  if (cards.length) h += '<div class="rc-card">' + cards.map(function (c) { return '<div class="rc-item">' + esc(c.q) + ' → <b>' + esc(c.a) + '</b> <button type="button" class="rc-chip" data-act="delcard" data-id="' + c.id + '">×</button></div>'; }).join('') + '</div>';
-
   h += '<p class="rc-muted rc-sm">Deleted something by mistake? <a href="#" data-act="tab" data-v="notes">See Recently deleted</a>.</p><button type="button" class="rc-btn rc-warn" data-act="delbook">Delete this book</button>';
   return h;
 }
@@ -5250,10 +5362,10 @@ function vToday() {
 function notesList() {
   var q = ui.nq.toLowerCase(), out = [];
   S.books.forEach(function (b) { b.notes.forEach(function (n) { out.push({ b: b, n: n }); }); });
-  out = out.filter(function (x) { return !q || (x.n.text + ' ' + x.n.chapter + ' ' + x.b.title + ' ' + (x.n.tags || []).join(' ')).toLowerCase().indexOf(q) >= 0; }).reverse();
+  out = out.filter(function (x) { return (ui.ntype === 'all' || x.n.type === ui.ntype) && (!q || (x.n.text + ' ' + x.n.chapter + ' ' + x.b.title + ' ' + (x.n.tags || []).join(' ')).toLowerCase().indexOf(q) >= 0); }).reverse();
   return out.length ? out.map(function (x) { return noteBlock(x.b, x.n, 'all'); }).join('') : '<p class="rc-muted">No notes found.</p>';
 }
-function vNotes() { return '<input data-live="nq" placeholder="Search all notes, quotes and tags" value="' + esc(ui.nq) + '"><button type="button" class="rc-btn rc-ghost" data-act="exportnotes">Export notes (Markdown)</button><div id="rc-results">' + notesList() + '</div>' + trashHtml(); }
+function vNotes() { return '<input data-live="nq" placeholder="Search all notes, quotes and tags" value="' + esc(ui.nq) + '"><div>' + chips([['all', 'All'], ['summary', 'Chapter summaries'], ['quote', 'Quotes'], ['thought', 'Thoughts']], ui.ntype, 'ntype') + '</div><button type="button" class="rc-btn rc-ghost" data-act="exportnotes">Export notes (Markdown)</button><div id="rc-results">' + notesList() + '</div>' + trashHtml(); }
 
 function dueItems() {
   var t = iso();
@@ -5414,11 +5526,23 @@ function notesMd() {
 var cur = function () { return B(ui.book); };
 var ACT = {
   tab: function (t, e) { if (e && e.preventDefault) e.preventDefault(); ui.edit = null; ui.tab = t.dataset.v; if (ui.tab !== 'library') ui.book = null; render(); },
-  open: function (t) { ui.edit = null; ui.tab = 'library'; ui.book = t.dataset.id; render(); global.scrollTo && global.scrollTo(0, 0); },
+  open: function (t) { ui.edit = null; ui.tab = 'library'; ui.book = t.dataset.id; ui.bt = 'overview'; render(); global.scrollTo && global.scrollTo(0, 0); },
   back: function () { ui.edit = null; ui.book = null; render(); },
   filter: function (t) { ui.filter = t.dataset.v; render(); },
   rate: function (t) { var b = cur(); b.rating = b.rating === +t.dataset.v ? 0 : +t.dataset.v; save(); render(); },
   spoil: function () { ui.spoil = !ui.spoil; render(); },
+  bt: function (t, e) { if (e && e.preventDefault) e.preventDefault(); ui.bt = t.dataset.v; ui.edit = null; render(); },
+  sort: function (t) { ui.sort = t.dataset.v; render(); },
+  btype: function (t) { ui.btype = t.dataset.v; render(); },
+  ntype: function (t) { ui.ntype = t.dataset.v; render(); },
+  chsort: function (t) { ui.chsort = t.dataset.v; render(); },
+  chtoggle: function (t, e) { if (e && e.preventDefault) e.preventDefault(); ui.chopen[t.dataset.id] = !ui.chopen[t.dataset.id]; render(); },
+  chall: function (t) { var b = cur(), on = t.dataset.v === '1'; sumNotes(b).forEach(function (n) { ui.chopen[n.id] = on; }); render(); },
+  copysums: function () {
+    var b = cur(), txt = sumNotes(b).slice().sort(function (x, y) { return (x.at || 0) - (y.at || 0); }).map(function (n) { return (n.chapter || 'Untitled') + '\n' + n.text; }).join('\n\n');
+    try { navigator.clipboard.writeText(txt).then(function () { toast('Summaries copied'); }, function () { toast('Could not copy'); }); } catch (e) { toast('Could not copy'); }
+  },
+  exportbook: function () { var b = cur(); dl((b.title || 'book').replace(/[^\w\- ]+/g, '').trim().replace(/\s+/g, '-').toLowerCase() + '-notes.md', bookMd(b), 'text/markdown'); },
   delbook: function () { var b = cur(), i = S.books.indexOf(b), cs = S.cards.filter(function (c) { return c.bookId === b.id; }); S.books.splice(i, 1); S.cards = S.cards.filter(function (c) { return c.bookId !== b.id; }); ui.book = null; trashIt('book', '', b, i, cs, 'Book'); },
   delnote: function (t) { var b = B(t.dataset.b) || cur(), i = b.notes.findIndex(function (n) { return n.id === t.dataset.id; }); if (i < 0) return; var n = b.notes.splice(i, 1)[0]; if (ui.edit && ui.edit.id === n.id) ui.edit = null; trashIt('note', b.id, n, i, null, 'Note'); },
   delcast: function (t) { var b = cur(), i = b.cast.findIndex(function (n) { return n.id === t.dataset.id; }); if (i < 0) return; trashIt('cast', b.id, b.cast.splice(i, 1)[0], i, null, 'Character'); },
@@ -5513,6 +5637,7 @@ var FORM = {
 var CHG = {
   status: function (t) { var b = cur(); b.status = t.value; if (t.value === 'reading') b.started = b.started || iso(); if (t.value === 'finished') { b.finished = iso(); if (b.total) b.progress = b.total; } save(); render(); },
   deadline: function (t) { cur().deadline = t.value; save(); render(); },
+  kind: function (t) { cur().kind = t.value; save(); render(); },
   goal: function (t) { S.goal = Math.max(1, num(t.value) | 0); save(); render(); },
   daily: function (t) { S.daily = Math.max(1, num(t.value) | 0); save(); render(); },
   theme: function (t) { S.theme = t.value; save(); render(); },
@@ -5544,7 +5669,8 @@ function onSubmit(e) { var f = e.target.closest && e.target.closest('[data-form]
 function onChange(e) { var c = e.target.dataset && e.target.dataset.change; if (c && CHG[c]) CHG[c](e.target); }
 function onInput(e) {
   var l = e.target.dataset && e.target.dataset.live; if (!l) return;
-  ui[l] = e.target.value; var box = root.querySelector('#rc-results'); if (box) box.innerHTML = l === 'nq' ? notesList() : wordsList();
+  ui[l] = e.target.value; var box = root.querySelector(l === 'bq' ? '#rc-bres' : l === 'lq' ? '#rc-lib' : '#rc-results');
+  if (box) box.innerHTML = l === 'nq' ? notesList() : l === 'bq' ? bookNotesList(cur()) : l === 'lq' ? libList() : wordsList();
 }
 function onSel() {
   if (ui.tab !== 'reader' || !global.getSelection) return;
@@ -5567,7 +5693,7 @@ function unmount() {
 }
 
 if (!document.getElementById('rc-style')) { var st = document.createElement('style'); st.id = 'rc-style'; st.textContent = CSS; document.head.appendChild(st); }
-global.ReadingCompanion = { mount: mount, unmount: unmount };
+global.ReadingCompanion = { mount: mount, unmount: unmount, reload: function () { if (root) { load(); render(); } } };
 })(window);
 
 (function(){
@@ -6099,6 +6225,7 @@ try{
       It syncs when you open the app, shortly after you change something, and when you leave the app.
    2. iCloud Drive copy: one tap saves a backup file through the share sheet (Save to Files, iCloud Drive); one tap loads it.
    Not synced (they stay per device): theme, text size, effect, journal lock PIN, open cards, and the cover photo.
+   Reading is merged item by item (books, chapters, notes, words, sessions), so two devices never overwrite each other: both sets are kept.
    Everything else saves on the device as you go, as before. The token and passphrase live only on each device. */
 window.__SU = window.__SU || { ok:[], fail:[] };
 try{
@@ -6118,6 +6245,35 @@ try{
   function unb64(s){ var b = atob(s), a = new Uint8Array(b.length), i; for(i = 0; i < b.length; i++) a[i] = b.charCodeAt(i); return a; }
   function two(n){ return (n < 10 ? '0' : '') + n; }
   function clock(t){ var d = new Date(t); return two(d.getHours()) + ':' + two(d.getMinutes()); }
+
+  /* ---------- safety copies of Reading, kept on this device ---------- */
+  var SNAP = 'seasons-sync-snaps';
+  function snapshot(k, text){
+    if(k !== 'rc_v1' || !text) return;
+    try{
+      var o = JSON.parse(text); if(o.reader) o.reader.text = '';
+      var s = JSON.stringify(o); if(s.length > 900000) return;
+      var list = jget(SNAP, []); if(list.length && list[list.length - 1].text === s) return;
+      list.push({ ts:Date.now(), text:s }); while(list.length > 4) list.shift();
+      LS.set(SNAP, JSON.stringify(list));
+    }catch(e){}
+  }
+  function mergeReading(a, b){ return window.__mergeRC ? window.__mergeRC(a, b) : null; }
+  function readingStats(text){
+    try{
+      var o = JSON.parse(text), books = (o.books || []).length, notes = 0, sums = 0, words = (o.vocab || []).length;
+      (o.books || []).forEach(function(b){ (b.notes || []).forEach(function(n){ notes++; if(n.type === 'summary') sums++; }); });
+      return books + ' book' + (books === 1 ? '' : 's') + ', ' + sums + ' chapter summar' + (sums === 1 ? 'y' : 'ies') + ', ' + (notes - sums) + ' other note' + (notes - sums === 1 ? '' : 's') + ', ' + words + ' word' + (words === 1 ? '' : 's');
+    }catch(e){ return 'could not read'; }
+  }
+  function refreshReading(){
+    try{
+      var ae = document.activeElement, rs = document.getElementById('sec-reading');
+      if(rs && ae && rs.contains(ae) && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName)) return false;
+      if(window.ReadingCompanion && window.ReadingCompanion.reload){ window.ReadingCompanion.reload(); return true; }
+    }catch(e){}
+    return false;
+  }
 
   /* ---------- encryption (passphrase -> AES-GCM) ---------- */
   var keyCache = null;
@@ -6207,7 +6363,18 @@ try{
     }
     h += '<div class="sy-h">iCloud Drive copy</div><div class="sy-n">A backup file you keep yourself. Tap Save, then choose <b>Save to Files</b> and pick iCloud Drive. To bring it onto another device, tap Load and choose the file.</div>' +
       '<div><button type="button" class="sy-b pri" data-sy="save">Save a copy to iCloud Drive</button><button type="button" class="sy-b" data-sy="load">Load a copy</button></div>' +
-      '<div class="sy-n">Loading a copy replaces what is on this device with what is in the file.</div>';
+      '<div class="sy-n">When you load a copy you can combine it with what is on this device (nothing removed) or replace it.</div>';
+    h += '<div class="sy-h">Lost something in Reading?</div><div class="sy-n">Look through earlier versions: the ones sync keeps for a while, and safety copies this device makes before it combines anything. Adding one <b>combines</b> it with what you have, so nothing is removed.</div>' +
+      '<div><button type="button" class="sy-b" data-sy="rec">' + (state.rec && state.rec.busy ? 'Looking\u2026' : 'Look for earlier versions') + '</button></div>';
+    if(state.rec){
+      if(state.rec.msg) h += '<div class="sy-n">' + esc(state.rec.msg) + '</div>';
+      (state.rec.items || []).forEach(function(it, i){
+        var d = new Date(it.ts);
+        h += '<div class="sy-st" style="margin-top:6px"><b>' + d.toLocaleDateString(undefined, { day:'numeric', month:'short' }) + ' ' + clock(it.ts) + '</b> <span class="sy-n">' + (it.type === 'snap' ? 'safety copy on this device' : 'synced version') + '</span>' +
+          (it.stats ? '<div class="sy-n" style="margin:4px 0">' + esc(it.stats) + '</div>' : '') +
+          '<div><button type="button" class="sy-b" data-sy="look" data-i="' + i + '">' + (it.stats ? 'Check again' : 'See what is in it') + '</button>' + (it.text ? '<button type="button" class="sy-b pri" data-sy="add" data-i="' + i + '">Add to this device</button>' : '') + '</div></div>';
+      });
+    }
     var keep = { t:(document.getElementById('sy-tok') || {}).value, p:(document.getElementById('sy-pass') || {}).value };
     mount.innerHTML = h;
     var t = document.getElementById('sy-tok'), p = document.getElementById('sy-pass'); if(t && keep.t) t.value = keep.t; if(p && keep.p) p.value = keep.p;
@@ -6218,9 +6385,44 @@ try{
     if(a === 'on') connect();
     else if(a === 'now') syncNow('manual');
     else if(a === 'off'){ if(confirm('Stop syncing on this device? Your data stays here.')){ LS.remove(CFG); state.bad = false; draw(); } }
+    else if(a === 'rec') findVersions();
+    else if(a === 'look') lookVersion(Number(b.getAttribute('data-i')));
+    else if(a === 'add') addVersion(Number(b.getAttribute('data-i')));
     else if(a === 'save'){ try{ exportData('all'); }catch(err){} }
     else if(a === 'load'){ var i = document.getElementById('import-btn'); if(i) i.click(); }
   });
+
+  /* ---------- recover earlier versions of Reading ---------- */
+  function findVersions(){
+    var items = jget(SNAP, []).map(function(s){ return { type:'snap', ts:s.ts, text:s.text, stats:readingStats(s.text) }; }).reverse();
+    state.rec = { busy:true, items:items, msg:'' }; draw();
+    var c = cfg(), p = (c && c.gist) ? gh('/gists/' + c.gist + '/commits?per_page=20') : Promise.resolve(null);
+    p.then(function(list){
+      (list || []).forEach(function(x){ items.push({ type:'gist', ts:Date.parse(x.committed_at), version:x.version }); });
+      state.rec = { busy:false, items:items, msg:items.length ? '' : 'No earlier versions found yet. Safety copies start once this device has combined something, and sync history starts when you connect.' }; draw();
+    }).catch(function(e){ state.rec = { busy:false, items:items, msg:String(e && e.message || e) }; draw(); });
+  }
+  function lookVersion(i){
+    var it = state.rec && state.rec.items[i]; if(!it) return;
+    if(it.type === 'snap'){ it.stats = readingStats(it.text); draw(); return; }
+    var c = cfg(); it.stats = 'Looking\u2026'; draw();
+    gh('/gists/' + c.gist + '/' + it.version).then(function(g){
+      var f = g && g.files && g.files[fileName('rc_v1')], mf = g && g.files && g.files[FNAME];
+      if(!f || !mf){ it.stats = 'Reading is not in this version.'; draw(); return; }
+      return Promise.all([readFile(f), readFile(mf)]).then(function(r){
+        var o = JSON.parse(r[0]), mm = JSON.parse(r[1]);
+        return deriveKey(c.pass, unb64(mm.salt)).then(function(key){ return open(key, o); });
+      }).then(function(text){ it.text = text; it.stats = readingStats(text); draw(); });
+    }).catch(function(e){ it.stats = String(e && e.message || e); draw(); });
+  }
+  function addVersion(i){
+    var it = state.rec && state.rec.items[i]; if(!it || !it.text) return;
+    var cur = LS.get('rc_v1'), merged = cur ? mergeReading(cur, it.text) : it.text;
+    if(!merged){ state.rec.msg = 'Could not combine that version.'; draw(); return; }
+    snapshot('rc_v1', cur); LS.set('rc_v1', merged); detect();
+    state.rec.msg = 'Added. Now on this device: ' + readingStats(merged) + '.'; refreshReading(); draw();
+    if(cfg()) syncNow('manual');
+  }
 
   /* ---------- the sync itself ---------- */
   function setErr(e){ state.bad = true; state.msg = String(e && e.message || e); if(/Failed to fetch|NetworkError|Load failed/i.test(state.msg)) state.msg = 'Could not reach GitHub. It will try again when you are back online.'; }
@@ -6236,7 +6438,7 @@ try{
     var c = cfg(); if(!c || state.busy) return Promise.resolve();
     if(!window.crypto || !crypto.subtle){ setErr('This browser cannot encrypt, so sync is off.'); draw(); return Promise.resolve(); }
     state.busy = true; state.bad = false; draw();
-    var applied = 0, pushed = 0;
+    var applied = 0, appliedOther = 0, pushed = 0;
     return Promise.resolve().then(function(){
       detect();
       return c.gist ? c.gist : findGist();
@@ -6268,7 +6470,8 @@ try{
       KEYS.forEach(function(k){ var f = files[fileName(k)]; if(f) jobs.push(readFile(f).then(function(t){ try{ remote[k] = JSON.parse(t); }catch(e){} })); });
       return Promise.all(jobs).then(function(){
         var hasRemote = Object.keys(remote).length > 0;
-        var anyFresh = KEYS.some(function(k){ return m[k] && m[k].fresh && LS.get(k) != null; });
+        var MERGED = {}; KEYS.forEach(function(k){ MERGED[k] = (k === 'rc_v1' && !!window.__mergeRC); });
+        var anyFresh = KEYS.some(function(k){ return !MERGED[k] && m[k] && m[k].fresh && LS.get(k) != null && remote[k]; });
         var preferRemote = false;
         if(hasRemote && anyFresh && !cfg().joined){
           preferRemote = confirm('This device already has data, and so does your synced copy.\n\nOK = use the synced copy (this device’s data is replaced; a safety copy is kept on this device).\nCancel = keep this device’s data and replace the synced copy.');
@@ -6276,13 +6479,31 @@ try{
         }
         var c2 = cfg(); c2.joined = true; LS.set(CFG, JSON.stringify(c2));
         var push = {}, work = [];
+        function done(k, ts, v){ var hh = hash(v); m[k] = { ts:ts, h:hh, sh:hh, base:ts }; }
         KEYS.forEach(function(k){
-          var r = remote[k], lm = m[k] || { ts:0, h:'' }, lv = LS.get(k), rts = r ? Number(r.ts) || 0 : 0, lts = lv == null ? 0 : (lm.fresh ? (preferRemote ? 0 : Date.now()) : lm.ts);
+          var r = remote[k], lm = m[k] || { ts:0, h:'' }, lv = LS.get(k), rts = r ? Number(r.ts) || 0 : 0;
+          if(MERGED[k] && r && lv != null){
+            var remoteChanged = rts > (lm.base || 0), localChanged = lm.sh == null || lm.h !== lm.sh;
+            if(remoteChanged){
+              work.push(open(key, r).then(function(rt){
+                var merged = null; try{ merged = mergeReading(lv, rt); }catch(e){}
+                if(merged == null){ LS.set(k, rt); done(k, rts, rt); applied++; return; }
+                snapshot(k, lv);
+                if(merged !== lv){ LS.set(k, merged); applied++; }
+                var ts = Date.now();
+                return seal(key, merged).then(function(o){ o.ts = ts; push[fileName(k)] = { content:JSON.stringify(o) }; done(k, ts, merged); pushed++; });
+              }));
+            } else if(localChanged){
+              work.push(seal(key, lv).then(function(o){ var ts = Math.max(Date.now(), rts + 1); o.ts = ts; push[fileName(k)] = { content:JSON.stringify(o) }; done(k, ts, lv); pushed++; }));
+            }
+            return;
+          }
+          var lts = lv == null ? 0 : (lm.fresh ? (preferRemote ? 0 : Date.now()) : lm.ts);
           if(r && rts > lts){
-            work.push(open(key, r).then(function(v){ LS.set(k, v); m[k] = { ts:rts, h:hash(v) }; applied++; }));
+            work.push(open(key, r).then(function(v){ if(MERGED[k]) snapshot(k, LS.get(k)); else appliedOther++; LS.set(k, v); done(k, rts, v); applied++; }));
           } else if(lv != null && lts > rts){
-            work.push(seal(key, lv).then(function(o){ o.ts = lts; push[fileName(k)] = { content:JSON.stringify(o) }; m[k] = { ts:lts, h:hash(lv) }; pushed++; }));
-          } else if(lv != null && lm.fresh){ m[k] = { ts:lm.ts, h:hash(lv) }; }
+            work.push(seal(key, lv).then(function(o){ o.ts = lts; push[fileName(k)] = { content:JSON.stringify(o) }; done(k, lts, lv); pushed++; }));
+          } else if(lv != null && lm.fresh){ done(k, lm.ts, lv); }
         });
         return Promise.all(work).then(function(){
           saveMeta(m);
@@ -6294,7 +6515,8 @@ try{
       state.last = Date.now(); LS.set('seasons-sync-last', String(state.last));
     }).catch(function(e){ setErr(e); }).then(function(){
       state.busy = false; draw();
-      if(applied){
+      var readingOK = true; if(applied > appliedOther) readingOK = refreshReading();
+      if(appliedOther > 0 || !readingOK){
         var f = sessionStorage.getItem('seasons-sync-reload');
         if(why === 'start' && (!f || Date.now() - Number(f) > 60000)){ try{ sessionStorage.setItem('seasons-sync-reload', String(Date.now())); }catch(e){} location.reload(); }
         else banner.classList.add('show');
@@ -6312,6 +6534,26 @@ try{
   window.addEventListener('online', function(){ if(cfg()) schedule(1500); });
   window.addEventListener('pagehide', function(){ if(cfg() && detect()) syncNow('leave'); });
   window.__syncNow = syncNow;
+  /* Load a copy: combine instead of replace */
+  try{
+    importDataFile = function(file){
+      var reader = new FileReader();
+      reader.onload = function(){
+        try{
+          var data = JSON.parse(reader.result);
+          var combine = confirm('Combine this copy with what is on this device?\n\nOK = combine. Nothing on this device is removed: Reading is merged, and other items are only filled in where this device has none.\nCancel = replace what is on this device with the copy.');
+          snapshot('rc_v1', LS.get('rc_v1'));
+          Object.keys(data).forEach(function(k){
+            var cur = LS.get(k);
+            if(!combine || cur == null){ LS.set(k, data[k]); return; }
+            if(k === 'rc_v1'){ var mg = mergeReading(cur, data[k]); if(mg) LS.set(k, mg); }
+          });
+          LS.set('seasons-last-backup', String(Date.now())); location.reload();
+        }catch(e){ alert('Could not read that backup file.'); }
+      };
+      reader.readAsText(file);
+    };
+  }catch(e){}
   draw();
   if(cfg()) setTimeout(function(){ syncNow('start'); }, 1200);
   var origSet = setActivePage;
@@ -6321,7 +6563,6 @@ try{
 
  window.__SU.ok.push('Sync: encrypted Gist sync and iCloud Drive copy');
 }catch(e){ window.__SU.fail.push(['Sync: encrypted Gist sync and iCloud Drive copy', String(e && e.message || e)]); if(window.console) console.error('Sync', e); }
-
 
 </script>
 </body>
