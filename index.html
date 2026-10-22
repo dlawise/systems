@@ -1436,6 +1436,16 @@ document.getElementById('save-btn').addEventListener('click', ()=>{
 const GOALS_KEY = 'seasons-goals';
 function loadAllGoals(){ try{ return JSON.parse(LS.get(GOALS_KEY) || '{}'); }catch(e){ return {}; } }
 function saveAllGoals(obj){ return LS.set(GOALS_KEY, JSON.stringify(obj)); }
+/* Compass: your vision, values, mission and mandate. Each belongs to one season and is shown at the top of that season's Goals. */
+const COMPASS_KEY = 'seasons-compass';
+const COMPASS_MAP = { autumn:'vision', winter:'values', spring:'mission', summer:'mandate' };
+(function(){ const st = document.createElement('style'); st.textContent = '.compass-note{margin:-2px 0 12px;padding:9px 12px;border-radius:10px;border-left:3px solid var(--accent);background:var(--paper);font-size:13px;line-height:1.5;color:var(--ink);white-space:pre-wrap}.compass-note b{display:block;font:10.5px "IBM Plex Mono",monospace;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:2px}.compass-note.faint{color:var(--ink-faint);border-left-color:var(--line)}.compass-note a{color:var(--ink);margin-left:6px;cursor:pointer;text-decoration:underline}'; document.head.appendChild(st); })();
+function compassLine(s){
+  let c = {}; try{ c = JSON.parse(LS.get(COMPASS_KEY) || '{}') || {}; }catch(e){}
+  const k = COMPASS_MAP[s.key]; if(!k) return '';
+  const name = k.charAt(0).toUpperCase() + k.slice(1), t = String(c[k] || '').trim().replace(/&/g,'&amp;').replace(/</g,'&lt;');
+  return t ? `<div class="compass-note"><b>Your ${name}</b>${t}<a href="#" data-compass="1">edit</a></div>` : `<div class="compass-note faint">Write your ${name.toLowerCase()} in the Compass on the Dashboard.<a href="#" data-compass="1">Open</a></div>`;
+}
 function getGoalsFor(pageKey){
   const all = loadAllGoals();
   const seasonKey = SEASONS[currentSeasonIndex].key;
@@ -1490,6 +1500,7 @@ function renderGoals(pageKey){
   }).join('');
   mount.innerHTML = `
     <p class="lane-sub" style="margin:-4px 0 10px;">${s.label} (${s.stageQuestion}) — goals here are set within it, and can be tied to a coordinate, a foundation and a domain.</p>
+    ${compassLine(s)}
     ${undoBanner}
     <div class="domain-tasks" style="margin-bottom:10px;">${rows || '<div class="empty-note">No goals yet this season.</div>'}</div>
     <div style="display:grid; gap:6px;">
@@ -2451,7 +2462,7 @@ const EXPORT_KEY_GROUPS = {
 const LAST_BACKUP_KEY = 'seasons-last-backup';
 async function exportData(scope){
   const keys = scope === 'all'
-    ? ['seasons-completed-weeks','seasons-journal-entries','seasons-domain-tasks','seasons-share-bg-photo','seasons-section-state','seasons-verse-cache','seasons-learning-entries','seasons-pt-state','seasons-active-page','seasons-goals','rc_v1','seasons-profile','seasons-names','seasons-learning-weekly','seasons-learning-season']
+    ? ['seasons-completed-weeks','seasons-journal-entries','seasons-domain-tasks','seasons-share-bg-photo','seasons-section-state','seasons-verse-cache','seasons-learning-entries','seasons-pt-state','seasons-active-page','seasons-goals','rc_v1','seasons-profile','seasons-names','seasons-learning-weekly','seasons-learning-season','seasons-compass']
     : (EXPORT_KEY_GROUPS[scope] || []);
   const data = {};
   keys.forEach(k=>{ const v = LS.get(k); if(v!==null) data[k]=v; });
@@ -3088,8 +3099,17 @@ try{
     lad:['Single-leg deadlift (fingertips on a wall or chair)','Single-leg deadlift'] };
   EX.abduct = { n:'Outer glutes, hips (each side)', u:'reps', lo:12, hi:20, lv:0, tip:'Lie on your side, body in one line. Lift your top leg, toes pointing forward, without rolling your hips back.',
     lad:['Side-lying leg raise','Side-lying leg raise with a 2-second hold'] };
+  /* extra moves that are not in the weekly sessions but are offered when you tap Swap */
+  EX.pushplus = { n:'Chest and shoulder blades', u:'reps', lo:8, hi:15, lv:1, tip:'From a push-up position with straight arms, push the floor away so your upper back rounds slightly, then relax. Elbows stay locked.',
+    lad:['Wall push-up plus','Knee push-up plus','Push-up plus'] };
+  EX.yraise = { n:'Upper back and rear shoulders', u:'reps', lo:8, hi:15, lv:0, tip:'Lie face down with your arms overhead in a Y and thumbs up. Lift the arms a little off the floor, then lower slowly. Keep your neck long.',
+    lad:['Prone Y raise','Prone Y raise with a 2-second pause'] };
+  EX.wallangel = { n:'Shoulder mobility and upper back', u:'reps', lo:8, hi:15, lv:0, tip:'Stand with your back and arms against a wall, elbows bent to 90 degrees. Slide the arms up and down without letting your lower back arch.',
+    lad:['Wall angel','Slow wall angel (2-second pause at the top)'] };
+  EX.reverseplank = { n:'Triceps, glutes and the back of the body', u:'sec', lo:15, hi:45, lv:0, tip:'Sit with your hands behind you, fingers forward. Lift your hips until your body is one line, and hold. Keep your neck relaxed.',
+    lad:['Reverse table-top hold','Reverse plank'] };
   var LOW = { squat:1, lunge:1, widesquat:1, kneebend:1, skater:0, jacks:0, hiknee:0, buttkick:0, burpee:0 };
-  var CAPS = { low:LOW, knees:LOW, back:{ legraise:0, superman:0, burpee:0, revcrunch:0, flutter:0, rtwist:0, sldl:0 }, shoulders:{ push:2, pike:0, updown:0, climber:0, burpee:0, dips:0, walkout:0, kneein:0, sprot:0 }, wrists:{ push:2, pike:0, updown:0, climber:0, dips:0, walkout:0, kneein:0 } };
+  var CAPS = { low:LOW, knees:LOW, back:{ legraise:0, superman:0, burpee:0, revcrunch:0, flutter:0, rtwist:0, sldl:0 }, shoulders:{ push:2, pike:0, updown:0, climber:0, burpee:0, dips:0, walkout:0, kneein:0, sprot:0, pushplus:1, reverseplank:0 }, wrists:{ push:2, pike:0, updown:0, climber:0, dips:0, walkout:0, kneein:0, pushplus:1, reverseplank:0 } };
   function startLevel(pr, id){
     var e = EX[id], d = pr.exp === 'new' ? -1 : pr.exp === 'trained' ? 1 : 0;
     var lv = Math.max(0, Math.min(e.lad.length - 1, e.lv + d));
@@ -3166,6 +3186,10 @@ try{
     "dips": "Builds the triceps and the front of the shoulders. It is a strong arm exercise that needs only a chair or sturdy bench.",
     "walkout": "Combines a hamstring stretch with shoulder and core strength as you walk the hands out to a plank. It builds control and shoulder stability, and it warms up the whole body.",
     "sldl": "Strengthens the hamstrings, glutes and lower back on one leg, and trains balance. It protects the back by teaching you to hinge at the hips.",
+    "pushplus": "Strengthens the muscles that hold your shoulder blades against your ribcage, as well as the chest. It helps shoulder health and makes every push-up feel steadier.",
+    "yraise": "Strengthens the upper back and rear shoulders, which pull your shoulders back and open the chest. It helps posture and balances all the pushing in this plan.",
+    "wallangel": "Improves shoulder mobility and wakes up the upper back. A gentle move that is good when your shoulders feel stiff or you have been sitting a lot.",
+    "reverseplank": "Strengthens the triceps, glutes and the back of the body, and opens the chest. It balances the front-of-body work and helps posture.",
     "abduct": "Strengthens the side of the hips and glutes, which keep your pelvis level when you walk or run. It helps knee and hip stability and eases pressure on the lower back."
     };
   function ytId(u){
@@ -3249,6 +3273,7 @@ try{
     '.cal-row{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:8px}' +
     '.cal-in{width:100%;border:1px solid var(--line);border-radius:7px;padding:8px;font:13px "IBM Plex Mono",monospace;background:var(--paper-raised);color:var(--ink)}' +
     '.cal-set{width:64px;text-align:center}' +
+    '.cal-tr{display:flex;align-items:center;gap:10px;margin:6px 0;font-size:12.5px}.cal-tr span{flex:1;min-width:0}.cal-tr b{font:600 12px "IBM Plex Mono",monospace;min-width:34px;text-align:right;color:var(--ink-faint)}.cal-tr b.up{color:var(--pc-body,var(--ink))}.cal-mini.on{background:var(--ink);color:var(--paper);border-color:var(--ink)}' +
     '.cal-adv{font-size:12px;color:var(--ink-soft);margin-top:6px}' +
     '#cal-timer{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(12px + env(safe-area-inset-bottom));z-index:80;display:none;align-items:center;gap:10px;background:var(--ink);color:var(--paper);border-radius:14px;padding:10px 14px;box-shadow:0 6px 24px rgba(0,0,0,.28);max-width:calc(100vw - 24px)}' +
     '#cal-timer.show{display:flex}#cal-timer .tl{font-size:11px;opacity:.8;max-width:120px;line-height:1.25}#cal-timer .tt{font:600 22px "IBM Plex Mono",monospace;min-width:58px;text-align:center}' +
@@ -3367,6 +3392,9 @@ try{
     h += '<button class="cal-mini" data-act="shift" data-n="1">Go back one week</button><button class="cal-mini" data-act="shift" data-n="-1">Skip ahead one week</button><button class="cal-mini" data-act="restart">Restart from week 1</button></div>';
     h += '<div class="rv-h">Rest timer</div><div class="cal-row"><button class="cal-mini" data-act="autorest">' + (s.autoRest === false ? 'Auto-start: off' : 'Auto-start: on') + '</button>' +
       '<select class="cal-in" id="cal-restsel" style="width:auto">' + [['auto','Rest: automatic (75s strength, 40s core and cardio)'],['30','Rest: 30s'],['45','Rest: 45s'],['60','Rest: 60s'],['90','Rest: 90s'],['120','Rest: 2 min']].map(function(o){ return '<option value="' + o[0] + '"' + (String(s.rest || 'auto') === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select></div>';
+    h += '<div class="rv-h">Sound and vibration</div><div class="cal-row">' + [['off', 'Off'], ['soft', 'Soft'], ['normal', 'Normal'], ['loud', 'Loud']].map(function(o){ return '<button class="cal-mini' + ((s.sound || 'normal') === o[0] ? ' on' : '') + '" data-act="sound" data-v="' + o[0] + '">' + o[1] + '</button>'; }).join('') +
+      '<button class="cal-mini" data-act="vibe">' + (s.vibe === false ? 'Vibration: off' : 'Vibration: on') + '</button><button class="cal-mini" data-act="testsnd">Test sound</button></div>' +
+      '<div style="font-size:11.5px;color:var(--ink-faint);margin-top:6px">A chime plays when a rest or hold ends, with soft ticks for the last three seconds. iPhone does not allow web pages to vibrate, and it keeps web sounds quiet while the ring/silent switch is on silent.</div>';
     h += '<div style="font-size:11.5px;color:var(--ink-faint);margin-top:6px">Timers use your phone clock. Keep the screen on during a hold, because iPhone can pause web pages when it locks.</div>';
     return h;
   }
@@ -3395,7 +3423,18 @@ try{
       if(!on && TM.lock){ TM.lock.release(); TM.lock = null; }
     }catch(e){}
   }
-  function alertUser(){ try{ if(typeof ptPlayBeep === 'function') ptPlayBeep(); }catch(e){} try{ if(navigator.vibrate) navigator.vibrate([200, 100, 200]); }catch(e){} }
+  /* sound: a short chime when a rest or hold ends, and soft ticks for the last three seconds. Off / Soft / Normal / Loud, and vibration on or off. */
+  var AC = null;
+  function audio(){ try{ if(!AC) AC = new (window.AudioContext || window.webkitAudioContext)(); if(AC.state === 'suspended') AC.resume(); }catch(e){} return AC; }
+  function volume(){ var m = load().sound; return m === 'off' ? 0 : m === 'soft' ? 0.12 : m === 'loud' ? 0.7 : 0.3; }
+  function tone(freq, start, dur, vol){
+    var c = audio(); if(!c || !vol) return;
+    try{ var o = c.createOscillator(), g = c.createGain(), t0 = c.currentTime + start; o.type = 'sine'; o.frequency.value = freq;
+      g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(vol, t0 + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+      o.connect(g); g.connect(c.destination); o.start(t0); o.stop(t0 + dur + 0.03); }catch(e){}
+  }
+  function chime(){ var v = volume(); tone(880, 0, 0.16, v); tone(880, 0.22, 0.16, v); tone(1175, 0.44, 0.4, v); }
+  function alertUser(){ chime(); try{ if(load().vibe !== false && navigator.vibrate) navigator.vibrate([200, 100, 200]); }catch(e){} }
   function draw(){
     var b = tbar(), left = (TM.end - Date.now()) / 1000;
     b.querySelector('.tt').textContent = fmt(left);
@@ -3423,20 +3462,40 @@ try{
   }
   function tick(){
     if(!TM.mode) return;
-    if(TM.end - Date.now() > 0){ draw(); return; }
+    if(TM.end - Date.now() > 0){
+      draw(); var sec = Math.ceil((TM.end - Date.now()) / 1000);
+      if(sec <= 3 && TM.tk !== sec){ TM.tk = sec; tone(660, 0, 0.09, volume() * 0.8); }
+      return;
+    }
     if(TM.mode === 'hold' && TM.phase === 'ready'){
       TM.phase = 'run'; TM.runStart = Date.now(); TM.end = Date.now() + TM.secs * 1000; try{ if(navigator.vibrate) navigator.vibrate(120); }catch(e){} draw(); return;
     }
     endTimer(false);
   }
   function begin(mode, secs, id, ready){
-    clearIv(); clearTimeout(TM.hideT);
+    clearIv(); clearTimeout(TM.hideT); audio(); TM.tk = null;
     TM.mode = mode; TM.id = id || null; TM.secs = secs; TM.phase = ready ? 'ready' : 'run';
     TM.end = Date.now() + (ready ? 3 : secs) * 1000; TM.runStart = Date.now();
     var b = tbar(); b.classList.remove('done'); b.classList.add('show'); draw(); wake(true);
     TM.iv = setInterval(tick, 250);
   }
   function exFor(k, wk){ var S = SESS[k]; return (S.exB && wk % 2 === 0) ? S.exB : S.ex; }   /* odd weeks version A, even weeks version B */
+  /* swap an exercise for today with another that trains the same area; it applies to that day only */
+  var SWAPG = [['push','pike','updown','dips','pushplus'], ['superman','yraise','wallangel','reverseplank','walkout'], ['squat','widesquat','lunge','latlunge','calf','wall','abduct','bridge','sldl'],
+    ['plank','sideplank','legraise','bicycle','deadbug','revcrunch','flutter','rtwist','sprot','kneein','kneeraise'], ['jacks','hiknee','buttkick','clap','kneebend','skater','burpee','climber']];
+  function exList(s, sess, wk, t){
+    var m = (s.swaps && s.swaps[t] && s.swaps[t][sess]) || {};
+    return exFor(sess, wk).map(function(id){ return (m[id] && EX[m[id]]) ? m[id] : id; });
+  }
+  function swapNext(s, sess, wk, t, cur){
+    var orig = exFor(sess, wk).filter(function(o){ var m = (s.swaps && s.swaps[t] && s.swaps[t][sess]) || {}; return (m[o] || o) === cur; })[0]; if(!orig) return;
+    var grp = SWAPG.filter(function(g){ return g.indexOf(cur) >= 0; })[0]; if(!grp) return;
+    var shown = exList(s, sess, wk, t), i = grp.indexOf(cur), n, k;
+    for(k = 1; k <= grp.length; k++){ n = grp[(i + k) % grp.length]; if(n === orig || (shown.indexOf(n) < 0 && EX[n])) break; }
+    s.swaps = s.swaps || {}; Object.keys(s.swaps).forEach(function(d){ if(d < addDays(t, -14)) delete s.swaps[d]; });
+    s.swaps[t] = s.swaps[t] || {}; s.swaps[t][sess] = s.swaps[t][sess] || {};
+    if(n === orig) delete s.swaps[t][sess][orig]; else s.swaps[t][sess][orig] = n;
+  }
   function inCore(id){ return SESS.C.ex.indexOf(id) >= 0 || SESS.C.exB.indexOf(id) >= 0; }
   function restFor(s, id){
     if(s.rest && s.rest !== 'auto') return Number(s.rest);
@@ -3457,6 +3516,13 @@ try{
   var openDet = {};
   function det(k, title, body){ return '<details class="cal-tab" data-k="' + k + '"' + (openDet[k] ? ' open' : '') + '><summary>' + title + '</summary>' + body + '</details>'; }
 
+  function spark(pts, name){
+    var W = 120, H = 30, P = 4, real = pts.filter(function(v){ return v != null; }), lo = Math.min.apply(null, real), hi = Math.max.apply(null, real), span = (hi - lo) || 1, n = Math.max(2, pts.length);
+    var xy = pts.map(function(v, i){ return v == null ? null : [P + i * (W - 2 * P) / (n - 1), H - P - (v - lo) / span * (H - 2 * P)]; }).filter(Boolean);
+    var line = xy.map(function(q, i){ return (i ? 'L' : 'M') + q[0].toFixed(1) + ' ' + q[1].toFixed(1); }).join(' ');
+    return '<svg class="cal-spark" viewBox="0 0 ' + W + ' ' + H + '" width="' + W + '" height="' + H + '" role="img" aria-label="' + String(name).replace(/["<>&]/g, '') + ': ' + real.join(', ') + '"><path d="' + line + '" fill="none" stroke="var(--ink-soft)" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/>' +
+      xy.map(function(q, i){ return '<circle cx="' + q[0].toFixed(1) + '" cy="' + q[1].toFixed(1) + '" r="' + (i === xy.length - 1 ? 3.2 : 2.2) + '" fill="' + (i === xy.length - 1 ? 'var(--accent)' : 'var(--ink-soft)') + '"/>'; }).join('') + '</svg>';
+  }
   function render(){
     var m = document.getElementById('cal-mount'); if(!m) return;
     var s = load(), t = ptFmtDate(new Date());
@@ -3487,14 +3553,15 @@ try{
     else {
       h += '<div class="entry-meta" style="margin-bottom:6px">' + SESS[sess].t + (SESS[sess].exB ? ' \u00b7 version ' + (wk % 2 === 0 ? 'B' : 'A') + ' this week (alternates weekly)' : '') + '</div>';
       h += '<div class="cal-row"><button class="cal-mini" data-act="rest">Rest timer</button><button class="cal-mini" data-act="vid" data-id="__warm">' + (openVid === '__warm' ? 'Hide warm-up video' : 'Warm-up video') + '</button></div>' + (openVid === '__warm' ? vidPanel(s, '__warm') : '');
-      exFor(sess, wk).forEach(function(id){
+      var origIds = exFor(sess, wk);
+      exList(s, sess, wk, t).forEach(function(id, xi){
         var e = EX[id], lv = lvOf(s, id), a = arr(s, t, id), last = lastTime(s, t, id), inputs = '';
         for(var i = 0; i < P.sets; i++) inputs += '<input class="cal-in cal-set" type="number" min="0" inputmode="numeric" data-id="' + id + '" data-i="' + i + '" value="' + (a[i] > 0 ? a[i] : '') + '" data-was="' + (a[i] > 0 ? '1' : '') + '" placeholder="' + (i + 1) + '" aria-label="' + e.lad[lv] + ' set ' + (i + 1) + '">';
         h += '<div class="pt-exercise"><div class="pt-ex-top"><span class="pt-ex-name">' + e.lad[lv] + (INFO[id] ? ' <button type="button" class="cal-info" data-act="info" data-id="' + id + '" aria-label="What this exercise does" aria-expanded="' + (openInfo === id) + '">i</button>' : '') + '</span><span class="pt-ex-target">' + P.sets + ' sets \u00b7 ' + e.lo + '\u2013' + e.hi + ' ' + e.u + '</span></div>' +
           '<div style="font-size:12px;color:var(--ink-faint)">' + e.n + (last ? ' \u00b7 last time: ' + last.filter(function(v){ return v > 0; }).join(', ') : '') + '</div>' +
           '<div style="font-size:12.5px;color:var(--ink-soft);margin:4px 0 8px">' + e.tip + '</div>' +
           '<div class="cal-row">' + inputs + '</div><div class="cal-adv" id="cal-adv-' + id + '">' + advice(s, t, id, P.sets) + '</div>' +
-          '<div class="cal-row">' + (e.u === 'sec' ? '<button class="cal-mini" data-act="hold" data-id="' + id + '">Timer ' + holdTarget(s, t, id) + 's</button>' : '') + '<button class="cal-mini" data-act="vid" data-id="' + id + '">' + (openVid === id ? 'Hide video' : 'Watch') + '</button>' + (lv > 0 ? '<button class="cal-mini" data-act="lv" data-id="' + id + '" data-d="-1">Easier</button>' : '') + (lv < e.lad.length - 1 ? '<button class="cal-mini" data-act="lv" data-id="' + id + '" data-d="1">Harder</button>' : '') + '</div>' + (openInfo === id ? infoPanel(id, lv) : '') + (openVid === id ? vidPanel(s, id) : '') + '</div>';
+          '<div class="cal-row">' + (e.u === 'sec' ? '<button class="cal-mini" data-act="hold" data-id="' + id + '">Timer ' + holdTarget(s, t, id) + 's</button>' : '') + '<button class="cal-mini" data-act="vid" data-id="' + id + '">' + (openVid === id ? 'Hide video' : 'Watch') + '</button>' + (SWAPG.some(function(g){ return g.indexOf(id) >= 0 && g.length > 1; }) ? '<button class="cal-mini" data-act="swap" data-id="' + id + '">' + (id !== origIds[xi] ? 'Swapped \u00b7 next' : 'Swap') + '</button>' : '') + (lv > 0 ? '<button class="cal-mini" data-act="lv" data-id="' + id + '" data-d="-1">Easier</button>' : '') + (lv < e.lad.length - 1 ? '<button class="cal-mini" data-act="lv" data-id="' + id + '" data-d="1">Harder</button>' : '') + '</div>' + (openInfo === id ? infoPanel(id, lv) : '') + (openVid === id ? vidPanel(s, id) : '') + '</div>';
       });
       h += '<div class="cal-row"><button class="cal-mini" data-act="vid" data-id="__cool">' + (openVid === '__cool' ? 'Hide cool-down video' : 'Cool-down video') + '</button></div>' + (openVid === '__cool' ? vidPanel(s, '__cool') : '');
     }
@@ -3529,6 +3596,13 @@ try{
         var ch = (a0 != null && last != null) ? ((last - a0 >= 0 ? '+' : '') + (last - a0)) : '';
         return '<tr><td>' + x[1].replace(/ \(.*\)/, '') + '</td>' + vals.map(function(v){ return '<td>' + (v != null ? v : '–') + '</td>'; }).join('') + (got.length > 1 ? '<td>' + ch + '</td>' : '') + '</tr>';
       }).join('') + '</table></div>';
+      var trend = TESTS.map(function(x){
+        var pts = got.map(function(c){ var v = s.tests[c[0]][x[0]]; return v ? v : null; }), real = pts.filter(function(v){ return v != null; });
+        if(real.length < 2 || pts[0] == null) return '';
+        var d = real[real.length - 1] - pts[0];
+        return '<div class="cal-tr"><span>' + x[1].replace(/ \(.*\)/, '') + '</span>' + spark(pts, x[1]) + '<b class="' + (d > 0 ? 'up' : d < 0 ? 'dn' : '') + '">' + (d >= 0 ? '+' : '') + d + '</b></div>';
+      }).join('');
+      if(trend) h += '<div class="rv-h" style="margin-top:12px">Trend</div>' + trend;
     }
     h += '</div></div>';
     m.innerHTML = h;
@@ -3536,7 +3610,7 @@ try{
   }
 
   function onClick(ev){
-    var b = ev.target.closest('[data-act]'); if(!b) return;
+    var b = ev.target.closest('[data-act]'); if(!b) return; audio();
     var s = load(), t = ptFmtDate(new Date()), a = b.dataset.act, id = b.dataset.id;
     if(a === 'vid'){ openVid = (openVid === id) ? null : id; render(); return; }
     if(a === 'info'){ openInfo = (openInfo === id) ? null : id; render(); return; }
@@ -3553,6 +3627,10 @@ try{
     else if(a === 'dismiss'){ s.gapDismiss = t; }
     else if(a === 'restart'){ if(!confirm('Restart the plan from week 1 today? Your logged reps, history and tests are kept.')) return; s.start = t; delete s.paused; delete s.gapDismiss; }
     else if(a === 'autorest'){ s.autoRest = (s.autoRest === false); }
+    else if(a === 'swap'){ var ss = (s.viewDate === t && s.view) ? s.view : SCHED[new Date().getDay()]; if(!ss) return; swapNext(s, ss, weekOf(s, t) > 12 ? 12 : Math.max(1, weekOf(s, t)), t, id); }
+    else if(a === 'sound'){ s.sound = b.dataset.v; save(s); chime(); render(); return; }
+    else if(a === 'vibe'){ s.vibe = (s.vibe === false); }
+    else if(a === 'testsnd'){ chime(); try{ if(s.vibe !== false && navigator.vibrate) navigator.vibrate([200, 100, 200]); }catch(e){} return; }
     else if(a === 'meas'){
       var rec = { d:t }, any = false;
       MEAS.forEach(function(x){ var v = document.getElementById('cal-m-' + x[0]).value; if(v !== ''){ rec[x[0]] = Number(v); any = true; } });
@@ -4449,6 +4527,7 @@ try{
   function row(i){
     var left = i.tick
       ? '<button class="d-chk' + (i.done ? ' on' : '') + '" data-act="tick" data-id="' + esc(i.tick) + '" aria-label="' + (i.done ? 'Untick ' : 'Tick ') + esc(i.label) + '">' + (i.done ? '\u2713' : '') + '</button>'
+      : i.goal ? '<button class="d-chk" data-act="goal" data-page="' + i.goal.page + '" data-id="' + esc(i.goal.id) + '" aria-label="Mark done: ' + esc(i.label) + '"></button>'
       : '<span class="d-dot"><i class="' + (i.done ? 'on' : '') + (i.optional ? ' opt' : '') + '"></i></span>';
     var right = i.go ? '<button class="d-go" data-act="go" data-page="' + i.go[0] + '" data-sec="' + i.go[1] + '"' + (i.go[2] ? ' data-tab="' + i.go[2] + '"' : '') + '>Open</button>' : '';
     return '<div class="d-row">' + left + '<div class="d-main"><b>' + esc(i.label) + (i.optional ? '<em>optional</em>' : '') + '</b>' + (i.sub ? '<small>' + esc(i.sub) + '</small>' : '') + '</div>' + right + '</div>';
@@ -4463,9 +4542,27 @@ try{
       if(kind) items.push({ pillar:'body', label:'Training: ' + PT_DAY_TYPE_INFO[kind].name, done:ptDone(c.ts), go:['body','sec-body','fit'] });
       else if(ptDayTypeForDate(c.ts) === 'X') items.push({ pillar:'body', label:'Training: catch-up day', sub:'Make up a missed session, or rest', done:ptDone(c.ts), optional:true, go:['body','sec-body','fit'] });
     }
-    if(calOn(c) && CALS[c.dow]) items.push({ pillar:'body', label:'Calisthenics: ' + CALS[c.dow], done:hasWork(c.C.done && c.C.done[c.ts]), optional:!!CAL_OPT[c.dow], go:['body','sec-body','cal'] });
+    if(calOn(c) && CALS[c.dow]){
+      var cwk = c.C.start ? Math.floor(Math.round((new Date(c.ts + 'T00:00:00') - new Date(c.C.start + 'T00:00:00')) / 86400000) / 7) + 1 : 0;
+      items.push({ pillar:'body', label:'Calisthenics: ' + CALS[c.dow], sub:cwk > 0 ? 'Week ' + Math.min(12, cwk) + ' of 12' + (cwk === 4 || cwk === 8 ? ' \u00b7 easy week' : cwk >= 12 ? ' \u00b7 test week' : '') : '', done:hasWork(c.C.done && c.C.done[c.ts]), optional:!!CAL_OPT[c.dow], go:['body','sec-body','cal'] });
+    }
     c.P.list.forEach(function(p){
       items.push({ pillar:p.group, label:p.name, sub:pracWeekCount(c, p) + '/' + p.target + ' this week \u00b7 ' + PAGES[p.group], done:(c.P.log[c.ts] || []).indexOf(p.id) >= 0, tick:p.id });
+    });
+    /* reading: minutes against your daily goal (left out if you already have a "Reading" practice, which ticks itself) */
+    try{
+      var RC = JSON.parse(LS.get('rc_v1') || 'null'), nowReading = RC && RC.books ? RC.books.filter(function(b){ return b.status === 'reading'; }) : [];
+      if(nowReading.length && !c.P.list.some(function(p){ return /^reading$/i.test(String(p.name || '').trim()); })){
+        var rm = 0, daily = RC.daily || 20; RC.books.forEach(function(b){ (b.sessions || []).forEach(function(x){ if(x.date === c.ts) rm += x.mins || 0; }); });
+        items.push({ pillar:'soul', label:'Reading', sub:nowReading.slice(0, 2).map(function(b){ return b.title; }).join(', ') + ' \u00b7 ' + rm + '/' + daily + ' min', done:rm >= daily, optional:true, go:['soul','sec-reading'] });
+      }
+    }catch(e){}
+    /* goals due today, overdue, or later this week */
+    var due = [];
+    Object.keys(PAGES).forEach(function(pg){ getGoalsFor(pg).list.forEach(function(g){ if(!g.done && g.due && g.due <= c.wk[c.wk.length - 1]) due.push({ g:g, pg:pg }); }); });
+    due.sort(function(a, b){ return a.g.due < b.g.due ? -1 : a.g.due > b.g.due ? 1 : 0; });
+    due.slice(0, 4).forEach(function(o){
+      items.push({ pillar:o.pg, label:'Goal: ' + o.g.text, sub:(o.g.due < c.ts ? 'overdue since ' : o.g.due === c.ts ? 'due today' : 'due ') + (o.g.due === c.ts ? '' : shortDay(o.g.due)) + ' \u00b7 ' + PAGES[o.pg], done:false, optional:o.g.due > c.ts, goal:{ page:o.pg, id:o.g.id } });
     });
     items.push({ pillar:'soul', label:'Capture a note', sub:'Journal or learning', done:!!c.entryDates[c.ts], optional:true, go:['soul','sec-notes'] });
     /* per-area counts for the progress rings (optional items only count once they are done) */
@@ -6231,7 +6328,7 @@ window.__SU = window.__SU || { ok:[], fail:[] };
 try{
 (function(){
   var CFG = 'seasons-sync-cfg', META = 'seasons-sync-meta', PRE = 'seasons-sync-prebackup', DESC = 'Seasons sync (encrypted)', FNAME = 'seasons-sync-meta.json';
-  var KEYS = ['seasons-completed-weeks','seasons-journal-entries','seasons-domain-tasks','seasons-learning-entries','seasons-learning-weekly','seasons-learning-season','seasons-pt-state','seasons-goals','rc_v1','seasons-profile','seasons-names'];
+  var KEYS = ['seasons-completed-weeks','seasons-journal-entries','seasons-domain-tasks','seasons-learning-entries','seasons-learning-weekly','seasons-learning-season','seasons-pt-state','seasons-goals','rc_v1','seasons-profile','seasons-names','seasons-compass'];
   var host = document.getElementById('sec-xset'); if(!host) throw new Error('Dashboard cards not found');
   var enc = new TextEncoder(), dec = new TextDecoder();
 
@@ -6378,6 +6475,7 @@ try{
     var keep = { t:(document.getElementById('sy-tok') || {}).value, p:(document.getElementById('sy-pass') || {}).value };
     mount.innerHTML = h;
     var t = document.getElementById('sy-tok'), p = document.getElementById('sy-pass'); if(t && keep.t) t.value = keep.t; if(p && keep.p) p.value = keep.p;
+    drawStrip();
     var mt = document.getElementById('sy-meta'); if(mt) mt.textContent = c ? (state.bad ? 'needs attention' : state.last ? 'synced ' + clock(state.last) : 'connected') : 'iPhone and Mac, iCloud copy';
   }
   mount.addEventListener('click', function(e){
@@ -6533,6 +6631,35 @@ try{
   });
   window.addEventListener('online', function(){ if(cfg()) schedule(1500); });
   window.addEventListener('pagehide', function(){ if(cfg() && detect()) syncNow('leave'); });
+  /* ---------- a one-line sync status at the top of the Dashboard ---------- */
+  var strip = document.createElement('button'); strip.type = 'button'; strip.id = 'sy-strip'; strip.setAttribute('data-group', 'home');
+  var dashTop = document.getElementById('sec-dash-today') || document.getElementById('sec-review') || sec;
+  dashTop.parentNode.insertBefore(strip, dashTop);
+  var css2 = document.createElement('style');
+  css2.textContent = '#sy-strip{display:flex;align-items:center;gap:9px;width:100%;margin:10px 0 0;padding:8px 12px;border:1px solid var(--line);border-radius:12px;background:var(--paper);color:var(--ink-soft);font:12px "IBM Plex Mono",monospace;text-align:left;cursor:pointer}' +
+    '#sy-strip i{flex:0 0 9px;height:9px;border-radius:50%;background:var(--ink-faint)}#sy-strip.ok i{background:var(--pc-body,#3D7A55)}#sy-strip.warn{border-color:var(--accent);color:var(--ink)}#sy-strip.warn i{background:var(--accent)}#sy-strip.busy i{animation:syp 1s ease-in-out infinite}@keyframes syp{50%{opacity:.25}}' +
+    '@media(prefers-reduced-motion:reduce){#sy-strip.busy i{animation:none}}';
+  document.head.appendChild(css2);
+  function agoText(ms){
+    var m = Math.floor((Date.now() - ms) / 60000); if(m < 1) return 'just now'; if(m < 60) return m + ' min ago';
+    var h = Math.floor(m / 60); if(h < 24) return h + ' hour' + (h === 1 ? '' : 's') + ' ago'; var d = Math.floor(h / 24); return d + ' day' + (d === 1 ? '' : 's') + ' ago';
+  }
+  function drawStrip(){
+    var c = cfg(), cls = '', txt;
+    if(!c){ txt = 'Sync is off. This device keeps its own copy. Tap to set up.'; }
+    else if(state.busy){ cls = 'busy'; txt = 'Syncing\u2026'; }
+    else if(state.bad){ cls = 'warn'; txt = 'Sync problem: ' + state.msg + ' Tap for details.'; }
+    else if(!state.last){ cls = 'warn'; txt = 'Connected, but not synced yet. Tap to sync now.'; }
+    else if(Date.now() - state.last > 3 * 864e5){ cls = 'warn'; txt = 'Last synced ' + agoText(state.last) + '. Open the app on your other device too, or tap to sync now.'; }
+    else { cls = 'ok'; txt = 'Synced ' + agoText(state.last); }
+    strip.className = cls; strip.innerHTML = '<i></i><span></span>'; strip.lastChild.textContent = txt;
+  }
+  strip.onclick = function(){
+    var c = cfg(); if(c && !state.busy && (state.bad || !state.last || Date.now() - state.last > 3 * 864e5)) syncNow('manual');
+    sec.classList.add('open'); sectionState.sync = true; LS.set(SECTION_STATE_KEY, JSON.stringify(sectionState));
+    try{ sec.scrollIntoView({ behavior:'smooth', block:'start' }); }catch(e){ sec.scrollIntoView(); }
+  };
+  setInterval(drawStrip, 30000);
   window.__syncNow = syncNow;
   /* Load a copy: combine instead of replace */
   try{
@@ -6557,12 +6684,92 @@ try{
   draw();
   if(cfg()) setTimeout(function(){ syncNow('start'); }, 1200);
   var origSet = setActivePage;
-  setActivePage = function(p){ origSet(p); sec.style.display = p === 'home' ? '' : 'none'; };
+  setActivePage = function(p){ origSet(p); sec.style.display = p === 'home' ? '' : 'none'; strip.style.display = p === 'home' ? '' : 'none'; };
   setActivePage(LS.get(PAGE_KEY) || 'spirit');
 })();
 
  window.__SU.ok.push('Sync: encrypted Gist sync and iCloud Drive copy');
 }catch(e){ window.__SU.fail.push(['Sync: encrypted Gist sync and iCloud Drive copy', String(e && e.message || e)]); if(window.console) console.error('Sync', e); }
+
+/* ===== compass-upgrade.js ===== */
+/* Seasons: a "Compass" card on the Dashboard for your Vision, Values, Mission and Mandate.
+   PASTE at the very END of your second script block (after the other add-ons).
+   It needs the small helper that sits next to the Goals code (compassLine) and the line in the Goals lane that shows it;
+   both are already in the full file.
+   Each statement matches one season: Vision (Autumn, who am I?), Values (Winter, how do I live?), Mission (Spring, what do I do?),
+   Mandate (Summer, how do I govern and sustain?). The matching statement is shown at the top of that season's Goals in Spirit, Soul and Body,
+   and the card shows how many goals you have set in each season. It saves as you type, is included in Export, and syncs with your other devices. */
+window.__SU = window.__SU || { ok:[], fail:[] };
+try{
+(function(){
+  var after = document.getElementById('sec-season') || document.getElementById('sec-review') || document.getElementById('sec-xset');
+  if(!after) throw new Error('Dashboard cards not found');
+  var ORDER = ['autumn','winter','spring','summer'], FIELD = { autumn:'vision', winter:'values', spring:'mission', summer:'mandate' };
+  var HINT = {
+    vision:'Who am I, and why am I here? Write it in a few lines.',
+    values:'What do I stand for, and how do I live it day to day?',
+    mission:'What am I here to do, and who am I here to serve?',
+    mandate:'What has been entrusted to me to govern and sustain?'
+  };
+  function esc(s){ return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  function season(k){ return SEASONS.filter(function(s){ return s.key === k; })[0]; }
+  var sec = document.createElement('section'); sec.className = 'csec' + (sectionState.compass === true ? ' open' : ''); sec.id = 'sec-compass'; sec.setAttribute('data-key', 'compass'); sec.setAttribute('data-group', 'home');
+  sec.innerHTML = '<button class="csec-head"><div class="csec-head-left"><span class="csec-title">Compass</span><span class="csec-meta">vision, values, mission, mandate</span></div><span class="csec-chevron">⌄</span></button><div class="csec-body"><p class="csec-sub">Written once and revised rarely. Each statement belongs to one season, and appears at the top of that season’s Goals.</p><div id="compass-mount"></div></div>';
+  after.parentNode.insertBefore(sec, after.nextSibling);
+  sec.querySelector('.csec-head').onclick = function(){ var o = sec.classList.toggle('open'); sectionState.compass = o; LS.set(SECTION_STATE_KEY, JSON.stringify(sectionState)); };
+  sec.style.display = (LS.get(PAGE_KEY) || 'spirit') === 'home' ? '' : 'none';
+  var css = document.createElement('style');
+  css.textContent = '#compass-mount .cp{padding:14px 0;border-top:1px solid var(--line)}#compass-mount .cp:first-child{border-top:0;padding-top:2px}' +
+    '#compass-mount .cp-h{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}#compass-mount .cp-h b{font-family:"Fraunces",serif;font-weight:500;font-size:1.1rem;color:var(--ink)}' +
+    '#compass-mount .cp-q{font:11px "IBM Plex Mono",monospace;color:var(--ink-faint)}#compass-mount .cp-now{font:9.5px "IBM Plex Mono",monospace;letter-spacing:.06em;text-transform:uppercase;padding:1px 8px;border-radius:999px;border:1px solid var(--accent);color:var(--accent-ink)}' +
+    '#compass-mount textarea{width:100%;box-sizing:border-box;margin:8px 0 4px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--paper-raised);color:var(--ink);font:inherit;font-size:16px;line-height:1.5;resize:vertical;min-height:84px}' +
+    '#compass-mount .cp-f{display:flex;justify-content:space-between;gap:8px;font:11px "IBM Plex Mono",monospace;color:var(--ink-faint)}#compass-mount .cp-f .ok{color:var(--ink-soft)}';
+  document.head.appendChild(css);
+  var mount = document.getElementById('compass-mount'), timers = {};
+  function load(){ try{ return JSON.parse(LS.get('seasons-compass') || '{}') || {}; }catch(e){ return {}; } }
+  function goalCount(k){
+    var all = {}; try{ all = JSON.parse(LS.get('seasons-goals') || '{}'); }catch(e){}
+    var g = all[k] || {}, n = 0, d = 0; ['spirit','soul','body'].forEach(function(p){ (g[p] || []).forEach(function(x){ n++; if(x.done) d++; }); });
+    return n ? n + ' goal' + (n === 1 ? '' : 's') + ' in this season, ' + d + ' done' : 'No goals set in this season yet';
+  }
+  function draw(){
+    var c = load(), now = SEASONS[currentSeasonIndex].key;
+    mount.innerHTML = ORDER.map(function(k){
+      var s = season(k), f = FIELD[k]; if(!s) return '';
+      return '<div class="cp" data-k="' + k + '"><div class="cp-h"><b>' + esc(s.stage) + '</b><span class="cp-q">' + esc(s.stageQuestion) + (s.name !== s.stage ? ' · ' + esc(s.name) : '') + '</span>' + (k === now ? '<span class="cp-now">this season</span>' : '') + '</div>' +
+        '<textarea data-f="' + f + '" rows="3" placeholder="' + esc(HINT[f]) + '" aria-label="' + esc(s.stage) + '">' + esc(c[f] || '') + '</textarea>' +
+        '<div class="cp-f"><span class="cp-st">' + (c.u && c.u[f] ? 'Saved ' + new Date(c.u[f]).toLocaleDateString(undefined, { day:'numeric', month:'short', year:'numeric' }) : '') + '</span><span>' + goalCount(k) + '</span></div></div>';
+    }).join('');
+  }
+  function save(f, v, row){
+    var c = load(); c.u = c.u || {}; c[f] = v; c.u[f] = Date.now(); LS.set('seasons-compass', JSON.stringify(c));
+    var st = row && row.querySelector('.cp-st'); if(st){ st.className = 'cp-st ok'; st.textContent = 'Saved'; }
+    try{ renderAllGoals(); }catch(e){}
+  }
+  mount.addEventListener('input', function(e){
+    var t = e.target; if(!t.getAttribute || !t.getAttribute('data-f')) return; var f = t.getAttribute('data-f'), row = t.closest('.cp');
+    clearTimeout(timers[f]); timers[f] = setTimeout(function(){ save(f, t.value, row); }, 500);
+  });
+  mount.addEventListener('focusout', function(e){
+    var t = e.target; if(!t.getAttribute || !t.getAttribute('data-f')) return; var f = t.getAttribute('data-f'); clearTimeout(timers[f]);
+    if(t.value !== (load()[f] || '')) save(f, t.value, t.closest('.cp'));
+  });
+  /* "edit" links in the Goals lanes jump here */
+  document.addEventListener('click', function(e){
+    var a = e.target.closest && e.target.closest('[data-compass]'); if(!a) return; e.preventDefault();
+    setActivePage('home'); sec.classList.add('open'); sectionState.compass = true; LS.set(SECTION_STATE_KEY, JSON.stringify(sectionState));
+    try{ sec.scrollIntoView({ behavior:'smooth', block:'start' }); }catch(err){ sec.scrollIntoView(); }
+  });
+  document.addEventListener('visibilitychange', function(){ if(!document.hidden && !mount.contains(document.activeElement)) draw(); });
+  draw();
+  var origSet = setActivePage;
+  setActivePage = function(p){ origSet(p); sec.style.display = p === 'home' ? '' : 'none'; if(p === 'home' && !mount.contains(document.activeElement)) draw(); };
+  setActivePage(LS.get(PAGE_KEY) || 'spirit');
+})();
+
+ window.__SU.ok.push('Compass: vision, values, mission and mandate');
+}catch(e){ window.__SU.fail.push(['Compass: vision, values, mission and mandate', String(e && e.message || e)]); if(window.console) console.error('Compass', e); }
+
 
 </script>
 </body>
