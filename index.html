@@ -378,7 +378,7 @@
   <div class="week-detail" id="spirit-overview" style="margin:0 1.3rem 1.2rem;"></div>
   <section class="csec" id="sec-goals-spirit" data-key="goals-spirit" data-group="spirit">
     <button class="csec-head">
-      <div class="csec-head-left"><span class="csec-title">Goals</span></div>
+      <div class="csec-head-left"><span class="csec-title">Markers</span></div>
       <span class="csec-chevron">⌄</span>
     </button>
     <div class="csec-body"><div id="goals-mount-spirit"></div></div>
@@ -429,7 +429,7 @@
   <div class="coord-callout" id="coord-callout-soul"></div>
   <section class="csec" id="sec-goals-soul" data-key="goals-soul" data-group="soul">
     <button class="csec-head">
-      <div class="csec-head-left"><span class="csec-title">Goals</span></div>
+      <div class="csec-head-left"><span class="csec-title">Markers</span></div>
       <span class="csec-chevron">⌄</span>
     </button>
     <div class="csec-body"><div id="goals-mount-soul"></div></div>
@@ -481,7 +481,7 @@
   <div class="coord-callout" id="coord-callout-body"></div>
   <section class="csec" id="sec-goals-body" data-key="goals-body" data-group="body">
     <button class="csec-head">
-      <div class="csec-head-left"><span class="csec-title">Goals</span></div>
+      <div class="csec-head-left"><span class="csec-title">Markers</span></div>
       <span class="csec-chevron">⌄</span>
     </button>
     <div class="csec-body"><div id="goals-mount-body"></div></div>
@@ -1481,8 +1481,10 @@ function renderGoals(pageKey){
     return 0;
   });
   const undo = goalsUndo[pageKey];
-  const undoBanner = undo ? `<div class="pt-banner nudge" style="margin-bottom:10px;">Goal deleted. <button class="goal-undo-btn" data-page="${pageKey}" style="background:none; border:none; text-decoration:underline; color:inherit; cursor:pointer; font:inherit; padding:0;">Undo</button></div>` : '';
+  const undoBanner = undo ? `<div class="pt-banner nudge" style="margin-bottom:10px;">Marker deleted. <button class="goal-undo-btn" data-page="${pageKey}" style="background:none; border:none; text-decoration:underline; color:inherit; cursor:pointer; font:inherit; padding:0;">Undo</button></div>` : '';
   const coordOptions = COORD_LABELS.map((label,i)=>`<option value="${i}">${label} — ${s.values[i]}</option>`).join('');
+  const pracList = ((loadAllGoals().__prac||{}).list||[]).filter(p=>p.group===pageKey);
+  const pracOptions = pracList.map(p=>`<option value="${p.id}">${String(p.name).replace(/</g,'&lt;')}</option>`).join('');
   const foundationOptions = FOUNDATIONS.map((f,i)=>`<option value="${i}">${f.full}</option>`).join('');
   const domainOptions = DOMAINS.map(d=>`<option value="${d.key}">${d.name}</option>`).join('');
   const tagStyle = 'background:var(--paper); color:var(--ink-soft); border:1px solid var(--line); margin-left:6px;';
@@ -1491,20 +1493,22 @@ function renderGoals(pageKey){
     const foundationTag = (g.foundationIndex !== null && g.foundationIndex !== undefined) ? `<span class="entry-tag" title="${FOUNDATIONS[g.foundationIndex].question}" style="${tagStyle}">${FOUNDATIONS[g.foundationIndex].name}</span>` : '';
     const domainDef = g.domain ? DOMAINS.find(d=>d.key===g.domain) : null;
     const domainTag = domainDef ? `<span class="entry-tag" title="${domainDef.question}" style="${tagStyle}">${domainDef.name}</span>` : '';
+    const fedBy = g.prac ? pracList.find(p=>p.id===g.prac) : null;
+    const pracTag = fedBy ? `<span class="entry-tag" title="Fed by this practice" style="${tagStyle}">← ${String(fedBy.name).replace(/</g,'&lt;')}</span>` : '';
     return `<div class="domain-task${g.done?' done':''}" data-id="${g.id}">
       <input type="checkbox" class="goal-check" ${g.done?'checked':''}>
-      <span>${g.text.replace(/</g,'&lt;')}${g.due ? ` <span style="color:var(--ink-faint); font-size:10.5px;">· ${g.due}</span>` : ''}${coordTag}${foundationTag}${domainTag}</span>
+      <span>${g.text.replace(/</g,'&lt;')}${g.due ? ` <span style="color:var(--ink-faint); font-size:10.5px;">· ${g.due}</span>` : ''}${coordTag}${foundationTag}${domainTag}${pracTag}</span>
       <button class="goal-star" title="Priority" style="background:none; border:none; cursor:pointer; font-size:13px; color:${g.priority?'var(--accent-ink)':'var(--ink-faint)'}; padding:6px 4px;">${g.priority?'★':'☆'}</button>
       <button class="goal-del" style="background:none; border:none; color:var(--ink-faint); cursor:pointer; font-size:10.5px; padding:6px 4px;">✕</button>
     </div>`;
   }).join('');
   mount.innerHTML = `
-    <p class="lane-sub" style="margin:-4px 0 10px;">${s.label} (${s.stageQuestion}) — goals here are set within it, and can be tied to a coordinate, a foundation and a domain.</p>
+    <p class="lane-sub" style="margin:-4px 0 10px;">${s.label} (${s.stageQuestion}) — markers here are set within it. A marker is a dated outcome or milestone. The routines that get you there live in Practices, and a marker can be fed by one.</p>
     ${compassLine(s)}
     ${undoBanner}
-    <div class="domain-tasks" style="margin-bottom:10px;">${rows || '<div class="empty-note">No goals yet this season.</div>'}</div>
+    <div class="domain-tasks" style="margin-bottom:10px;">${rows || '<div class="empty-note">No markers yet. Most of life runs on practices. Add a marker only for something with an end point.</div>'}</div>
     <div style="display:grid; gap:6px;">
-      <input type="text" class="goal-text-input" placeholder="Add a goal for this season…" style="border:1px solid var(--line); border-radius:9px; padding:9px 12px; font-size:13.5px; background:var(--paper-raised); color:var(--ink);">
+      <input type="text" class="goal-text-input" placeholder="Add a marker (a dated outcome or milestone)…" style="border:1px solid var(--line); border-radius:9px; padding:9px 12px; font-size:13.5px; background:var(--paper-raised); color:var(--ink);">
       <div style="display:flex; gap:6px; flex-wrap:wrap;">
         <select class="goal-coord-select" style="flex:1 1 100%; border:1px solid var(--line); border-radius:9px; padding:8px; font-size:12.5px; background:var(--paper-raised); color:var(--ink);">
           <option value="">No linked coordinate</option>
@@ -1518,10 +1522,14 @@ function renderGoals(pageKey){
           <option value="">No domain</option>
           ${domainOptions}
         </select>
+        <select class="goal-prac-select" style="flex:1 1 100%; border:1px solid var(--line); border-radius:9px; padding:8px; font-size:12.5px; background:var(--paper-raised); color:var(--ink);">
+          <option value="">Fed by a practice? (optional)</option>
+          ${pracOptions}
+        </select>
         <input type="date" class="goal-date-input" style="flex:1 1 100%; border:1px solid var(--line); border-radius:9px; padding:8px; font-size:12px; background:var(--paper-raised); color:var(--ink);">
       </div>
       <div class="goal-coord-hint" style="display:none; font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--ink-faint); line-height:1.5; margin-top:-2px;"></div>
-      <button class="save-btn goal-add-btn" style="margin-top:0;">Add goal</button>
+      <button class="save-btn goal-add-btn" style="margin-top:0;">Add marker</button>
     </div>
   `;
   const coordSelectEl = mount.querySelector('.goal-coord-select');
@@ -1576,7 +1584,7 @@ function renderGoals(pageKey){
     const text = textInput.value.trim();
     if(!text) return;
     const { all, list } = getGoalsFor(pageKey);
-    list.push({ id:'g'+Date.now()+Math.random().toString(36).slice(2,6), text, coordIndex: coordSelect.value===''?null:Number(coordSelect.value), foundationIndex: foundationSelect.value===''?null:Number(foundationSelect.value), domain: domainSelect.value || null, due: dateInput.value || null, priority:false, done:false });
+    list.push({ id:'g'+Date.now()+Math.random().toString(36).slice(2,6), text, coordIndex: coordSelect.value===''?null:Number(coordSelect.value), foundationIndex: foundationSelect.value===''?null:Number(foundationSelect.value), domain: domainSelect.value || null, prac: (mount.querySelector('.goal-prac-select')||{}).value || null, due: dateInput.value || null, priority:false, done:false });
     saveAllGoals(all);
     renderGoals(pageKey);
   });
@@ -2462,7 +2470,7 @@ const EXPORT_KEY_GROUPS = {
 const LAST_BACKUP_KEY = 'seasons-last-backup';
 async function exportData(scope){
   const keys = scope === 'all'
-    ? ['seasons-completed-weeks','seasons-journal-entries','seasons-domain-tasks','seasons-share-bg-photo','seasons-section-state','seasons-verse-cache','seasons-learning-entries','seasons-pt-state','seasons-active-page','seasons-goals','rc_v1','seasons-profile','seasons-names','seasons-learning-weekly','seasons-learning-season','seasons-compass']
+    ? ['seasons-completed-weeks','seasons-journal-entries','seasons-domain-tasks','seasons-share-bg-photo','seasons-section-state','seasons-verse-cache','seasons-learning-entries','seasons-pt-state','seasons-active-page','seasons-goals','rc_v1','seasons-profile','seasons-names','seasons-learning-weekly','seasons-learning-season','seasons-compass','seasons-recall']
     : (EXPORT_KEY_GROUPS[scope] || []);
   const data = {};
   keys.forEach(k=>{ const v = LS.get(k); if(v!==null) data[k]=v; });
@@ -3192,6 +3200,7 @@ try{
     "reverseplank": "Strengthens the triceps, glutes and the back of the body, and opens the chest. It balances the front-of-body work and helps posture.",
     "abduct": "Strengthens the side of the hips and glutes, which keep your pelvis level when you walk or run. It helps knee and hip stability and eases pressure on the lower back."
     };
+  try{ window.__CAL = { EX:EX, INFO:INFO, SESS:SESS }; }catch(e){}
   function ytId(u){
     u = String(u || '').trim();
     if(/^[A-Za-z0-9_-]{11}$/.test(u)) return u;
@@ -3744,39 +3753,60 @@ try{
   document.head.appendChild(css);
 
   /* ---------- Practices ---------- */
+  var editId = null;
   function renderGroup(g){
     var m = document.getElementById('prac-' + g); if(!m) return;
-    var s = load(), t = ptFmtDate(new Date()), wk = weekDates(0);
+    var s = load(), t = ptFmtDate(new Date()), wk = weekDates(0), yd = ptFmtDate(new Date(Date.now() - 864e5)), yd2 = ptFmtDate(new Date(Date.now() - 2 * 864e5));
+    var mk = []; try{ mk = getGoalsFor(g).list; }catch(e){}
     m.innerHTML = '';
     var items = s.list.filter(function(p){ return p.group === g; });
-    if(!items.length) m.appendChild(el('div', 'empty-note', 'No practices yet. Tap a suggestion below, or add your own.'));
+    if(!items.length) m.appendChild(el('div', 'empty-note', 'No practices yet. A practice is a small routine you repeat. Tap a suggestion below, or add your own, then give it a cue and a minimum.'));
     items.forEach(function(p){
-      var done = (s.log[t] || []).indexOf(p.id) >= 0;
+      function logd(d){ return (s.log[d] || []).indexOf(p.id) >= 0; }
+      var done = logd(t), atMin = done && ((s.mn || {})[t] || []).indexOf(p.id) >= 0;
       var row = el('div', 'pr-row');
-      var cb = el('button', 'pr-chip' + (done ? ' on' : ''), done ? '\u2713' : ''); cb.type = 'button';
+      var cb = el('button', 'pr-chip' + (done ? ' on' : ''), done ? '✓' : ''); cb.type = 'button';
       cb.setAttribute('aria-label', (done ? 'Untick ' : 'Tick ') + p.name);
       cb.onclick = function(){
-        var d = load(); d.log[t] = d.log[t] || [];
-        var i = d.log[t].indexOf(p.id); if(i >= 0) d.log[t].splice(i, 1); else d.log[t].push(p.id);
+        var d = load(); d.log[t] = d.log[t] || []; d.mn = d.mn || {}; d.mn[t] = d.mn[t] || [];
+        var i = d.log[t].indexOf(p.id); if(i >= 0){ d.log[t].splice(i, 1); d.mn[t] = d.mn[t].filter(function(x){ return x !== p.id; }); } else d.log[t].push(p.id);
         save(d); renderAll();
       };
-      var n = wk.filter(function(x){ return (s.log[x] || []).indexOf(p.id) >= 0; }).length, st = streak(s, p.id);
+      var n = wk.filter(logd).length, st = streak(s, p.id), nMin = wk.filter(function(x){ return ((s.mn || {})[x] || []).indexOf(p.id) >= 0; }).length;
       var info = el('div'); info.style.flex = '1';
       info.appendChild(el('div', null, p.name));
-      var meta = el('div', null, n + '/' + p.target + ' this week' + (st > 1 ? ' \u00b7 ' + st + '-day streak' : ''));
+      var meta = el('div', null, n + '/' + p.target + ' this week' + (nMin ? ' (' + nMin + ' at minimum)' : '') + (st > 1 ? ' · ' + st + '-day streak' : '') + (atMin ? ' · minimum today' : ''));
       meta.style.cssText = 'font-size:11.5px;color:var(--ink-faint)'; info.appendChild(meta);
-      var rm = el('button', 'entry-del', '\u2715'); rm.type = 'button'; rm.setAttribute('aria-label', 'Remove ' + p.name);
+      var design = [];
+      if(p.cue) design.push('Cue: ' + p.cue); if(p.min) design.push('Minimum: ' + p.min);
+      if(p.coord != null && COORD_LABELS[p.coord]) design.push('Serves: ' + COORD_LABELS[p.coord]);
+      if(design.length){ var dl = el('div', null, design.join(' · ')); dl.style.cssText = 'font-size:11.5px;color:var(--ink-soft);margin-top:2px'; info.appendChild(dl); }
+      else { var nd = el('div', null, 'Add a cue and a minimum so it runs on autopilot.'); nd.style.cssText = 'font-size:11.5px;color:var(--ink-faint);margin-top:2px'; info.appendChild(nd); }
+      if(!done && !logd(yd) && logd(yd2)){ var nm = el('div', null, 'Missed yesterday. Never miss twice' + (p.min ? ': do the minimum today.' : '.')); nm.style.cssText = 'font-size:11.5px;color:var(--accent-ink);margin-top:2px'; info.appendChild(nm); }
+      var fed = mk.filter(function(x){ return x.prac === p.id; });
+      fed.forEach(function(x){ var fl = el('div', null, (x.done ? '✓ ' : '→ ') + 'Marker: ' + x.text + (x.due ? ' (by ' + x.due + ')' : '')); fl.style.cssText = 'font-size:11.5px;color:var(--ink-faint);margin-top:2px'; info.appendChild(fl); });
+      row.appendChild(cb); row.appendChild(info);
+      if(p.min && !done){
+        var mb = el('button', 'pr-sug', 'Min'); mb.type = 'button'; mb.title = 'Do the minimum: ' + p.min; mb.setAttribute('aria-label', 'Tick the minimum version of ' + p.name);
+        mb.onclick = function(){ var d = load(); d.log[t] = d.log[t] || []; d.mn = d.mn || {}; d.mn[t] = d.mn[t] || []; if(d.log[t].indexOf(p.id) < 0) d.log[t].push(p.id); if(d.mn[t].indexOf(p.id) < 0) d.mn[t].push(p.id); save(d); renderAll(); };
+        row.appendChild(mb);
+      }
+      var ed = el('button', 'entry-del', '✎'); ed.type = 'button'; ed.setAttribute('aria-label', 'Design ' + p.name + ': cue, minimum, rhythm');
+      ed.onclick = function(){ editId = editId === p.id ? null : p.id; renderAll(); };
+      var rm = el('button', 'entry-del', '✕'); rm.type = 'button'; rm.setAttribute('aria-label', 'Remove ' + p.name);
       rm.onclick = function(){
         if(!confirm('Remove "' + p.name + '"? Its history will be removed too.')) return;
         var d = load(); d.list = d.list.filter(function(x){ return x.id !== p.id; });
         Object.keys(d.log).forEach(function(k){ d.log[k] = d.log[k].filter(function(x){ return x !== p.id; }); });
-        save(d); renderAll();
+        Object.keys(d.mn || {}).forEach(function(k){ d.mn[k] = d.mn[k].filter(function(x){ return x !== p.id; }); });
+        save(d); renderAll(); try{ renderAllGoals(); }catch(e){}
       };
-      row.appendChild(cb); row.appendChild(info); row.appendChild(rm); m.appendChild(row);
+      row.appendChild(ed); row.appendChild(rm); m.appendChild(row);
+      if(editId === p.id) m.appendChild(editPanel(p));
     });
     function add(name, target){
-      var d = load(); d.list.push({ id: 'p' + Date.now() + Math.random().toString(36).slice(2, 5), name: name, group: g, target: target });
-      save(d); renderAll();
+      var d = load(), id = 'p' + Date.now() + Math.random().toString(36).slice(2, 5); d.list.push({ id: id, name: name, group: g, target: target });
+      editId = id; save(d); renderAll(); try{ renderAllGoals(); }catch(e){}
     }
     var have = items.map(function(p){ return p.name; });
     var sug = el('div', 'cal-row'); sug.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap;margin-top:12px';
@@ -3785,15 +3815,40 @@ try{
     });
     m.appendChild(sug);
     var form = el('div'); form.style.cssText = 'display:flex;gap:6px;margin-top:12px;flex-wrap:wrap';
-    var inp = el('input'); inp.type = 'text'; inp.placeholder = 'Your own practice\u2026'; inp.setAttribute('aria-label', 'New practice name');
+    var inp = el('input'); inp.type = 'text'; inp.placeholder = 'Your own practice…'; inp.setAttribute('aria-label', 'New practice name');
     inp.style.cssText = 'flex:1 1 150px;border:1px solid var(--line);border-radius:9px;padding:9px 12px;font-size:13px;background:var(--paper-raised);color:var(--ink)';
     var sel = el('select'); sel.setAttribute('aria-label', 'Days per week');
     sel.style.cssText = 'border:1px solid var(--line);border-radius:9px;padding:8px;font-size:12.5px;background:var(--paper-raised);color:var(--ink)';
-    for(var i = 1; i <= 7; i++){ var o = el('option', null, i + '\u00d7 a week'); o.value = i; sel.appendChild(o); }
+    for(var i = 1; i <= 7; i++){ var o = el('option', null, i + '× a week'); o.value = i; sel.appendChild(o); }
     sel.value = 3;
     var ab = el('button', 'save-btn', 'Add'); ab.type = 'button'; ab.style.marginTop = '0';
     ab.onclick = function(){ var v = inp.value.trim(); if(v) add(v, Number(sel.value)); };
     form.appendChild(inp); form.appendChild(sel); form.appendChild(ab); m.appendChild(form);
+  }
+  /* the small design panel for one practice: cue, minimum, rhythm, what it serves */
+  function editPanel(p){
+    var box = el('div'); box.style.cssText = 'border:1px solid var(--line);border-radius:12px;padding:12px;margin:4px 0 10px;background:var(--paper-raised);display:grid;gap:8px';
+    var fs = 'border:1px solid var(--line);border-radius:9px;padding:9px 12px;font-size:13.5px;background:var(--paper);color:var(--ink);width:100%;box-sizing:border-box';
+    function field(label, node, hint){ var w = el('label'); w.style.cssText = 'display:grid;gap:3px;font-size:12px;color:var(--ink-soft)'; w.appendChild(el('span', null, label)); w.appendChild(node); if(hint){ var h = el('span', null, hint); h.style.cssText = 'font-size:11px;color:var(--ink-faint)'; w.appendChild(h); } return w; }
+    var cue = el('input'); cue.type = 'text'; cue.value = p.cue || ''; cue.placeholder = 'e.g. after my morning coffee'; cue.style.cssText = fs;
+    var mn = el('input'); mn.type = 'text'; mn.value = p.min || ''; mn.placeholder = 'e.g. one verse, or 2 minutes'; mn.style.cssText = fs;
+    var rh = el('select'); rh.style.cssText = fs; for(var i = 1; i <= 7; i++){ var o = el('option', null, i === 7 ? 'Every day' : i + '× a week'); o.value = i; rh.appendChild(o); } rh.value = p.target || 3;
+    var cd = el('select'); cd.style.cssText = fs; var o0 = el('option', null, 'Not linked'); o0.value = ''; cd.appendChild(o0);
+    COORD_LABELS.forEach(function(l, i){ var o = el('option', null, l); o.value = i; cd.appendChild(o); }); cd.value = p.coord == null ? '' : String(p.coord);
+    box.appendChild(field('Cue: when or where does it happen?', cue, 'Attach it to something you already do.'));
+    box.appendChild(field('Minimum version: the smallest thing that still counts', mn, 'On a bad day, do this instead of nothing. Never miss twice.'));
+    box.appendChild(field('Rhythm', rh));
+    box.appendChild(field('What does it serve?', cd, 'Optional: the coordinate this practice supports.'));
+    var bar = el('div'); bar.style.cssText = 'display:flex;gap:8px';
+    var sv = el('button', 'save-btn', 'Save'); sv.type = 'button'; sv.style.marginTop = '0';
+    sv.onclick = function(){
+      var d = load(), x = d.list.filter(function(q){ return q.id === p.id; })[0];
+      if(x){ x.cue = cue.value.trim(); x.min = mn.value.trim(); x.target = Number(rh.value) || x.target; x.coord = cd.value === '' ? null : Number(cd.value); }
+      editId = null; save(d); renderAll(); try{ renderAllGoals(); document.dispatchEvent(new Event('visibilitychange')); }catch(e){}
+    };
+    var cl = btn('Close', function(){ editId = null; renderAll(); });
+    bar.appendChild(sv); bar.appendChild(cl); box.appendChild(bar);
+    return box;
   }
 
   /* ---------- Weekly review (browse past weeks, with notes) ---------- */
@@ -3843,7 +3898,7 @@ try{
     line(m, 'Calisthenics sessions', String(cal));
     pracLines('body');
     if(rvOff === 0){
-      head(m, 'Goals due this week');
+      head(m, 'Markers due this week');
       var due = [];
       ['spirit','soul','body'].forEach(function(p){ getGoalsDueThisWeek(p).forEach(function(g){ due.push(g.text); }); });
       line(m, due.length ? due.length + ' due' : 'None due', due.join(', '));
@@ -3852,10 +3907,20 @@ try{
     var nw = Math.min(52, wn + 1), w = WEEKS.find(function(x){ return x.w === nw; });
     line(m, 'Scripture theme', w ? w.t : '');
     line(m, 'Coordinate', COORD_LABELS[coordIndexForWeek(nw)]);
+    /* did the system run? */
+    head(m, 'Did the system run?');
+    var onT = 0, lag = []; s.list.forEach(function(p){ var n = wk.filter(function(x){ return (s.log[x] || []).indexOf(p.id) >= 0; }).length; if(n >= p.target) onT++; else lag.push({ p:p, n:n }); });
+    line(m, 'Practices on target', s.list.length ? onT + ' of ' + s.list.length : 'No practices yet');
+    lag.forEach(function(o){
+      var r = el('div', 'rv-line'); r.appendChild(el('span', null, o.p.name + ' \u00b7 ' + o.n + '/' + o.p.target));
+      var ab = btn('Adjust', function(){ editId = o.p.id; renderAll(); try{ setActivePage(o.p.group); var sc = document.getElementById('sec-prac-' + o.p.group); if(sc){ sc.classList.add('open'); sectionState['prac-' + o.p.group] = true; LS.set(SECTION_STATE_KEY, JSON.stringify(sectionState)); setTimeout(function(){ sc.scrollIntoView({ behavior:'smooth', block:'start' }); }, 80); } }catch(e){} });
+      r.appendChild(ab); m.appendChild(r);
+    });
+    if(lag.length){ var tip = el('div', null, 'Below target? Don\u2019t try harder. Shrink the minimum, move the cue, or lower the rhythm.'); tip.style.cssText = 'font-size:12px;color:var(--ink-faint);margin:6px 0'; m.appendChild(tip); }
     /* notes for this week */
     head(m, 'My notes for this week');
     var note = (s.notes && s.notes[iso]) || {};
-    [['well', 'What went well?'], ['fix', 'What will I change next week?']].forEach(function(f){
+    [['well', 'What went well?'], ['fix', 'What will I change in the system next week?']].forEach(function(f){
       var lb = el('div', null, f[1]); lb.style.cssText = 'font-size:12px;color:var(--ink-faint);margin:6px 0 2px'; m.appendChild(lb);
       var ta = el('textarea', 'journal-input'); ta.style.minHeight = '56px'; ta.value = note[f[0]] || ''; ta.setAttribute('aria-label', f[1]);
       ta.addEventListener('input', function(){ var d = load(); d.notes = d.notes || {}; d.notes[iso] = d.notes[iso] || {}; d.notes[iso][f[0]] = ta.value; save(d); });
@@ -3992,10 +4057,13 @@ try{
     if(group) sec.style.display = (LS.get('seasons-active-page') || 'spirit') === group ? '' : 'none';
   }
   function renderAll(){ renderGroup('spirit'); renderGroup('soul'); renderGroup('body'); renderReview(); renderSeason(); }
+  /* a marker added, ticked or removed shows up under the practice that feeds it */
+  var baseRenderGoals = renderGoals;
+  renderGoals = function(k){ baseRenderGoals(k); try{ renderGroup(k); }catch(e){} };
 
-  mkSec('sec-prac-spirit', 'prac-spirit', 'spirit', 'Practices', 'your spiritual disciplines', 'prac-spirit', 'sec-goals-spirit', 'Choose the disciplines you want to keep, set how many days a week, and tick them off daily.');
-  mkSec('sec-prac-soul', 'prac-soul', 'soul', 'Practices', 'your soul care', 'prac-soul', 'sec-goals-soul', 'Choose the habits that feed your mind and heart, set a weekly target, and tick them off daily.');
-  mkSec('sec-prac-body', 'prac-body', 'body', 'Practices', 'daily body habits', 'prac-body', 'sec-goals-body', 'Water, sleep, walking, stretching: the habits that make training work. Tick them off daily.');
+  mkSec('sec-prac-spirit', 'prac-spirit', 'spirit', 'Practices', 'your spiritual disciplines', 'prac-spirit', 'sec-goals-spirit', 'This is your system. Each practice has a cue (when it happens), a minimum (the smallest version that still counts) and a rhythm. Tap the pencil to design one, and tick it off daily.');
+  mkSec('sec-prac-soul', 'prac-soul', 'soul', 'Practices', 'your soul care', 'prac-soul', 'sec-goals-soul', 'This is your system. Each practice has a cue (when it happens), a minimum (the smallest version that still counts) and a rhythm. Tap the pencil to design one, and tick it off daily.');
+  mkSec('sec-prac-body', 'prac-body', 'body', 'Practices', 'daily body habits', 'prac-body', 'sec-goals-body', 'Water, sleep, walking, stretching: the habits that make training work. Give each a cue and a minimum (tap the pencil) and tick it off daily.');
   mkSec('sec-review', 'review', 'home', 'Weekly review', 'Sunday to Saturday', 'rev-mount', 'today-card', 'Your week across Spirit, Soul and Body, with a preview of next week.');
   mkSec('sec-season', 'season', 'home', 'Season review', 'look back over 13 weeks', 'season-mount', 'sec-review', 'See how a whole season went across Spirit, Soul and Body, and write what you carry forward.');
   renderAll();
@@ -4486,10 +4554,11 @@ try{
   function refreshOthers(){ try{ document.dispatchEvent(new Event('visibilitychange')); }catch(e){} }
 
   /* ---------- the things you can tick from the dashboard ---------- */
-  function togglePractice(id){
-    var a = allGoals(), p = a.__prac || { list:[], log:{} }; p.log = p.log || {};
-    var t = ptFmtDate(new Date()); p.log[t] = p.log[t] || [];
-    var i = p.log[t].indexOf(id); if(i >= 0) p.log[t].splice(i, 1); else p.log[t].push(id);
+  function togglePractice(id, asMin){
+    var a = allGoals(), p = a.__prac || { list:[], log:{} }; p.log = p.log || {}; p.mn = p.mn || {};
+    var t = ptFmtDate(new Date()); p.log[t] = p.log[t] || []; p.mn[t] = p.mn[t] || [];
+    var i = p.log[t].indexOf(id);
+    if(i >= 0){ p.log[t].splice(i, 1); p.mn[t] = p.mn[t].filter(function(x){ return x !== id; }); } else { p.log[t].push(id); if(asMin) p.mn[t].push(id); }
     a.__prac = p; LS.set(KEY, JSON.stringify(a));
     refreshOthers(); renderAll();
   }
@@ -4529,7 +4598,9 @@ try{
       ? '<button class="d-chk' + (i.done ? ' on' : '') + '" data-act="tick" data-id="' + esc(i.tick) + '" aria-label="' + (i.done ? 'Untick ' : 'Tick ') + esc(i.label) + '">' + (i.done ? '\u2713' : '') + '</button>'
       : i.goal ? '<button class="d-chk" data-act="goal" data-page="' + i.goal.page + '" data-id="' + esc(i.goal.id) + '" aria-label="Mark done: ' + esc(i.label) + '"></button>'
       : '<span class="d-dot"><i class="' + (i.done ? 'on' : '') + (i.optional ? ' opt' : '') + '"></i></span>';
-    var right = i.go ? '<button class="d-go" data-act="go" data-page="' + i.go[0] + '" data-sec="' + i.go[1] + '"' + (i.go[2] ? ' data-tab="' + i.go[2] + '"' : '') + '>Open</button>' : '';
+    var minBtn = i.minId ? '<button class="d-go" data-act="tickmin" data-id="' + esc(i.minId) + '" title="' + esc('Do the minimum: ' + i.minText) + '" aria-label="Tick the minimum version of ' + esc(i.label) + '">Min</button>' : '';
+    var right = i.capture ? '<button class="d-go" data-act="capture">Capture</button>' : i.recall ? '<button class="d-go" data-act="recall" data-scope="all">Start</button>' : i.go ? '<button class="d-go" data-act="go" data-page="' + i.go[0] + '" data-sec="' + i.go[1] + '"' + (i.go[2] ? ' data-tab="' + i.go[2] + '"' : '') + '>Open</button>' : '';
+ right += minBtn;
     return '<div class="d-row">' + left + '<div class="d-main"><b>' + esc(i.label) + (i.optional ? '<em>optional</em>' : '') + '</b>' + (i.sub ? '<small>' + esc(i.sub) + '</small>' : '') + '</div>' + right + '</div>';
   }
 
@@ -4547,7 +4618,8 @@ try{
       items.push({ pillar:'body', label:'Calisthenics: ' + CALS[c.dow], sub:cwk > 0 ? 'Week ' + Math.min(12, cwk) + ' of 12' + (cwk === 4 || cwk === 8 ? ' \u00b7 easy week' : cwk >= 12 ? ' \u00b7 test week' : '') : '', done:hasWork(c.C.done && c.C.done[c.ts]), optional:!!CAL_OPT[c.dow], go:['body','sec-body','cal'] });
     }
     c.P.list.forEach(function(p){
-      items.push({ pillar:p.group, label:p.name, sub:pracWeekCount(c, p) + '/' + p.target + ' this week \u00b7 ' + PAGES[p.group], done:(c.P.log[c.ts] || []).indexOf(p.id) >= 0, tick:p.id });
+      var pdone = (c.P.log[c.ts] || []).indexOf(p.id) >= 0;
+      items.push({ pillar:p.group, label:p.name, sub:(p.cue ? p.cue + ' \u00b7 ' : '') + (p.min && !pdone ? 'min: ' + p.min + ' \u00b7 ' : '') + pracWeekCount(c, p) + '/' + p.target + ' this week \u00b7 ' + PAGES[p.group], done:pdone, tick:p.id, minId:(p.min && !pdone) ? p.id : '', minText:p.min || '' });
     });
     /* reading: minutes against your daily goal (left out if you already have a "Reading" practice, which ticks itself) */
     try{
@@ -4562,9 +4634,10 @@ try{
     Object.keys(PAGES).forEach(function(pg){ getGoalsFor(pg).list.forEach(function(g){ if(!g.done && g.due && g.due <= c.wk[c.wk.length - 1]) due.push({ g:g, pg:pg }); }); });
     due.sort(function(a, b){ return a.g.due < b.g.due ? -1 : a.g.due > b.g.due ? 1 : 0; });
     due.slice(0, 4).forEach(function(o){
-      items.push({ pillar:o.pg, label:'Goal: ' + o.g.text, sub:(o.g.due < c.ts ? 'overdue since ' : o.g.due === c.ts ? 'due today' : 'due ') + (o.g.due === c.ts ? '' : shortDay(o.g.due)) + ' \u00b7 ' + PAGES[o.pg], done:false, optional:o.g.due > c.ts, goal:{ page:o.pg, id:o.g.id } });
+      items.push({ pillar:o.pg, label:'Marker: ' + o.g.text, sub:(o.g.due < c.ts ? 'overdue since ' : o.g.due === c.ts ? 'due today' : 'due ') + (o.g.due === c.ts ? '' : shortDay(o.g.due)) + ' \u00b7 ' + PAGES[o.pg], done:false, optional:o.g.due > c.ts, goal:{ page:o.pg, id:o.g.id } });
     });
-    items.push({ pillar:'soul', label:'Capture a note', sub:'Journal or learning', done:!!c.entryDates[c.ts], optional:true, go:['soul','sec-notes'] });
+    try{ var rcI = window.__recallInfo && window.__recallInfo(); if(rcI && rcI.due) items.push({ pillar:'soul', label:'Recall', sub:rcI.due + ' to pull back from memory' + (rcI.rate != null ? ' \u00b7 ' + rcI.rate + '% recalled lately' : ''), done:false, optional:true, recall:true }); }catch(e){}
+    items.push({ pillar:'soul', label:'Capture a note', sub:'Journal, learning or reading', done:!!c.entryDates[c.ts], optional:true, capture:true });
     /* per-area counts for the progress rings (optional items only count once they are done) */
     var cnt = { spirit:{ done:0, total:0 }, soul:{ done:0, total:0 }, body:{ done:0, total:0 } };
     items.forEach(function(i){ var k = cnt[i.pillar]; if(!k || (i.optional && !i.done)) return; k.total++; if(i.done) k.done++; });
@@ -4720,7 +4793,7 @@ try{
       '<div class="d-bar" style="--c:var(--' + S.color + ')"><i style="width:' + pct + '%"></i></div>' +
       '<div class="d-sub">' + esc(S.stageQuestion) + ' You are in the <b>' + ph.phaseName + '</b> phase' + (next ? '; <b>' + next.name + '</b> begins in week ' + next.wk : '; the season closes after this phase') + '. ' + left + ' day' + (left === 1 ? '' : 's') + ' left in the season.</div>' +
       '<div class="d-strip" style="--c:var(--' + S.color + ')">' + strip + '</div>' +
-      '<div class="d-sub">Scripture weeks read: ' + read + ' of 13 \u00b7 Season goals done: ' + gd + ' of ' + gt + '</div>' +
+      '<div class="d-sub">Scripture weeks read: ' + read + ' of 13 \u00b7 Season markers done: ' + gd + ' of ' + gt + '</div>' +
       '<div class="d-sub">This week\u2019s coordinate \u2014 <b>' + COORD_LABELS[ci] + '</b>: ' + esc(S.values[ci]) + '</div>';
     setMeta('season', S.name);
   }
@@ -4767,7 +4840,7 @@ try{
           '<div class="d-main"><b>' + (o.g.priority ? '\u2605 ' : '') + esc(o.g.text) + '</b><small>' + PAGES[o.pg] + (o.g.due ? ' \u00b7 due ' + o.g.due.slice(5) : '') + (o.g.coordIndex != null ? ' \u00b7 ' + COORD_LABELS[o.g.coordIndex] : '') + '</small></div></div>';
       }).join('');
     }
-    if(!total) h += '<div class="d-empty">No goals set for ' + S.name + '. Add some under Goals on each page, linked to a coordinate, foundation and domain.</div>';
+    if(!total) h += '<div class="d-empty">No markers set for ' + S.name + '. Most of life runs on practices; add a marker under Markers on a page only for something with an end point.</div>';
     cards.goals.mount.innerHTML = h;
     setMeta('goals', S.label);
   }
@@ -4788,10 +4861,13 @@ try{
     var b = ev.target.closest && ev.target.closest('[data-act]'); if(!b) return;
     var a = b.getAttribute('data-act');
     if(a === 'tick') togglePractice(b.getAttribute('data-id'));
+    else if(a === 'tickmin') togglePractice(b.getAttribute('data-id'), true);
     else if(a === 'goal') finishGoal(b.getAttribute('data-page'), b.getAttribute('data-id'));
     else if(a === 'task') finishTask(b.getAttribute('data-domain'), b.getAttribute('data-id'));
     else if(a === 'backup'){ try{ exportData('all'); }catch(e){} }
     else if(a === 'go') go(b.getAttribute('data-page'), b.getAttribute('data-sec'), b.getAttribute('data-tab'));
+    else if(a === 'recall'){ try{ window.__recallOpen('all'); }catch(e){} }
+    else if(a === 'capture'){ try{ window.__qkOpen(); }catch(e){} }
   }
 
   /* ---------- build: label, cards, nav tab ---------- */
@@ -4807,7 +4883,7 @@ try{
     mkCard('streak', 'Streaks', '');
     mkCard('season', 'Season', '');
     mkCard('activity', 'Last 4 weeks', 'consistency');
-    mkCard('goals', 'Goals', '');
+    mkCard('goals', 'Markers', '');
 
     var nav = $('page-switch');
     if(nav && !nav.querySelector('button[data-group="home"]')){
@@ -5238,6 +5314,13 @@ function logProgress(b, to, mins, date) {
   save();
 }
 
+/* what stuck? written from memory right after a session; saved as a chapter summary so Recall can bring it back */
+function stuckNote(b, txt) {
+  txt = String(txt || '').trim(); if (!txt) return;
+  b.notes.push({ id: uid(), type: 'summary', chapter: 'Up to ' + prog(b), text: txt, tags: ['from memory'], date: iso(), at: b.progress });
+  save();
+}
+
 /* ---------- stats ---------- */
 function activeDates() { var s = {}; S.books.forEach(function (b) { b.sessions.forEach(function (x) { if (x.mins > 0 || x.to > x.from) s[x.date] = 1; }); }); return s; }
 function streak() { var s = activeDates(), d = iso(), n = 0; if (!s[d]) d = addDays(d, -1); while (s[d]) { n++; d = addDays(d, -1); } return n; }
@@ -5421,7 +5504,7 @@ function vBook(b) {
     '<div class="rc-stars">' + [1, 2, 3, 4, 5].map(function (n) { return '<button type="button" data-act="rate" data-v="' + n + '" class="' + (b.rating >= n ? 'rc-on' : '') + '">★</button>'; }).join('') + '</div>' +
     '<div class="rc-muted rc-sm">' + (b.started ? 'Started ' + fmt(b.started) : '') + (b.finished ? ' · Finished ' + fmt(b.finished) : '') + '</div></div>';
   h += '<form data-form="logSession" class="rc-card"><h3>Log reading</h3><div class="rc-row"><input name="to" type="number" step="any" inputmode="decimal" placeholder="Now at (' + unitLabel(b) + ')" value="' + b.progress + '" required>' +
-    '<input name="mins" type="number" min="0" inputmode="numeric" placeholder="Minutes (optional)"><input name="date" type="date" value="' + iso() + '"></div><button class="rc-btn">Save</button></form>';
+    '<input name="mins" type="number" min="0" inputmode="numeric" placeholder="Minutes (optional)"><input name="date" type="date" value="' + iso() + '"></div><textarea name="stuck" rows="3" placeholder="Close the book. What stuck? Write it from memory (optional) and it comes back for recall tomorrow."></textarea><button class="rc-btn">Save</button></form>';
   var pl = perDayNeeded(b), e = eta(b), last = b.sessions[b.sessions.length - 1];
   h += '<div class="rc-card"><h3>Plan</h3><label class="rc-muted rc-sm">Finish by</label><input type="date" data-change="deadline" value="' + esc(b.deadline) + '">' +
     (pl ? '<p>' + (pl.late ? 'Deadline passed — ' : '') + '<b>' + pl.need + ' ' + (b.unit === 'min' ? 'min' : b.unit === '%' ? '%' : 'pages') + '/day</b> over ' + pl.days + ' day' + (pl.days > 1 ? 's' : '') + '.</p>' : '') +
@@ -5442,7 +5525,7 @@ function vToday() {
   h += '<div class="rc-bar"><i style="width:' + Math.min(100, Math.round(minsOn(t) / Math.max(1, S.daily) * 100)) + '%"></i></div>';
   if (ui.pending) {
     var pb = B(ui.pending.bookId);
-    if (pb) h += '<form data-form="finishLog" class="rc-card"><h3>Nice — ' + ui.pending.mins + ' min</h3><p class="rc-muted">Where did you get to in “' + esc(pb.title) + '”?</p><input name="to" type="number" step="any" inputmode="decimal" value="' + pb.progress + '" required><button class="rc-btn">Save</button><button type="button" class="rc-btn rc-ghost" data-act="tskip">Skip</button></form>';
+    if (pb) h += '<form data-form="finishLog" class="rc-card"><h3>Nice — ' + ui.pending.mins + ' min</h3><p class="rc-muted">Where did you get to in “' + esc(pb.title) + '”?</p><input name="to" type="number" step="any" inputmode="decimal" value="' + pb.progress + '" required><textarea name="stuck" rows="3" placeholder="Close the book. What stuck? Write it from memory (optional) and it comes back for recall tomorrow."></textarea><button class="rc-btn">Save</button><button type="button" class="rc-btn rc-ghost" data-act="tskip">Skip</button></form>';
   } else if (S.timer && B(S.timer.bookId)) {
     h += '<div class="rc-card"><h3>Reading: ' + esc(B(S.timer.bookId).title) + '</h3><div class="rc-timer" id="rc-timer">00:00</div><button type="button" class="rc-btn rc-big" data-act="tstop">Stop &amp; log</button></div>';
   } else if (reading.length) {
@@ -5708,8 +5791,8 @@ var ACT = {
 };
 var FORM = {
   addBook: function (f, d) { var b = newBook(d); S.books.push(b); if (b.status === 'reading') b.started = iso(); save(); ui.filter = 'all'; render(); },
-  logSession: function (f, d) { logProgress(cur(), d.to, d.mins, d.date); render(); },
-  finishLog: function (f, d) { var b = B(ui.pending.bookId); logProgress(b, d.to, ui.pending.mins); ui.pending = null; render(); },
+  logSession: function (f, d) { var b = cur(); logProgress(b, d.to, d.mins, d.date); stuckNote(b, d.stuck); render(); },
+  finishLog: function (f, d) { var b = B(ui.pending.bookId); logProgress(b, d.to, ui.pending.mins); stuckNote(b, d.stuck); ui.pending = null; render(); },
   addNote: function (f, d) { var b = cur(); b.notes.push({ id: uid(), type: d.type, chapter: d.chapter.trim(), text: d.text.trim(), tags: tags(d.tags), date: iso(), at: b.progress }); save(); render(); },
   editNote: function (f, d) {
     var b = B(f.dataset.b), n = b && b.notes.find(function (x) { return x.id === f.dataset.id; }); if (!n) { ui.edit = null; render(); return; }
@@ -5790,6 +5873,12 @@ function unmount() {
 }
 
 if (!document.getElementById('rc-style')) { var st = document.createElement('style'); st.id = 'rc-style'; st.textContent = CSS; document.head.appendChild(st); }
+global.__rcGrade = function (kind, id, ok, partly) {
+  load(); var a = kind === 'c' ? S.cards : S.vocab, x = a.find(function (q) { return q.id === id; }); if (!x) return false;
+  if (partly) x.due = addDays(iso(), 1);
+  else { x.box = ok ? Math.min((x.box || 0) + 1, INTERVALS.length - 1) : 0; x.due = addDays(iso(), ok ? INTERVALS[x.box] : 1); }
+  save(); if (root) render(); return true;
+};
 global.ReadingCompanion = { mount: mount, unmount: unmount, reload: function () { if (root) { load(); render(); } } };
 })(window);
 
@@ -6104,7 +6193,7 @@ try{
         ? 'Your starting profile matches your Fitness test level (<b>' + p.level + '</b>). Change it below if it feels wrong.'
         : 'Your Fitness test level is <b>' + p.level + '</b>, so <b>' + m[1] + '</b> is a good starting profile.<br><button type="button" class="pri" data-bm="use">Use ' + m[1] + '</button>';
     } else {
-      hint.innerHTML = 'Not sure where to start? Take the 4-week <b>Fitness test</b> first and this plan will suggest a starting profile.<br><button type="button" class="pri" data-bm="fit">Open Fitness test</button>';
+      hint.innerHTML = 'Not sure where to start? Take the <b>Fitness test</b> first (you repeat it at week 4, week 8 and the end) and this plan will suggest a starting profile.<br><button type="button" class="pri" data-bm="fit">Open Fitness test</button>';
     }
     hint.style.display = '';
     hint.setAttribute('data-m', m ? m[0] : '');
@@ -6328,7 +6417,7 @@ window.__SU = window.__SU || { ok:[], fail:[] };
 try{
 (function(){
   var CFG = 'seasons-sync-cfg', META = 'seasons-sync-meta', PRE = 'seasons-sync-prebackup', DESC = 'Seasons sync (encrypted)', FNAME = 'seasons-sync-meta.json';
-  var KEYS = ['seasons-completed-weeks','seasons-journal-entries','seasons-domain-tasks','seasons-learning-entries','seasons-learning-weekly','seasons-learning-season','seasons-pt-state','seasons-goals','rc_v1','seasons-profile','seasons-names','seasons-compass'];
+  var KEYS = ['seasons-completed-weeks','seasons-journal-entries','seasons-domain-tasks','seasons-learning-entries','seasons-learning-weekly','seasons-learning-season','seasons-pt-state','seasons-goals','rc_v1','seasons-profile','seasons-names','seasons-compass','seasons-recall'];
   var host = document.getElementById('sec-xset'); if(!host) throw new Error('Dashboard cards not found');
   var enc = new TextEncoder(), dec = new TextDecoder();
 
@@ -6730,7 +6819,7 @@ try{
   function goalCount(k){
     var all = {}; try{ all = JSON.parse(LS.get('seasons-goals') || '{}'); }catch(e){}
     var g = all[k] || {}, n = 0, d = 0; ['spirit','soul','body'].forEach(function(p){ (g[p] || []).forEach(function(x){ n++; if(x.done) d++; }); });
-    return n ? n + ' goal' + (n === 1 ? '' : 's') + ' in this season, ' + d + ' done' : 'No goals set in this season yet';
+    return n ? n + ' marker' + (n === 1 ? '' : 's') + ' in this season, ' + d + ' done' : 'No markers set in this season yet';
   }
   function draw(){
     var c = load(), now = SEASONS[currentSeasonIndex].key;
@@ -6770,6 +6859,533 @@ try{
  window.__SU.ok.push('Compass: vision, values, mission and mandate');
 }catch(e){ window.__SU.fail.push(['Compass: vision, values, mission and mandate', String(e && e.message || e)]); if(window.console) console.error('Compass', e); }
 
+/* ===== recall-upgrade.js ===== */
+/* Seasons: "Recall" - learn by pulling things back out of your head, not by re-reading them.
+   PASTE at the very END of your second script block (after the Compass add-on).
+   It also needs two small hooks that are already in the full file: window.__CAL (Body exposes its exercises) and the Recall row in the Dashboard's Today card.
+   How it works: you are asked a question, you write what you remember FIRST, then you see the real answer with the words you missed marked.
+   You grade yourself (missed / partly / got it) and the item comes back later: 1, 2, 4, 8, 16, 32, 60 days. Missed items restart at 1 day.
+   Soul   : your Learning entries, Reading chapter summaries and quotes, plus a Brain dump (write what you remember right after learning, and it becomes an entry).
+   Spirit : this week's three verses and the week itself (Reveal, Reframe, Respond appear after Monday, Wednesday and Friday), and any verse you starred or are memorising.
+   Body   : the form cues and purpose of each exercise in your calisthenics plan.
+   New items are introduced slowly each day (Soul 4, Spirit 4, Body 2) so it never floods. Saved in seasons-recall (included in Export and sync). */
+window.__SU = window.__SU || { ok:[], fail:[] };
+try{
+(function(){
+  var RK = 'seasons-recall', CK = 'seasons-verse-cache';
+  var CAP = { soul:4, spirit:4, body:2 }, SESSN = 12, IV = [1,2,4,8,16,32,60];
+  var SC_NAME = { all:'Everything', soul:'Soul', spirit:'Spirit', body:'Body' };
+  function esc(s){ return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+  function jget(k, d){ try{ var v = JSON.parse(LS.get(k) || 'null'); return v == null ? d : v; }catch(e){ return d; } }
+  function pad(n){ return (n < 10 ? '0' : '') + n; }
+  function iso(d){ d = d || new Date(); return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+  function addD(s, n){ var p = String(s).split('-'); return iso(new Date(+p[0], +p[1] - 1, +p[2] + n)); }
+  function load(){ var r = jget(RK, {}); if(!r || typeof r !== 'object') r = {}; r.it = r.it || {}; r.log = r.log || []; return r; }
+  function save(r){ if(r.log.length > 300) r.log = r.log.slice(-300); LS.set(RK, JSON.stringify(r)); }
+  function clip(s, n){ s = String(s || '').replace(/\s+/g, ' ').trim(); return s.length > n ? s.slice(0, n - 1) + '…' : s; }
+
+  /* ---------- verse memory counts live in seasons-verse-cache.__ss (same as the Memorise button) ---------- */
+  function ssRead(){ var c = jget(CK, {}); var d = c.__ss || {}; d.mem = d.mem || {}; d.fav = d.fav || {}; return d; }
+  function bumpVerse(ref){ try{ var c = jget(CK, {}); var d = c.__ss || {}; d.mem = d.mem || {}; var m = d.mem[ref] || { n:0 }; m.n++; m.last = Date.now(); m.lvl = m.lvl || 4; d.mem[ref] = m; c.__ss = d; LS.set(CK, JSON.stringify(c)); }catch(e){} }
+
+  /* ---------- everything that can be recalled ---------- */
+  function build(){
+    var out = [], t = iso(), dow = new Date().getDay(), cache = jget(CK, {});
+    try{ loadLearningEntries().forEach(function(e){
+      if(!e || !e.takeaway) return;
+      out.push({ id:'L:' + e.id, scope:'soul', tag:'Learning', kind:'text', prompt:'What did you take from “' + (e.source || 'this') + '”?',
+        answer:e.takeaway + (e.action ? '\n\nWhat you decided to do: ' + e.action : ''), first:addD(iso(new Date(e.ts || Date.now())), 1) });
+    }); }catch(e){}
+    try{ (jget('rc_v1', {}).books || []).forEach(function(b){ (b.notes || []).forEach(function(n){
+      var tx = String(n.text || '').trim(); if(tx.length < 25 || !n.id) return;
+      var first = n.date ? addD(n.date, 1) : t;
+      if(n.type === 'summary') out.push({ id:'R:' + n.id, scope:'soul', tag:b.title, kind:'text', prompt:'“' + b.title + '”' + (n.chapter ? ', ' + n.chapter : '') + ': what happened, or what was the point?', answer:tx, first:first });
+      else if(n.type === 'thought'){ var tw = tx.split(/\s+/); if(tw.length < 8) return;
+        out.push({ id:'R:' + n.id, scope:'soul', tag:b.title, kind:'text', prompt:'Your thought on “' + b.title + '” beginning “' + tw.slice(0, 4).join(' ') + ' …”: what was your point?', answer:tx, first:first }); }
+      else if(n.type === 'quote'){ var ws = tx.split(/\s+/); if(ws.length < 9) return;
+        out.push({ id:'R:' + n.id, scope:'soul', tag:b.title, kind:'text', prompt:'Finish the quote from “' + b.title + '”: “' + ws.slice(0, 5).join(' ') + ' …”', answer:ws.slice(5).join(' '), first:first }); }
+    });
+      (b.cast || []).forEach(function(c){ if(!c.id || !c.name || String(c.role || '').trim().length < 3) return;
+        out.push({ id:'C:' + c.id, scope:'soul', tag:b.title + ' · characters', kind:'text', prompt:'“' + b.title + '”: who is ' + c.name + '?', answer:String(c.role).trim(), first:'+1' }); });
+      var evs = (b.events || []).filter(function(e){ return e && e.text; });
+      if(evs.length >= 2) out.push({ id:'P:' + b.id, scope:'soul', tag:b.title + ' · plot', kind:'text', prompt:'“' + b.title + '”: tell the story so far, in order.', answer:evs.map(function(e, i){ return (i + 1) + '. ' + e.text; }).join('\n'), first:'+1' });
+    });
+      var rcs = jget('rc_v1', {}), tl = {}; (rcs.books || []).forEach(function(b){ tl[b.id] = b.title; });
+      (rcs.cards || []).forEach(function(c){ if(!c.id || !c.q || !c.a) return;
+        out.push({ id:'Q:' + c.id, scope:'soul', tag:(tl[c.bookId] || 'Quiz card'), kind:'text', prompt:c.q, answer:c.a, ext:{ k:'c', id:c.id }, due:c.due || t, box:c.box || 0, first:t }); });
+      (rcs.vocab || []).forEach(function(v){ if(!v.id || !v.word || !v.def) return;
+        out.push({ id:'D:' + v.id, scope:'soul', tag:'Word', kind:'text', prompt:'What does “' + v.word + '” mean?', answer:v.def + (v.ex ? '\n“' + v.ex + '”' : ''), ext:{ k:'v', id:v.id }, due:v.due || t, box:v.box || 0, first:t }); });
+    }catch(e){}
+    /* Spirit: this week's verses appear after their day, the week itself after Friday, and any starred or memorising verse */
+    try{
+      var w = WEEKS.filter(function(x){ return x.w === nowWeek; })[0], ss = ssRead(), refs = {};
+      function addRef(ref, theme, first){ if(!ref || refs[ref]) return; refs[ref] = 1;
+        out.push({ id:'V:' + ref, scope:'spirit', tag:theme || 'Verse', kind:'verse', ref:ref, prompt:'Write ' + ref + ' from memory.' + (theme ? ' (' + theme + ')' : ''), answer:typeof cache[ref] === 'string' ? cache[ref] : '', first:first }); }
+      if(w){
+        addRef(w.r, w.t, '+1');
+        if(dow === 0 || dow >= 3) addRef(w.f, w.t, '+1');
+        if(dow === 0 || dow >= 5) addRef(w.s, w.t, '+1');
+      }
+      WEEKS.forEach(function(x){ if(x.w >= nowWeek - 2 && x.w < nowWeek){ addRef(x.r, x.t, t); addRef(x.f, x.t, t); addRef(x.s, x.t, t); } });
+      function themeOf(ref){ var h = WEEKS.filter(function(x){ return x.r === ref || x.f === ref || x.s === ref; })[0]; return h ? h.t : ''; }
+      Object.keys(ss.mem).concat(Object.keys(ss.fav)).forEach(function(ref){ addRef(ref, themeOf(ref), t); });
+      WEEKS.forEach(function(x){
+        var cur = x.w === nowWeek;
+        if(x.w > nowWeek || x.w < nowWeek - 2 || (cur && !(dow === 0 || dow >= 5))) return;
+        out.push({ id:'W:' + x.w, scope:'spirit', tag:'Week ' + x.w, kind:'text', prompt:'Week ' + x.w + ' · ' + x.t + ': name the three verses (Reveal, Reframe, Respond).', answer:'Reveal: ' + x.r + '\nReframe: ' + x.f + '\nRespond: ' + x.s, first:cur ? '+1' : t });
+      });
+    }catch(e){}
+    /* Body: form cues and purpose for each exercise in the calisthenics plan */
+    try{ var C = window.__CAL, seen = {};
+      if(C && C.SESS) Object.keys(C.SESS).forEach(function(k){ var S = C.SESS[k]; (S.ex || []).concat(S.exB || []).forEach(function(id){
+        var x = C.EX[id]; if(!x || seen[id] || !x.tip) return; seen[id] = 1;
+        var nm = (x.lad && x.lad[x.lv]) || id;
+        out.push({ id:'B:' + id, scope:'body', tag:x.n || 'Exercise', kind:'text', prompt:nm + ': how do you do it with good form, and what does it build?',
+          answer:'Form: ' + x.tip + (C.INFO && C.INFO[id] ? '\n\nBuilds: ' + C.INFO[id] : ''), first:t });
+      }); });
+    }catch(e){}
+    return out;
+  }
+  /* which items are due now, with new ones introduced slowly */
+  function plan(scope){
+    var r = load(), t = iso(), all = build(), items = scope === 'all' ? all : all.filter(function(i){ return i.scope === scope; });
+    var today = { soul:0, spirit:0, body:0 }; Object.keys(r.it).forEach(function(k){ var x = r.it[k]; if(x && x.intro === t && x.sc && today[x.sc] != null) today[x.sc]++; });
+    var due = [], fresh = [], dirty = false;
+    items.forEach(function(i){
+      var x = r.it[i.id];
+      if(i.ext){ if((i.due || t) <= t){ i.sort = i.due || t; due.push(i); } return; }
+      if(i.first === '+1'){ r.seen = r.seen || {}; if(!r.seen[i.id]){ r.seen[i.id] = t; dirty = true; } i.first = addD(r.seen[i.id], 1); }
+      if(x && x.n){ if(x.due <= t){ i.box = x.box || 0; i.sort = x.due; due.push(i); } }
+      else if(x && x.intro === t){ i.sort = '9'; due.push(i); }
+      else if(i.first <= t){ i.sort = i.first; fresh.push(i); }
+    });
+    if(dirty) save(r);
+    due.sort(function(a, b){ return a.sort < b.sort ? -1 : a.sort > b.sort ? 1 : 0; });
+    fresh.sort(function(a, b){ return a.sort < b.sort ? -1 : a.sort > b.sort ? 1 : 0; });
+    var take = { soul:CAP.soul - today.soul, spirit:CAP.spirit - today.spirit, body:CAP.body - today.body };
+    fresh.forEach(function(i){ if(take[i.scope] > 0){ take[i.scope]--; i.isNew = true; due.push(i); } });
+    return { list:due, deck:items, rec:r.it };
+  }
+  function stats(scope){
+    var r = load(), cut = Date.now() - 14 * 864e5, ls = r.log.filter(function(l){ return l.t >= cut && (scope === 'all' || l.s === scope); });
+    var rate = ls.length ? Math.round(ls.filter(function(l){ return l.r === 2; }).length / ls.length * 100) : null;
+    var days = {}; r.log.forEach(function(l){ days[iso(new Date(l.t))] = 1; });
+    var d = iso(), streak = 0; if(!days[d]) d = addD(d, -1);
+    while(days[d]){ streak++; d = addD(d, -1); }
+    return { rate:rate, streak:streak, n:ls.length };
+  }
+  window.__recallInfo = function(){ try{ var p = plan('all'), s = stats('all'); return { due:p.list.length, deck:p.deck.length, rate:s.rate, streak:s.streak }; }catch(e){ return null; } };
+
+  /* ---------- the session ---------- */
+  var css = document.createElement('style');
+  css.textContent =
+    '#rcv-ov{position:fixed;inset:0;z-index:9000;background:var(--paper);overflow-y:auto;-webkit-overflow-scrolling:touch;display:none}#rcv-ov.on{display:block}' +
+    '.rcv-w{max-width:560px;margin:0 auto;padding:max(16px,env(safe-area-inset-top)) 16px 40px}' +
+    '.rcv-top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px}.rcv-top small{font:11px "IBM Plex Mono",monospace;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-faint)}' +
+    '.rcv-x{background:none;border:1px solid var(--line);border-radius:999px;width:38px;height:38px;font-size:20px;color:var(--ink-soft);cursor:pointer}' +
+    '.rcv-bar{height:4px;background:var(--line);border-radius:4px;overflow:hidden;margin-bottom:18px}.rcv-bar i{display:block;height:100%;background:var(--accent)}' +
+    '.rcv-tag{font:10.5px "IBM Plex Mono",monospace;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:6px}' +
+    '.rcv-q{font-family:"Fraunces",serif;font-size:1.35rem;line-height:1.35;color:var(--ink);margin:0 0 16px}' +
+    '.rcv-w textarea,.rcv-w input[type=text]{width:100%;box-sizing:border-box;border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:var(--paper-raised);color:var(--ink);font:inherit;font-size:16px;line-height:1.5}' +
+    '.rcv-w textarea{min-height:130px;resize:vertical}' +
+    '.rcv-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}' +
+    '.rcv-b{border:1px solid var(--line);background:var(--paper-raised);color:var(--ink);border-radius:999px;padding:11px 18px;font:inherit;font-size:14px;cursor:pointer;min-height:44px}' +
+    '.rcv-b.on{background:var(--accent);border-color:var(--accent);color:#fff}.rcv-b.sug{outline:2px solid var(--accent);outline-offset:1px}' +
+    '.rcv-box{border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:var(--paper-raised);margin-top:10px;white-space:pre-line;line-height:1.55;font-size:15px;color:var(--ink)}' +
+    '.rcv-lbl{font:10.5px "IBM Plex Mono",monospace;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-faint);margin:14px 0 2px}' +
+    '.rcv-miss{background:rgba(190,60,40,.18);color:inherit;border-radius:3px;padding:0 2px}' +
+    '.rcv-score{font-size:13.5px;color:var(--ink-soft);margin-top:8px}.rcv-hint{font-size:12px;color:var(--ink-faint);margin-top:12px;line-height:1.5}' +
+    '.rcv-stat{font-size:14px;color:var(--ink-soft);margin:2px 0 10px;line-height:1.5}.rcv-stat b{font-family:"Fraunces",serif;font-size:1.5rem;color:var(--ink);font-weight:500;margin-right:2px}' +
+    '.rcv-card .rcv-b{padding:9px 16px;min-height:40px;font-size:13.5px}.rcv-card details{margin-top:12px}.rcv-card summary{cursor:pointer;font-size:13px;color:var(--ink-soft)}' +
+    '.rcv-item{display:flex;gap:8px;align-items:center;width:100%;text-align:left;background:none;border:0;border-top:1px solid var(--line);padding:9px 0;color:var(--ink);font:inherit;font-size:13.5px;cursor:pointer}' +
+    '.rcv-item span{flex:1;min-width:0}.rcv-item small{color:var(--ink-faint);font:10.5px "IBM Plex Mono",monospace;white-space:nowrap}' +
+    '.rcv-dump{margin-top:12px;border-top:1px solid var(--line);padding-top:12px;display:none;gap:8px}.rcv-dump.on{display:grid}';
+  document.head.appendChild(css);
+  var ov = document.createElement('div'); ov.id = 'rcv-ov'; ov.setAttribute('role', 'dialog'); ov.setAttribute('aria-modal', 'true'); ov.setAttribute('aria-label', 'Recall'); document.body.appendChild(ov);
+  var ses = null;
+  function toks(s){ return String(s).toLowerCase().replace(/[’']/g, '').split(/[^a-z0-9]+/).filter(Boolean); }
+  function compare(ans, att, verse){
+    var set = {}; toks(att).forEach(function(w){ set[w] = 1; if(w.length > 4) set['~' + w.slice(0, 4)] = 1; });
+    var sig = 0, hit = 0, html = '';
+    String(ans).split(/(\s+)/).forEach(function(p){
+      var ws = p.trim() ? toks(p) : [];
+      if(!ws.length){ html += esc(p); return; }
+      var isSig = verse || ws.join('').length > 3;
+      var ok = ws.every(function(w){ return set[w] || (w.length > 4 && set['~' + w.slice(0, 4)]); });
+      if(isSig){ sig++; if(ok) hit++; }
+      html += isSig && !ok ? '<mark class="rcv-miss">' + esc(p) + '</mark>' : esc(p);
+    });
+    return { html:html, score:sig ? hit / sig : 0, hit:hit, sig:sig };
+  }
+  function firsts(s){ return String(s).split(/\s+/).map(function(w){ var m = w.match(/[A-Za-z0-9]/); return m ? w.replace(/[A-Za-z0-9]/g, function(c, i){ return i === w.search(/[A-Za-z0-9]/) ? c : '•'; }) : w; }).join(' '); }
+  function close(){
+    ov.classList.remove('on'); ov.innerHTML = ''; document.body.style.overflow = ''; ses = null; drawCards();
+    try{ document.dispatchEvent(new Event('visibilitychange')); }catch(e){}
+  }
+  function draw(){
+    if(!ses) return;
+    var h = '', n = ses.list.length;
+    h += '<div class="rcv-w"><div class="rcv-top"><small>Recall · ' + esc(SC_NAME[ses.scope] || '') + (ses.step === 'end' ? '' : ' · ' + (ses.i + 1) + ' of ' + n) + '</small><button type="button" class="rcv-x" data-rcv="close" aria-label="Close recall">×</button></div>';
+    h += '<div class="rcv-bar"><i style="width:' + Math.round((ses.step === 'end' ? n : ses.i) / Math.max(1, n) * 100) + '%"></i></div>';
+    if(ses.step === 'end'){
+      var r = ses.res, tot = r[0] + r[1] + r[2];
+      var r2 = load(), t = iso(), nxt = null; Object.keys(r2.it).forEach(function(k){ var d = r2.it[k].due; if(d && d > t && (!nxt || d < nxt)) nxt = d; });
+      h += '<p class="rcv-q">' + (tot ? 'You pulled back ' + r[2] + ' of ' + tot + (r[1] ? ' (and ' + r[1] + ' partly)' : '') + '.' : 'All done.') + '</p>';
+      h += '<p class="rcv-score">' + (r[0] ? 'Missed ones come back tomorrow. That is the point: the effort of reaching for it is what makes it stick. ' : 'Nice. Each one now waits longer before it comes back. ') + (nxt ? 'Next ones are due ' + new Date(nxt + 'T00:00').toLocaleDateString(undefined, { weekday:'long', day:'numeric', month:'short' }) + '.' : '') + '</p>';
+      h += '<div class="rcv-row"><button type="button" class="rcv-b on" data-rcv="close">Done</button></div></div>'; ov.innerHTML = h; return;
+    }
+    var it = ses.list[ses.i], verse = it.kind === 'verse';
+    h += '<div class="rcv-tag">' + esc(it.tag) + (it.rep ? ' · once more' : it.isNew ? ' · new' : '') + '</div><p class="rcv-q">' + esc(it.prompt) + '</p>';
+    if(ses.step === 'ask'){
+      h += '<textarea id="rcv-ta" placeholder="Write what you remember, even a rough version. No peeking." aria-label="Your answer">' + esc(ses.draft || '') + '</textarea>';
+      if(ses.nudge) h += '<div class="rcv-box">' + esc(firsts(it.answer)) + '</div>';
+      h += '<div class="rcv-row"><button type="button" class="rcv-b on" data-rcv="check">Check</button>' + (ses.nudge ? '' : '<button type="button" class="rcv-b" data-rcv="nudge">Give me a nudge</button>') + '<button type="button" class="rcv-b" data-rcv="skip">I can’t recall</button></div>';
+      h += '<p class="rcv-hint">Struggling a little is what makes it stick. Answer first, then check.</p>';
+    } else {
+      var c = compare(it.answer, ses.draft || '', verse), sug = !(ses.draft || '').trim() ? 0 : c.score >= .65 ? 2 : c.score >= .3 ? 1 : 0;
+      if(ses.nudge && sug > 1) sug = 1; ses.sug = sug;
+      h += '<div class="rcv-lbl">What you wrote</div><div class="rcv-box">' + ((ses.draft || '').trim() ? esc(ses.draft) : '— nothing —') + '</div>';
+      h += '<div class="rcv-lbl">The original (missed words marked)</div><div class="rcv-box">' + c.html + '</div>';
+      if((ses.draft || '').trim()) h += '<div class="rcv-score">You had about ' + Math.round(c.score * 100) + '% of the key words' + (ses.nudge ? ' (with a nudge)' : '') + '. Be honest with yourself, then choose:</div>';
+      h += '<div class="rcv-row"><button type="button" class="rcv-b' + (sug === 0 ? ' sug' : '') + '" data-rcv="g0">Missed</button><button type="button" class="rcv-b' + (sug === 1 ? ' sug' : '') + '" data-rcv="g1">Partly</button><button type="button" class="rcv-b' + (sug === 2 ? ' sug' : '') + '" data-rcv="g2">Got it</button></div>';
+    }
+    h += '</div>'; ov.innerHTML = h;
+    var ta = document.getElementById('rcv-ta'); if(ta){ ta.addEventListener('input', function(){ ses.draft = ta.value; }); try{ ta.focus({ preventScroll:true }); }catch(e){} }
+    ov.scrollTop = 0;
+  }
+  function grade(g){
+    var it = ses.list[ses.i], r = load();
+    if(!it.rep && it.ext){
+      try{ window.__rcGrade(it.ext.k, it.ext.id, g === 2, g === 1); }catch(e){}
+      r.log.push({ t:Date.now(), r:g, s:it.scope }); save(r);
+      if(g === 0){ var c0 = {}; for(var k0 in it) c0[k0] = it[k0]; c0.rep = true; ses.list.push(c0); }
+    } else if(!it.rep){
+      var x = r.it[it.id] || { box:0, n:0 };
+      if(g === 2) x.box = Math.min(IV.length - 1, (x.box || 0) + 1); else if(g === 0) x.box = 0;
+      x.n = (x.n || 0) + 1; x.due = addD(iso(), g === 0 ? 1 : IV[x.box]); x.last = Date.now(); x.sc = it.scope; x.intro = x.intro || iso();
+      r.it[it.id] = x; r.log.push({ t:Date.now(), r:g, s:it.scope }); save(r);
+      if(g === 2 && it.kind === 'verse') bumpVerse(it.ref);
+      if(g === 0){ var c = {}; for(var k in it) c[k] = it[k]; c.rep = true; ses.list.push(c); }
+    }
+    if(!it.rep) ses.res[g]++;
+    ses.i++; ses.step = ses.i >= ses.list.length ? 'end' : 'ask'; ses.draft = ''; ses.nudge = false; draw();
+  }
+  function open(scope, onlyId){
+    scope = scope || 'all';
+    var p = plan(scope), list = p.list.slice(0, SESSN);
+    if(onlyId){ var one = p.deck.filter(function(i){ return i.id === onlyId; })[0]; if(!one) return; list = [one]; }
+    if(!list.length){ alert(p.deck.length ? 'Nothing is due right now. Come back later, or pick something from the list to test yourself.' : 'Nothing to recall yet. Add a learning entry, a chapter summary or open this week’s scripture, and it will appear here.'); return; }
+    var r = load(), t = iso();
+    list.forEach(function(i){ if(i.ext) return; var x = r.it[i.id]; if(!x){ r.it[i.id] = { box:0, n:0, intro:t, sc:i.scope }; } else if(!x.n && !x.intro){ x.intro = t; x.sc = i.scope; } });
+    save(r);
+    ses = { scope:scope, list:list, i:0, step:'ask', draft:'', nudge:false, res:{ 0:0, 1:0, 2:0 } };
+    ov.classList.add('on'); document.body.style.overflow = 'hidden';
+    var need = list.filter(function(i){ return i.kind === 'verse' && !i.answer; });
+    if(need.length){
+      ov.innerHTML = '<div class="rcv-w"><p class="rcv-q">Loading verses…</p></div>';
+      var cur = ses;
+      Promise.all(need.map(function(i){ return fetchVerseText(i.ref).then(function(tx){ i.answer = tx; }).catch(function(){}); })).then(function(){
+        if(ses !== cur) return;
+        var before = ses.list.length; ses.list = ses.list.filter(function(i){ return i.kind !== 'verse' || i.answer; });
+        if(!ses.list.length){ close(); alert('Couldn’t load the verse text. Connect once, or tap Save all verses offline in Weekly scripture.'); return; }
+        draw();
+      });
+    } else draw();
+  }
+  window.__recallOpen = open;
+  ov.addEventListener('click', function(e){
+    var b = e.target.closest && e.target.closest('[data-rcv]'); if(!b || !ses) return; var a = b.getAttribute('data-rcv');
+    if(a === 'close') close();
+    else if(a === 'check'){ var ta = document.getElementById('rcv-ta'); if(ta) ses.draft = ta.value; ses.step = 'check'; draw(); }
+    else if(a === 'skip'){ ses.draft = ''; ses.step = 'check'; draw(); }
+    else if(a === 'nudge'){ var t2 = document.getElementById('rcv-ta'); if(t2) ses.draft = t2.value; ses.nudge = true; draw(); }
+    else if(a === 'g0') grade(0); else if(a === 'g1') grade(1); else if(a === 'g2') grade(2);
+  });
+  document.addEventListener('keydown', function(e){ if(e.key === 'Escape' && ses) close(); });
+
+  /* ---------- the cards on Soul, Spirit and Body ---------- */
+  var HELP = {
+    soul:'Close the book and write what you remember. Your Learning entries, and from Reading your chapter summaries, quotes, thoughts, characters, plot, quiz cards and words, come back here on a spaced schedule, so they move from “I read it” to “I know it”.',
+    spirit:'This week’s verses come back after their day (Reveal after Monday, Reframe after Wednesday, Respond after Friday). Star a verse, or tap Memorise on it, to keep it in rotation.',
+    body:'Say the form cues and what each move builds before you do it. Knowing the why makes the movement better and keeps you doing it.'
+  };
+  var EMPTY = {
+    soul:'Nothing here yet. Add a Learning entry, or write what stuck after a reading session, and it will show up tomorrow.',
+    spirit:'Nothing here yet. Open this week’s scripture and it will appear after its day.',
+    body:'Appears once your calisthenics plan is on.'
+  };
+  var cards = {};
+  function mkCard(scope, id, key, afterId, title, meta){
+    if(document.getElementById(id)) return null;
+    var ref = document.getElementById(afterId); if(!ref) return null;
+    var sec = document.createElement('section'); sec.className = 'csec rcv-card' + (sectionState[key] === true ? ' open' : ''); sec.id = id; sec.setAttribute('data-key', key); sec.setAttribute('data-group', scope);
+    sec.innerHTML = '<button class="csec-head"><div class="csec-head-left"><span class="csec-title"></span><span class="csec-meta"></span></div><span class="csec-chevron">⌄</span></button><div class="csec-body"><p class="csec-sub"></p><div class="rcv-mount"></div></div>';
+    sec.querySelector('.csec-title').textContent = title; sec.querySelector('.csec-meta').textContent = meta; sec.querySelector('.csec-sub').textContent = HELP[scope];
+    ref.parentNode.insertBefore(sec, ref.nextSibling);
+    sec.querySelector('.csec-head').onclick = function(){ var o = sec.classList.toggle('open'); sectionState[key] = o; LS.set(SECTION_STATE_KEY, JSON.stringify(sectionState)); };
+    sec.style.display = (LS.get(PAGE_KEY) || 'spirit') === scope ? '' : 'none';
+    cards[scope] = { sec:sec, mount:sec.querySelector('.rcv-mount'), meta:sec.querySelector('.csec-meta') };
+    sec.querySelector('.rcv-mount').addEventListener('click', onCard);
+    return sec;
+  }
+  function drawCards(){
+    Object.keys(cards).forEach(function(scope){
+      var c = cards[scope]; if(!c || c.mount.contains(document.activeElement) && document.activeElement.tagName !== 'BUTTON') return;
+      var p = plan(scope), s = stats(scope), keep = c.mount.querySelector('.rcv-dump.on') ? { open:true, src:(c.mount.querySelector('#rcv-src') || {}).value, txt:(c.mount.querySelector('#rcv-txt') || {}).value, act:(c.mount.querySelector('#rcv-act') || {}).value } : null;
+      var openList = c.mount.querySelector('details') && c.mount.querySelector('details').open;
+      c.meta.textContent = p.list.length ? p.list.length + ' due' : (p.deck.length ? 'all caught up' : 'pull it back');
+      var h = '';
+      if(!p.deck.length) h += '<p class="rcv-stat">' + esc(EMPTY[scope]) + '</p>';
+      else h += '<div class="rcv-stat"><b>' + p.list.length + '</b> due now · ' + p.deck.length + ' in your deck' + (s.rate != null ? ' · ' + s.rate + '% recalled in the last 2 weeks' : '') + (s.streak > 1 ? ' · ' + s.streak + '-day streak' : '') + '</div>';
+      h += '<div class="rcv-row" style="margin-top:0">' + (p.deck.length ? '<button type="button" class="rcv-b on" data-rcv="start" data-scope="' + scope + '">' + (p.list.length ? 'Start recall (' + Math.min(SESSN, p.list.length) + ')' : 'Nothing due') + '</button>' : '') + (scope === 'soul' ? '<button type="button" class="rcv-b" data-rcv="dump">Brain dump</button>' : '') + '</div>';
+      if(scope === 'soul'){
+        var books = []; try{ (jget('rc_v1', {}).books || []).forEach(function(b){ if(b.title) books.push(b.title); }); }catch(e){}
+        h += '<div class="rcv-dump" id="rcv-dump"><div class="rcv-hint" style="margin:0">Just read or learned something? Close it and write what you remember before looking again. It is saved as a Learning entry and comes back tomorrow.</div>' +
+          '<input type="text" id="rcv-src" list="rcv-books" placeholder="Source (a book, a talk, a person)" aria-label="Source"><datalist id="rcv-books">' + books.map(function(b){ return '<option value="' + esc(b) + '">'; }).join('') + '</datalist>' +
+          '<textarea id="rcv-txt" placeholder="What do I remember?" aria-label="What I remember"></textarea><input type="text" id="rcv-act" placeholder="What will I do with it? (optional)" aria-label="Action">' +
+          '<div class="rcv-row" style="margin-top:0"><button type="button" class="rcv-b on" data-rcv="dumpsave">Save</button><button type="button" class="rcv-b" data-rcv="dump">Cancel</button></div></div>';
+      }
+      if(p.deck.length){
+        var rec = load().it, t = iso();
+        h += '<details' + (openList ? ' open' : '') + '><summary>Test myself on something specific (' + p.deck.length + ')</summary>' + p.deck.map(function(i){ var x = i.ext ? { n:1, due:i.due } : rec[i.id], d = x && x.n ? (x.due <= t ? 'due' : new Date(x.due + 'T00:00').toLocaleDateString(undefined, { day:'numeric', month:'short' })) : 'new';
+          return '<button type="button" class="rcv-item" data-rcv="one" data-id="' + esc(i.id) + '"><span>' + esc(clip(i.prompt, 90)) + '</span><small>' + d + '</small></button>'; }).join('') + '</details>';
+      }
+      c.mount.innerHTML = h;
+      if(keep){ var d = c.mount.querySelector('#rcv-dump'); if(d){ d.classList.add('on'); c.mount.querySelector('#rcv-src').value = keep.src || ''; c.mount.querySelector('#rcv-txt').value = keep.txt || ''; c.mount.querySelector('#rcv-act').value = keep.act || ''; } }
+    });
+  }
+  function onCard(e){
+    var b = e.target.closest && e.target.closest('[data-rcv]'); if(!b) return; var a = b.getAttribute('data-rcv');
+    if(a === 'start') open(b.getAttribute('data-scope'));
+    else if(a === 'one') open('all', b.getAttribute('data-id'));
+    else if(a === 'dump'){ var d = b.closest('.rcv-mount').querySelector('#rcv-dump'); if(d){ d.classList.toggle('on'); var f = d.querySelector('#rcv-src'); if(d.classList.contains('on') && f) f.focus(); } }
+    else if(a === 'dumpsave'){
+      var m = b.closest('.rcv-mount'), src = m.querySelector('#rcv-src').value.trim(), tx = m.querySelector('#rcv-txt').value.trim(), act = m.querySelector('#rcv-act').value.trim();
+      if(!src || !tx){ alert('Add a source and write what you remember.'); return; }
+      var list = loadLearningEntries();
+      list.unshift({ id:'l' + Date.now() + Math.random().toString(36).slice(2, 7), ts:Date.now(), source:src, takeaway:tx, action:act || 'Recalled from memory', weekNum:nowWeek, seasonKey:SEASONS[currentSeasonIndex].key, photo:null, recalled:true });
+      saveLearningEntries(list);
+      try{ renderLearningEntries(); }catch(err){}
+      m.querySelector('#rcv-dump').classList.remove('on'); drawCards();
+    }
+  }
+  var mk = [['soul', 'sec-recall-soul', 'recall-soul', 'sec-notes', 'Recall', 'pull it back'], ['spirit', 'sec-recall-spirit', 'recall-spirit', 'sec-weekly', 'Say it from memory', 'verses and weeks'], ['body', 'sec-recall-body', 'recall-body', 'sec-body', 'Know your moves', 'cues and purpose']];
+  mk.forEach(function(a){ mkCard.apply(null, a); });
+  drawCards();
+  document.addEventListener('visibilitychange', function(){ if(!document.hidden && !ses) drawCards(); });
+  var origSet = setActivePage;
+  setActivePage = function(p){ origSet(p); Object.keys(cards).forEach(function(k){ cards[k].sec.style.display = p === k ? '' : 'none'; }); if(!ses) drawCards(); };
+  setActivePage(LS.get(PAGE_KEY) || 'spirit');
+})();
+
+ window.__SU.ok.push('Recall: retrieval practice for Soul, Spirit and Body');
+}catch(e){ window.__SU.fail.push(['Recall: retrieval practice for Soul, Spirit and Body', String(e && e.message || e)]); if(window.console) console.error('Recall', e); }
+
+
+/* ===== tidy-upgrade.js ===== */
+/* Seasons: tidy-up. PASTE at the very END of your second script block (after Recall).
+   Dashboard : "This week", "Streaks" and "Last 4 weeks" become ONE "Rhythm" card; "Goals" folds into "Season";
+               Compass moves up next to Season; "Needs attention" goes to the top and shrinks to one line when all is clear;
+               Shortcuts and Season start collapsed; Sync and Display sit under their own "Settings" label.
+   Quick sheet: a round + button on every page. One place to capture a Journal entry, a Learning note (optionally "from memory"),
+               or a Reading note, and to Search across scripture, journal, learning, reading, goals and domain tasks.
+   Spirit    : Coordinates starts collapsed. Collapse choices are applied once; after that your own open/closed choices are kept.
+   It only moves cards and adds the sheet. Nothing you wrote is changed. The Today "Capture" row and the Fitness test wording need the
+   matching small changes in the Dashboard and Body code, which are in the full file only. */
+window.__SU = window.__SU || { ok:[], fail:[] };
+try{
+(function(){
+  var DONE = 'seasons-tidy-v1', MODE = 'seasons-qk-mode';
+  function $(id){ return document.getElementById(id); }
+  function esc(s){ return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+  function jget(k, d){ try{ var v = JSON.parse(LS.get(k) || 'null'); return v == null ? d : v; }catch(e){ return d; } }
+  function iso(){ var d = new Date(); function p(n){ return (n < 10 ? '0' : '') + n; } return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()); }
+  function saveState(){ try{ LS.set(SECTION_STATE_KEY, JSON.stringify(sectionState)); }catch(e){} }
+  function mkSection(id, key, title, meta, group){
+    var sec = document.createElement('section'); sec.className = 'csec' + (sectionState[key] === false ? '' : ' open'); sec.id = id; sec.setAttribute('data-key', key); sec.setAttribute('data-group', group);
+    sec.innerHTML = '<button class="csec-head"><div class="csec-head-left"><span class="csec-title"></span><span class="csec-meta"></span></div><span class="csec-chevron">⌄</span></button><div class="csec-body"></div>';
+    sec.querySelector('.csec-title').textContent = title; sec.querySelector('.csec-meta').textContent = meta || '';
+    sec.querySelector('.csec-head').onclick = function(){ var o = sec.classList.toggle('open'); sectionState[key] = o; saveState(); };
+    return sec;
+  }
+  var css = document.createElement('style');
+  css.textContent =
+    '.tdy-l{font:10.5px "IBM Plex Mono",monospace;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint);margin:18px 0 4px}.tdy-l:first-child{margin-top:0}' +
+    '#qk-fab{position:fixed;right:16px;bottom:calc(86px + env(safe-area-inset-bottom,0px));z-index:7000;width:52px;height:52px;border-radius:50%;border:0;background:var(--accent);color:#fff;font-size:28px;line-height:1;box-shadow:0 4px 14px rgba(0,0,0,.25);cursor:pointer}' +
+    '#qk-fab:focus-visible{outline:2px solid var(--ink);outline-offset:3px}#sy-strip{padding-right:70px}' +
+    '#qk-ov{position:fixed;inset:0;z-index:8500;background:var(--paper);overflow-y:auto;-webkit-overflow-scrolling:touch;display:none}#qk-ov.on{display:block}' +
+    '.qk-w{max-width:560px;margin:0 auto;padding:max(16px,env(safe-area-inset-top)) 16px 40px}' +
+    '.qk-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}.qk-top b{font-family:"Fraunces",serif;font-weight:500;font-size:1.3rem;color:var(--ink)}' +
+    '.qk-x{background:none;border:1px solid var(--line);border-radius:999px;width:38px;height:38px;font-size:20px;color:var(--ink-soft);cursor:pointer}' +
+    '.qk-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}.qk-tab{border:1px solid var(--line);background:var(--paper-raised);color:var(--ink-soft);border-radius:999px;padding:8px 14px;font:inherit;font-size:13.5px;cursor:pointer}.qk-tab.on{background:var(--accent);border-color:var(--accent);color:#fff}' +
+    '.qk-w textarea,.qk-w input[type=text],.qk-w input[type=search],.qk-w select{width:100%;box-sizing:border-box;border:1px solid var(--line);border-radius:12px;padding:11px 13px;background:var(--paper-raised);color:var(--ink);font:inherit;font-size:16px;margin-bottom:8px}' +
+    '.qk-w textarea{min-height:120px;resize:vertical;line-height:1.5}.qk-row{display:flex;gap:8px}.qk-row>*{flex:1;min-width:0}' +
+    '.qk-save{border:0;border-radius:999px;background:var(--accent);color:#fff;padding:12px 22px;font:inherit;font-size:15px;cursor:pointer;min-height:44px}' +
+    '.qk-hint{font-size:12.5px;color:var(--ink-faint);line-height:1.5;margin:4px 0 10px}.qk-ok{font-size:13.5px;color:var(--ink-soft);margin-top:10px}' +
+    '.qk-chk{display:flex;gap:8px;align-items:flex-start;font-size:13.5px;color:var(--ink-soft);margin:2px 0 10px;line-height:1.4}.qk-chk input{margin-top:3px}' +
+    '.qk-g{font:10.5px "IBM Plex Mono",monospace;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint);margin:16px 0 4px}' +
+    '.qk-hit{display:block;width:100%;text-align:left;background:none;border:0;border-top:1px solid var(--line);padding:10px 0;color:var(--ink);font:inherit;font-size:14px;line-height:1.45;cursor:pointer}.qk-hit small{display:block;color:var(--ink-faint);font-size:11.5px;margin-bottom:1px}' +
+    '.qk-hit mark{background:rgba(200,150,40,.28);color:inherit;border-radius:3px;padding:0 1px}';
+  document.head.appendChild(css);
+
+  /* ---------- 1. Dashboard structure ---------- */
+  function tidyDash(){
+    var today = $('sec-dash-today'); if(!today) return;
+    var parent = today.parentNode;
+    var label = parent.querySelector('.group-label[data-group="home"]');
+    if(!$('sec-dash-rhythm')){
+      var wk = $('sec-dash-week'), st = $('sec-dash-streak'), ac = $('sec-dash-activity'), mw = $('dash-week'), ms = $('dash-streak'), ma = $('dash-activity');
+      if(wk && st && ac && mw && ms && ma){
+        var r = mkSection('sec-dash-rhythm', 'dash-rhythm', 'Rhythm', 'week, streaks, last 4 weeks', 'home'), body = r.querySelector('.csec-body');
+        [['This week', mw], ['Streaks', ms], ['Last 4 weeks', ma]].forEach(function(p){ var l = document.createElement('div'); l.className = 'tdy-l'; l.textContent = p[0]; body.appendChild(l); body.appendChild(p[1]); });
+        parent.insertBefore(r, wk); [wk, st, ac].forEach(function(s){ s.parentNode.removeChild(s); });
+      }
+    }
+    var se = $('sec-dash-season'), go = $('sec-dash-goals'), mg = $('dash-goals');
+    if(se && go && mg){
+      var l2 = document.createElement('div'); l2.className = 'tdy-l'; l2.textContent = 'Markers this season';
+      se.querySelector('.csec-body').appendChild(l2); se.querySelector('.csec-body').appendChild(mg); go.parentNode.removeChild(go);
+    }
+    /* order: attention, sync strip, today, about me, rhythm, season, compass, shortcuts, reviews, settings */
+    var strip = $('sy-strip'), att = $('sec-dash-attention'), anchor = strip || today;
+    if(att) parent.insertBefore(att, anchor);
+    var seq = ['sec-dash-profile', 'sec-dash-rhythm', 'sec-dash-season', 'sec-compass', 'sec-dash-short', 'sec-review', 'sec-season'], ref = today.nextSibling;
+    seq.forEach(function(id){ var s = $(id); if(!s) return; parent.insertBefore(s, ref); ref = s.nextSibling; });
+    var xs = $('sec-xset'), sy = $('sec-sync');
+    if(xs && !$('tdy-settings-label')){ var gl = document.createElement('div'); gl.className = 'group-label'; gl.id = 'tdy-settings-label'; gl.setAttribute('data-group', 'home'); gl.textContent = 'Settings'; parent.insertBefore(gl, ref); ref = gl.nextSibling; }
+    [xs, sy].forEach(function(s){ if(!s) return; parent.insertBefore(s, ref); ref = s.nextSibling; });
+    /* Needs attention: one line when all is clear */
+    if(att && !att._tdy){
+      att._tdy = true;
+      var sync = function(){ var m = att.querySelector('.csec-meta'), clear = !!m && /all clear/i.test(m.textContent); att.classList.toggle('open', !clear); };
+      new MutationObserver(sync).observe(att, { childList:true, subtree:true, characterData:true }); sync();
+    }
+  }
+  /* collapse defaults, applied once; after that your own choices stay */
+  function defaults(){
+    if(LS.get(DONE)) return;
+    var keys = ['dash-season', 'dash-short', 'coordinates'], p = $('sec-dash-profile'); if(p) keys.push(p.getAttribute('data-key'));
+    keys.forEach(function(k){
+      if(!k || (sectionState[k] !== undefined && k !== 'coordinates')) return;
+      sectionState[k] = false; var s = document.querySelector('section.csec[data-key="' + k + '"]'); if(s) s.classList.remove('open');
+    });
+    saveState(); LS.set(DONE, '1');
+  }
+  tidyDash(); defaults();
+
+  /* ---------- 2. Quick sheet: capture + search ---------- */
+  var ov = document.createElement('div'); ov.id = 'qk-ov'; ov.setAttribute('role', 'dialog'); ov.setAttribute('aria-modal', 'true'); ov.setAttribute('aria-label', 'Quick capture and search'); document.body.appendChild(ov);
+  var fab = document.createElement('button'); fab.id = 'qk-fab'; fab.type = 'button'; fab.setAttribute('aria-label', 'Capture or search'); fab.textContent = '+'; document.body.appendChild(fab);
+  var mode = 'learn', msg = '', draft = {};
+  var MODES = [['journal', 'Journal'], ['learn', 'Learning'], ['read', 'Reading'], ['search', 'Search']];
+  function books(){ var b = []; try{ b = jget('rc_v1', {}).books || []; }catch(e){} return b; }
+  function draw(){
+    var h = '<div class="qk-w"><div class="qk-top"><b>Quick</b><button type="button" class="qk-x" data-qk="close" aria-label="Close">×</button></div><div class="qk-tabs">' +
+      MODES.map(function(m){ return '<button type="button" class="qk-tab' + (m[0] === mode ? ' on' : '') + '" data-qk="mode" data-m="' + m[0] + '">' + m[1] + '</button>'; }).join('') + '</div>';
+    if(mode === 'journal'){
+      h += '<textarea id="qk-text" placeholder="What is on your mind?" aria-label="Journal entry">' + esc(draft.journal || '') + '</textarea><button type="button" class="qk-save" data-qk="save">Save entry</button>';
+    } else if(mode === 'learn'){
+      var src = {}; try{ loadLearningEntries().forEach(function(e){ if(e.source) src[e.source] = 1; }); }catch(e){} books().forEach(function(b){ if(b.title) src[b.title] = 1; });
+      h += '<input type="text" id="qk-src" list="qk-srcs" placeholder="Source (a book, a talk, a person)" aria-label="Source" value="' + esc(draft.src || '') + '"><datalist id="qk-srcs">' + Object.keys(src).map(function(s){ return '<option value="' + esc(s) + '">'; }).join('') + '</datalist>' +
+        '<textarea id="qk-text" placeholder="What did you take from it?" aria-label="Takeaway">' + esc(draft.learn || '') + '</textarea><input type="text" id="qk-act" placeholder="What will you do with it? (optional)" aria-label="Action" value="' + esc(draft.act || '') + '">' +
+        '<label class="qk-chk"><input type="checkbox" id="qk-mem"' + (draft.mem ? ' checked' : '') + '><span>I’m writing this from memory, without looking. It comes back for recall tomorrow.</span></label><button type="button" class="qk-save" data-qk="save">Save</button>';
+    } else if(mode === 'read'){
+      var bs = books().slice().sort(function(a, b){ return (a.status === 'reading' ? 0 : 1) - (b.status === 'reading' ? 0 : 1); });
+      if(!bs.length) h += '<p class="qk-hint">Add a book in Reading (Soul page) first, then you can drop notes in from here.</p>';
+      else h += '<select id="qk-book" aria-label="Book">' + bs.map(function(b){ return '<option value="' + esc(b.id) + '"' + (b.id === draft.book ? ' selected' : '') + '>' + esc(b.title) + '</option>'; }).join('') + '</select>' +
+        '<div class="qk-row"><select id="qk-type" aria-label="Type"><option value="thought">Thought</option><option value="quote"' + (draft.type === 'quote' ? ' selected' : '') + '>Quote</option><option value="summary"' + (draft.type === 'summary' ? ' selected' : '') + '>Chapter summary</option></select><input type="text" id="qk-chap" placeholder="Chapter (optional)" aria-label="Chapter" value="' + esc(draft.chap || '') + '"></div>' +
+        '<textarea id="qk-text" placeholder="Your note" aria-label="Note">' + esc(draft.read || '') + '</textarea><button type="button" class="qk-save" data-qk="save">Save note</button>';
+    } else {
+      h += '<input type="search" id="qk-q" placeholder="Search scripture, journal, learning, reading, goals" aria-label="Search" value="' + esc(draft.q || '') + '"><div id="qk-res"></div>';
+    }
+    if(msg) h += '<div class="qk-ok" role="status">' + esc(msg) + '</div>';
+    h += '</div>'; ov.innerHTML = h;
+    if(mode === 'search') results(); 
+    var t = $('qk-text') || $('qk-q'); if(t){ try{ t.focus({ preventScroll:true }); }catch(e){} }
+  }
+  function grab(){ var g = function(i){ var e = $(i); return e ? e.value : undefined; };
+    if(mode === 'journal') draft.journal = g('qk-text'); else if(mode === 'learn'){ draft.learn = g('qk-text'); draft.src = g('qk-src'); draft.act = g('qk-act'); var m = $('qk-mem'); draft.mem = m ? m.checked : false; }
+    else if(mode === 'read'){ draft.read = g('qk-text'); draft.book = g('qk-book'); draft.type = g('qk-type'); draft.chap = g('qk-chap'); } else draft.q = g('qk-q'); }
+  function open(m){ grab && ov.classList.contains('on') && grab(); mode = m || (function(){ try{ return LS.get(MODE) || 'learn'; }catch(e){ return 'learn'; } })(); if(!MODES.some(function(x){ return x[0] === mode; })) mode = 'learn'; msg = ''; ov.classList.add('on'); document.body.style.overflow = 'hidden'; draw(); }
+  function close(){ ov.classList.remove('on'); ov.innerHTML = ''; document.body.style.overflow = ''; try{ document.dispatchEvent(new Event('visibilitychange')); }catch(e){} }
+  window.__qkOpen = open;
+  function save(){
+    grab(); var txt = String(mode === 'journal' ? draft.journal : mode === 'learn' ? draft.learn : draft.read || '').trim();
+    if(!txt){ msg = 'Write something first.'; draw(); return; }
+    if(mode === 'journal'){
+      var all = loadEntries(); all.push({ id:'e' + Date.now() + Math.random().toString(36).slice(2, 7), seasonKey:SEASONS[currentSeasonIndex].key, ts:Date.now(), text:txt }); saveEntries(all);
+      try{ renderEntries(); renderSoulOverview(); }catch(e){} draft.journal = ''; msg = 'Saved to your journal.';
+    } else if(mode === 'learn'){
+      var src = String(draft.src || '').trim(); if(!src){ msg = 'Add a source (a book, a talk, a person).'; draw(); return; }
+      var list = loadLearningEntries(), en = { id:'l' + Date.now() + Math.random().toString(36).slice(2, 7), ts:Date.now(), source:src, takeaway:txt, action:String(draft.act || '').trim() || (draft.mem ? 'Recalled from memory' : 'Noted'), weekNum:nowWeek, seasonKey:SEASONS[currentSeasonIndex].key, photo:null };
+      if(draft.mem) en.recalled = true; list.unshift(en); saveLearningEntries(list);
+      try{ renderLearningEntries(); }catch(e){} draft.learn = ''; draft.act = ''; draft.mem = false; msg = 'Saved. It will come back for recall tomorrow.';
+    } else if(mode === 'read'){
+      var rc = jget('rc_v1', null), b = rc && (rc.books || []).filter(function(x){ return x.id === draft.book; })[0]; if(!b){ msg = 'Pick a book first.'; draw(); return; }
+      b.notes = b.notes || []; b.notes.push({ id:'q' + Date.now() + Math.random().toString(36).slice(2, 6), type:draft.type || 'thought', chapter:String(draft.chap || '').trim(), text:txt, tags:[], date:iso(), at:b.progress || 0 });
+      LS.set('rc_v1', JSON.stringify(rc)); try{ window.ReadingCompanion && window.ReadingCompanion.reload(); }catch(e){} draft.read = ''; msg = 'Saved to “' + b.title + '”.';
+    }
+    try{ LS.set(MODE, mode); }catch(e){} draw();
+  }
+  /* ---- search ---- */
+  function snippet(text, q){
+    var t = String(text || '').replace(/\s+/g, ' ').trim(), i = t.toLowerCase().indexOf(q.toLowerCase()); if(i < 0) return esc(t.slice(0, 120));
+    var a = Math.max(0, i - 50), z = Math.min(t.length, i + q.length + 70);
+    return (a > 0 ? '…' : '') + esc(t.slice(a, i)) + '<mark>' + esc(t.slice(i, i + q.length)) + '</mark>' + esc(t.slice(i + q.length, z)) + (z < t.length ? '…' : '');
+  }
+  function goTo(page, secId, after){
+    close(); try{ setActivePage(page); }catch(e){}
+    var s = secId && $(secId); if(s){ if(!s.classList.contains('open')){ s.classList.add('open'); var k = s.getAttribute('data-key'); if(k){ sectionState[k] = true; saveState(); } } }
+    if(after) try{ after(); }catch(e){}
+    setTimeout(function(){ var t = s || null; if(t){ try{ t.scrollIntoView({ behavior:'smooth', block:'start' }); }catch(e){ t.scrollIntoView(); } } }, 80);
+  }
+  var hits = [];
+  function results(){
+    var out = $('qk-res'); if(!out) return; var q = String(draft.q || '').trim(); hits = [];
+    if(q.length < 2){ out.innerHTML = '<p class="qk-hint">Type two or more letters. This searches your scripture reflections and verse text you have opened, learning notes, Reading (notes, characters, plot, words, cards), goals and domain tasks.</p>'; return; }
+    var ql = q.toLowerCase(); function has(s){ return String(s || '').toLowerCase().indexOf(ql) >= 0; }
+    function add(kind, label, text, go){ if(hits.length < 60) hits.push({ k:kind, l:label, t:text, g:go }); }
+    try{ var cache = jget('seasons-verse-cache', {}), notes = (cache.__ss || {}).notes || {};
+      WEEKS.forEach(function(w){ var s = [w.t, w.r, w.f, w.s].join(' · '); if(has(s)) add('Scripture', 'Week ' + w.w, s, function(){ goTo('spirit', 'sec-weekly', function(){ activeWeek = w.w; renderWeekDetail(); try{ renderWeekGrid(); }catch(e){} }); });
+        if(notes[w.w] && has(notes[w.w])) add('Scripture', 'Week ' + w.w + ' · my reflection', notes[w.w], function(){ goTo('spirit', 'sec-weekly', function(){ activeWeek = w.w; renderWeekDetail(); }); }); });
+      Object.keys(cache).forEach(function(k){ if(k === '__ss' || typeof cache[k] !== 'string' || !has(cache[k])) return; var ref = k.replace(/\|web$/, ''), w = WEEKS.filter(function(x){ return x.r === ref || x.f === ref || x.s === ref; })[0];
+        add('Scripture', ref, cache[k], function(){ goTo('spirit', 'sec-weekly', w ? function(){ activeWeek = w.w; renderWeekDetail(); } : null); }); }); }catch(e){}
+    var locked = false; try{ locked = !!LS.get('seasons-pin'); }catch(e){}
+    if(!locked) try{ loadEntries().slice().reverse().forEach(function(e){ if(has(e.text)) add('Journal', new Date(e.ts).toLocaleDateString(undefined, { day:'numeric', month:'short', year:'numeric' }), e.text, function(){ goTo('soul', 'sec-notes'); }); }); }catch(e){}
+    try{ loadLearningEntries().forEach(function(e){ var s = [e.source, e.takeaway, e.action].join(' · '); if(has(s)) add('Learning', e.source, [e.takeaway, e.action].join(' · '), function(){ goTo('soul', 'sec-notes'); }); }); }catch(e){}
+    try{ var rc = jget('rc_v1', {}); (rc.books || []).forEach(function(b){
+      var rd = function(){ goTo('soul', 'sec-reading', function(){ try{ window.openReading && window.openReading(); }catch(e){} }); };
+      if(has(b.title + ' ' + (b.author || ''))) add('Reading', 'Book', b.title + (b.author ? ' · ' + b.author : ''), rd);
+      (b.notes || []).forEach(function(n){ if(has(n.text + ' ' + (n.chapter || ''))) add('Reading', b.title + ' · ' + (n.type || 'note'), n.text, rd); });
+      (b.cast || []).forEach(function(c){ if(has(c.name + ' ' + (c.role || ''))) add('Reading', b.title + ' · character', c.name + (c.role ? ' — ' + c.role : ''), rd); });
+      (b.events || []).forEach(function(e){ if(has(e.text)) add('Reading', b.title + ' · plot', e.text, rd); }); });
+      var rd2 = function(){ goTo('soul', 'sec-reading', function(){ try{ window.openReading && window.openReading(); }catch(e){} }); };
+      (rc.vocab || []).forEach(function(v){ if(has(v.word + ' ' + (v.def || ''))) add('Reading', 'Word', v.word + (v.def ? ': ' + v.def : ''), rd2); });
+      (rc.cards || []).forEach(function(c){ if(has(c.q + ' ' + c.a)) add('Reading', 'Quiz card', c.q + ' → ' + c.a, rd2); }); }catch(e){}
+    try{ var ga = jget('seasons-goals', {}); Object.keys(ga).forEach(function(sk){ var g = ga[sk]; if(!g || typeof g !== 'object') return; ['spirit', 'soul', 'body'].forEach(function(p){ (g[p] || []).forEach(function(x){ if(x && has(x.text)) add('Markers', p.charAt(0).toUpperCase() + p.slice(1) + ' marker', x.text, function(){ goTo(p, 'sec-goals-' + p); }); }); }); }); }catch(e){}
+    try{ var dt = jget('seasons-domain-tasks', {}); Object.keys(dt).forEach(function(d){ if(!Array.isArray(dt[d])) return; dt[d].forEach(function(x){ if(x && has(x.text)) add('Domains', d.charAt(0).toUpperCase() + d.slice(1), x.text, function(){ goTo('soul', 'sec-domains'); }); }); }); }catch(e){}
+    var h = '', last = '';
+    hits.forEach(function(x, i){ if(x.k !== last){ h += '<div class="qk-g">' + esc(x.k) + '</div>'; last = x.k; } h += '<button type="button" class="qk-hit" data-qk="hit" data-i="' + i + '"><small>' + esc(x.l) + '</small>' + snippet(x.t, q) + '</button>'; });
+    if(locked) h += '<p class="qk-hint">Your journal is locked, so it is not searched.</p>';
+    out.innerHTML = h || '<p class="qk-hint">Nothing found for “' + esc(q) + '”.' + '</p>';
+  }
+  ov.addEventListener('input', function(e){ if(e.target && e.target.id === 'qk-q'){ draft.q = e.target.value; results(); } });
+  ov.addEventListener('click', function(e){
+    var b = e.target.closest && e.target.closest('[data-qk]'); if(!b) return; var a = b.getAttribute('data-qk');
+    if(a === 'close') close();
+    else if(a === 'mode'){ grab(); mode = b.getAttribute('data-m'); msg = ''; draw(); }
+    else if(a === 'save') save();
+    else if(a === 'hit'){ var x = hits[+b.getAttribute('data-i')]; if(x && x.g) x.g(); }
+  });
+  document.addEventListener('keydown', function(e){ if(e.key === 'Escape' && ov.classList.contains('on')) close(); });
+  fab.addEventListener('click', function(){ open(); });
+
+  /* rebuild the jump bar and refresh the Dashboard after the move */
+  try{ setActivePage(LS.get(PAGE_KEY) || 'home'); }catch(e){}
+})();
+
+ window.__SU.ok.push('Tidy: Rhythm card, quick capture and search, settings');
+}catch(e){ window.__SU.fail.push(['Tidy: Rhythm card, quick capture and search, settings', String(e && e.message || e)]); if(window.console) console.error('Tidy', e); }
 
 </script>
 </body>
