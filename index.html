@@ -238,6 +238,14 @@
   .entry-meta{display:flex; gap:10px; align-items:center; font-family:'IBM Plex Mono',monospace; font-size:10px; color:var(--ink-faint);}
   .entry-tag{padding:2px 8px; border-radius:10px; font-size:9.5px;}
   .entry-text{font-size:13.5px; white-space:pre-wrap;}
+  .entry-edit{margin-left:auto; background:none; border:none; color:var(--ink-faint); cursor:pointer; font-size:11px; text-decoration:underline; padding:6px 4px;}
+  .entry-edit + .entry-del{margin-left:0}
+  .entry-form{display:flex;flex-direction:column;gap:6px;margin-top:6px}
+  .entry-form input,.entry-form textarea{width:100%;box-sizing:border-box;font:inherit;font-size:14px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--paper);color:var(--ink)}
+  .entry-form textarea{min-height:84px;resize:vertical}
+  .entry-form .row{display:flex;gap:8px}
+  .entry-form button{font:inherit;font-size:13px;padding:7px 14px;border-radius:8px;border:1px solid var(--line);background:none;color:var(--ink);cursor:pointer}
+  .entry-form button.pri{background:var(--ink);color:var(--paper);border-color:var(--ink)}
   .entry-del{margin-left:auto; background:none; border:none; color:var(--ink-faint); cursor:pointer; font-size:11px; text-decoration:underline; padding:6px 4px;}
   .empty-note{color:var(--ink-faint); font-size:12.5px; font-style:italic; padding:.3rem 0;}
 
@@ -1374,6 +1382,8 @@ function saveEntries(entries){ return LS.set(ENTRIES_KEY, JSON.stringify(entries
 function seasonBadgeStyle(colorKey){ return `background:var(--${colorKey}-bg); color:var(--${colorKey}-ink);`; }
 let journalFilterQuery = '';
 let journalUndo = null;
+let journalEditId = null, learningEditId = null;
+function escA(t){ return String(t == null ? '' : t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'); }
 function wireJournalUndo(){
   const btn = document.getElementById('journal-undo-btn');
   if(btn) btn.onclick = () => {
@@ -1400,10 +1410,23 @@ function renderEntries(){
   mount.innerHTML = undoBanner + sorted.map(e=>{
     const season = SEASONS.find(s=>s.key===e.seasonKey) || SEASONS[0];
     const date = new Date(e.ts).toLocaleDateString(undefined, { year:'numeric', month:'short', day:'numeric' });
-    return `<div class="entry">
-      <div class="entry-meta"><span>${date}</span><span class="entry-tag" style="${seasonBadgeStyle(season.color)}">${season.name}</span><button class="entry-del" data-id="${e.id}">delete</button></div>
+    if(journalEditId === e.id) return `<div class="entry" data-eid="${e.id}">
+      <div class="entry-meta"><span>${date}</span><span class="entry-tag" style="${seasonBadgeStyle(season.color)}">${season.name}</span></div>
+      <div class="entry-form"><textarea data-f="text">${escA(e.text)}</textarea><div class="row"><button class="pri" data-act="save">Save</button><button data-act="cancel">Cancel</button></div></div></div>`;
+    return `<div class="entry" data-eid="${e.id}">
+      <div class="entry-meta"><span>${date}</span><span class="entry-tag" style="${seasonBadgeStyle(season.color)}">${season.name}</span>${e.edited ? '<span class="faint" style="font-size:11px">edited</span>' : ''}<button class="entry-edit" data-id="${e.id}">edit</button><button class="entry-del" data-id="${e.id}">delete</button></div>
       <div class="entry-text">${e.text.replace(/</g,'&lt;')}</div></div>`;
   }).join('');
+  mount.querySelectorAll('.entry-edit').forEach(b=> b.addEventListener('click', ()=>{ journalEditId = b.getAttribute('data-id'); renderEntries(); const ta = mount.querySelector('textarea'); if(ta){ ta.focus(); try{ ta.setSelectionRange(ta.value.length, ta.value.length); }catch(_){} } }));
+  mount.querySelectorAll('[data-act]').forEach(b=> b.addEventListener('click', ()=>{
+    const box = b.closest('.entry'), id = box.getAttribute('data-eid');
+    if(b.getAttribute('data-act') === 'save'){
+      const t = box.querySelector('[data-f=text]').value.trim(); if(!t) return;
+      const all = loadEntries(), it = all.find(x=>x.id===id);
+      if(it && it.text !== t){ it.text = t; it.edited = Date.now(); saveEntries(all); }
+    }
+    journalEditId = null; renderEntries(); renderSoulOverview();
+  }));
   mount.querySelectorAll('.entry-del').forEach(btn=> btn.addEventListener('click', ()=>{
     const all = loadEntries();
     const idx = all.findIndex(x=>x.id===btn.getAttribute('data-id'));
@@ -1744,14 +1767,28 @@ function renderLearningEntries(){
   mount.innerHTML = undoBanner + entries.map(e=>{
     const date = new Date(e.ts).toLocaleDateString(undefined, { month:'short', day:'numeric' });
     const tagStyle = 'background:var(--paper); color:var(--ink-soft); border:1px solid var(--line);';
-    return `<div class="entry">
-      <div class="entry-meta"><span>${date}</span><span class="entry-tag" style="${tagStyle}">${e.source.replace(/</g,'&lt;')}</span><button class="entry-del" data-id="${e.id}">delete</button></div>
+    if(learningEditId === e.id) return `<div class="entry" data-eid="${e.id}">
+      <div class="entry-meta"><span>${date}</span></div>
+      <div class="entry-form"><input data-f="source" value="${escA(e.source)}" placeholder="Source"><textarea data-f="takeaway" placeholder="Takeaway">${escA(e.takeaway)}</textarea><input data-f="action" value="${escA(e.action)}" placeholder="What I will do"><div class="row"><button class="pri" data-act="save">Save</button><button data-act="cancel">Cancel</button></div></div></div>`;
+    return `<div class="entry" data-eid="${e.id}">
+      <div class="entry-meta"><span>${date}</span><span class="entry-tag" style="${tagStyle}">${e.source.replace(/</g,'&lt;')}</span>${e.edited ? '<span class="faint" style="font-size:11px">edited</span>' : ''}<button class="entry-edit" data-id="${e.id}">edit</button><button class="entry-del" data-id="${e.id}">delete</button></div>
       <div class="entry-text">${e.takeaway.replace(/</g,'&lt;')}</div>
       <div class="entry-text" style="color:var(--ink-faint); font-size:12px;">→ ${e.action.replace(/</g,'&lt;')}</div>
       ${e.photo ? `<img class="learning-photo-view" data-src="${e.photo}" src="${e.photo}" style="width:56px; height:56px; object-fit:cover; border-radius:7px; border:1px solid var(--line); margin-top:6px; cursor:pointer;" alt="attached photo">` : ''}
     </div>`;
   }).join('');
   mount.querySelectorAll('.learning-photo-view').forEach(img=> img.addEventListener('click', ()=> window.open(img.dataset.src, '_blank')));
+  mount.querySelectorAll('.entry-edit').forEach(b=> b.addEventListener('click', ()=>{ learningEditId = b.getAttribute('data-id'); renderLearningEntries(); const ta = mount.querySelector('textarea'); if(ta) ta.focus(); }));
+  mount.querySelectorAll('[data-act]').forEach(b=> b.addEventListener('click', ()=>{
+    const box = b.closest('.entry'), id = box.getAttribute('data-eid');
+    if(b.getAttribute('data-act') === 'save'){
+      const v = f => box.querySelector('[data-f='+f+']').value.trim(), src = v('source'), tk = v('takeaway'), ac = v('action');
+      if(!tk) return;
+      const all = loadLearningEntries(), it = all.find(x=>x.id===id);
+      if(it && (it.source !== src || it.takeaway !== tk || it.action !== ac)){ it.source = src || it.source; it.takeaway = tk; it.action = ac; it.edited = Date.now(); saveLearningEntries(all); }
+    }
+    learningEditId = null; renderLearningEntries(); renderSoulOverview();
+  }));
   mount.querySelectorAll('.entry-del').forEach(btn=> btn.addEventListener('click', ()=>{
     const all = loadLearningEntries();
     const idx = all.findIndex(x=>x.id===btn.getAttribute('data-id'));
@@ -3740,10 +3777,104 @@ try{
     return n;
   }
 
+  /* ---------- sync-safe ticks, schedules and merging ---------- */
+  var SPREAD = { 1:[1], 2:[1,4], 3:[1,3,5], 4:[1,2,4,6], 5:[1,2,3,4,5], 6:[1,2,3,4,5,6], 7:[0,1,2,3,4,5,6] };
+  var DAYN = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'], DAYORDER = [1,2,3,4,5,6,0];
+  var SLOTS = [['', 'Anytime'], ['morning', 'Morning'], ['midday', 'Midday'], ['evening', 'Evening']];
+  var AUTOS = [['', 'Manual: I tick it myself'], ['scripture', 'The day\u2019s scripture is ticked'], ['reading', 'I log a reading session'], ['journal', 'I save a journal entry'], ['learning', 'I save a learning note'], ['recall', 'I finish a recall session'], ['training', 'I log a workout']];
+  var AUTO_SHORT = { scripture:'scripture', reading:'reading', journal:'journal', learning:'learning note', recall:'recall', training:'workout' };
+  function slotName(k){ var r = SLOTS.filter(function(x){ return x[0] === k; })[0]; return r ? r[1] : ''; }
+  /* one tick = one timestamped event, so two devices can be combined without losing either (s: 0 off, 1 done, 2 minimum) */
+  function pracSet(p, d, id, s, auto){
+    p.log = p.log || {}; p.mn = p.mn || {}; p.ev = p.ev || {};
+    p.log[d] = (p.log[d] || []).filter(function(x){ return x !== id; }); p.mn[d] = (p.mn[d] || []).filter(function(x){ return x !== id; });
+    if(s > 0) p.log[d].push(id); if(s === 2) p.mn[d].push(id);
+    p.ev[d] = p.ev[d] || {}; p.ev[d][id] = { t:Date.now(), s:s }; if(auto) p.ev[d][id].a = 1;
+    var cut = ptFmtDate(new Date(Date.now() - 120 * 864e5)); Object.keys(p.ev).forEach(function(k){ if(k < cut) delete p.ev[k]; });
+  }
+  function dowOf(d){ return new Date(d + 'T12:00:00').getDay(); }
+  function pdays(p){ return (p.days && p.days.length) ? p.days : (SPREAD[p.target] || SPREAD[7]); }
+  function daysText(p){ var ds = pdays(p); if(ds.length === 7) return 'every day'; return DAYORDER.filter(function(i){ return ds.indexOf(i) >= 0; }).map(function(i){ return DAYN[i]; }).join(' '); }
+  /* 'due' if scheduled today, 'catchup' if an earlier scheduled day this week was missed, otherwise null */
+  function isDue(p, d, wk, log){
+    var days = pdays(p); if(days.indexOf(dowOf(d)) >= 0) return 'due';
+    var before = wk.filter(function(x){ return x < d; });
+    var sched = before.filter(function(x){ return days.indexOf(dowOf(x)) >= 0; }).length;
+    var n = before.filter(function(x){ return ((log || {})[x] || []).indexOf(p.id) >= 0; }).length;
+    return n < sched ? 'catchup' : null;
+  }
+  function isObj(x){ return x && typeof x === 'object' && !Array.isArray(x); }
+  function fillMissing(a, b){
+    if(!isObj(a) || !isObj(b)) return a === undefined ? b : a;
+    var o = {}, k; for(k in a) o[k] = a[k];
+    for(k in b){ if(!(k in o)) o[k] = b[k]; else if(isObj(o[k]) && isObj(b[k])) o[k] = fillMissing(o[k], b[k]); }
+    return o;
+  }
+  function sumArr(v){ return Array.isArray(v) ? v.reduce(function(s, n){ return s + (Number(n) || 0); }, 0) : (Number(v) || 0); }
+  function mergeDone(a, b){
+    var out = {}, ds = {}; Object.keys(a || {}).concat(Object.keys(b || {})).forEach(function(d){ ds[d] = 1; });
+    Object.keys(ds).forEach(function(d){
+      var x = (a || {})[d], y = (b || {})[d]; if(!isObj(x) || !isObj(y)){ out[d] = x || y; return; }
+      var o = {}, ids = {}; Object.keys(x).concat(Object.keys(y)).forEach(function(k){ ids[k] = 1; });
+      Object.keys(ids).forEach(function(k){ var u = x[k], v = y[k]; o[k] = u === undefined ? v : v === undefined ? u : (sumArr(v) > sumArr(u) ? v : u); });
+      out[d] = o;
+    });
+    return out;
+  }
+  function mergeList(a, b){
+    if(!Array.isArray(a)) return b; if(!Array.isArray(b)) return a;
+    var out = a.slice(), idx = {}; out.forEach(function(x, i){ if(x && x.id) idx[x.id] = i; });
+    b.forEach(function(y){
+      if(!y || !y.id) return;
+      if(idx[y.id] === undefined){ idx[y.id] = out.length; out.push(y); return; }
+      var x = out[idx[y.id]], m = fillMissing(x, y); if(y.done && !x.done){ m.done = true; if(y.doneAt) m.doneAt = y.doneAt; } out[idx[y.id]] = m;
+    });
+    return out;
+  }
+  function mergePrac(a, b){
+    var del = {}; [a.del, b.del].forEach(function(m){ if(isObj(m)) Object.keys(m).forEach(function(id){ del[id] = Math.max(del[id] || 0, Number(m[id]) || 1); }); });
+    var byId = {}, list = [];
+    (a.list || []).concat(b.list || []).forEach(function(p){
+      if(!p || !p.id || del[p.id]) return; var x = byId[p.id];
+      if(!x){ byId[p.id] = p; list.push(p); return; }
+      var i = list.indexOf(x), n = (Number(p.mt) || 0) > (Number(x.mt) || 0) ? fillMissing(p, x) : fillMissing(x, p); list[i] = byId[p.id] = n;
+    });
+    var log = {}, mn = {}, ev = {}, dates = {};
+    [a, b].forEach(function(p){ ['log', 'mn', 'ev'].forEach(function(f){ Object.keys(p[f] || {}).forEach(function(d){ dates[d] = 1; }); }); });
+    function evOf(p, d, id){ var e = p.ev && p.ev[d] && p.ev[d][id]; if(e) return e; if(((p.log || {})[d] || []).indexOf(id) < 0) return null; return { t:0, s:((p.mn || {})[d] || []).indexOf(id) >= 0 ? 2 : 1 }; }
+    Object.keys(dates).forEach(function(d){
+      var ids = {}; log[d] = [];
+      [a, b].forEach(function(p){ ((p.log || {})[d] || []).forEach(function(id){ ids[id] = 1; }); ((p.mn || {})[d] || []).forEach(function(id){ ids[id] = 1; }); Object.keys((p.ev || {})[d] || {}).forEach(function(id){ ids[id] = 1; }); });
+      Object.keys(ids).forEach(function(id){
+        var x = evOf(a, d, id), y = evOf(b, d, id), r = (x && y) ? ((x.t > y.t) ? x : (y.t > x.t) ? y : (x.s >= y.s ? x : y)) : (x || y); if(!r) return;
+        if(r.s > 0){ log[d].push(id); if(r.s === 2) (mn[d] = mn[d] || []).push(id); }
+        if(r.t > 0){ (ev[d] = ev[d] || {})[id] = r; }
+      });
+    });
+    var out = fillMissing({}, a); out = fillMissing(out, b); out.list = list; out.log = log; out.mn = mn; out.ev = ev; out.del = del; return out;
+  }
+  /* combines two copies of the whole goals store: markers by id, practices and ticks by event, workout logs by the fuller record */
+  function mergeGoals(aText, bText){
+    var A = JSON.parse(aText), B = JSON.parse(bText); if(!isObj(A) || !isObj(B)) return null;
+    var out = {}, keys = {}; Object.keys(A).concat(Object.keys(B)).forEach(function(k){ keys[k] = 1; });
+    Object.keys(keys).forEach(function(k){
+      var a = A[k], b = B[k];
+      if(a === undefined){ out[k] = b; return; } if(b === undefined){ out[k] = a; return; }
+      if(k === '__prac') out[k] = mergePrac(isObj(a) ? a : {}, isObj(b) ? b : {});
+      else if(k === '__cal'){ var m = fillMissing(a, b); if(isObj(m)) m.done = mergeDone(a && a.done, b && b.done); out[k] = m; }
+      else if(isObj(a) && isObj(b)){ var s = {}, pg = {}; Object.keys(a).concat(Object.keys(b)).forEach(function(p){ pg[p] = 1; }); Object.keys(pg).forEach(function(p){ s[p] = mergeList(a[p], b[p]); }); out[k] = s; }
+      else out[k] = a;
+    });
+    return JSON.stringify(out);
+  }
+  window.__pracSet = pracSet; window.__pracDue = isDue; window.__mergeGoals = mergeGoals;
+
   var css = el('style');
   css.textContent =
     '.pr-chip{flex:0 0 36px;height:36px;border-radius:50%;border:2px solid var(--ink-faint);background:none;color:var(--paper);font:600 15px system-ui,sans-serif;cursor:pointer}' +
     '.pr-chip.on{background:var(--ink);border-color:var(--ink)}' +
+    '.pr-hist{display:flex;align-items:center;gap:7px;margin-top:6px;flex-wrap:wrap}.pr-hw{display:inline-flex;gap:2px}.pr-hw i{width:7px;height:7px;border-radius:2px;display:block;border:1px solid var(--line)}.pr-hw i.pr-h-full{background:var(--ink);border-color:var(--ink)}.pr-hw i.pr-h-min{background:linear-gradient(135deg,var(--ink) 50%,transparent 50%);border-color:var(--ink)}.pr-hw i.pr-h-off{border-color:transparent;background:var(--line);opacity:.5}.pr-hw i.pr-h-na{border-color:transparent;background:transparent}.pr-ht{font-size:11px;color:var(--ink-faint)}' +
+    '.d-slot{font:10.5px "IBM Plex Mono",monospace;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint);margin:12px 0 2px}' +
     '.pr-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--line)}' +
     '.pr-row:first-child{border-top:none}' +
     '.pr-sug{font-size:12px;border:1px dashed var(--ink-faint);border-radius:14px;background:none;color:var(--ink-soft);padding:6px 11px;cursor:pointer}' +
@@ -3754,6 +3885,34 @@ try{
 
   /* ---------- Practices ---------- */
   var editId = null;
+  /* how a practice has gone over a run of weeks: full tick, minimum tick, missed scheduled day, day off */
+  function pracStart(p, s){
+    var first = null; Object.keys(s.log || {}).forEach(function(d){ if((s.log[d] || []).indexOf(p.id) >= 0 && (!first || d < first)) first = d; });
+    var made = p.mt ? ptFmtDate(new Date(p.mt)) : null;
+    if(made && (!first || made < first)) return made; return first;
+  }
+  function pracWindow(p, s, dates){
+    var st = pracStart(p, s), today = ptFmtDate(new Date()), days = pdays(p), cells = [], sched = 0, ran = 0;
+    dates.forEach(function(d){
+      var on = (s.log[d] || []).indexOf(p.id) >= 0, mn = ((s.mn || {})[d] || []).indexOf(p.id) >= 0, due = days.indexOf(dowOf(d)) >= 0, k;
+      if(d > today || !st || d < st || (d === today && !on)) k = 'na';
+      else if(on) k = mn ? 'min' : 'full';
+      else k = due ? 'miss' : 'off';
+      if(k !== 'na'){ if(due) sched++; if(on) ran++; }
+      cells.push([d, k]);
+    });
+    return { cells:cells, sched:sched, ran:ran, pct: sched ? Math.min(100, Math.round(100 * ran / sched)) : null };
+  }
+  function lastWeeks(n, off){ var out = []; for(var i = n - 1; i >= 0; i--) out.push(weekDates((off || 0) + i)); return out; }
+  function histStrip(p, s){
+    var wks = lastWeeks(4), r = pracWindow(p, s, [].concat.apply([], wks)), box = el('div', 'pr-hist'), i = 0;
+    if(!r.cells.some(function(c){ return c[1] !== 'na'; })) return null;
+    wks.forEach(function(w){
+      var wb = el('span', 'pr-hw'); w.forEach(function(){ var c = r.cells[i++], q = el('i', 'pr-h-' + c[1]); q.title = c[0] + ' \u00b7 ' + ({ full:'done', min:'minimum', miss:'missed', off:'day off', na:'' })[c[1]]; wb.appendChild(q); }); box.appendChild(wb);
+    });
+    var t = el('span', 'pr-ht', r.sched ? 'ran ' + Math.min(r.ran, r.sched) + ' of ' + r.sched + ' scheduled days' : 'no scheduled days yet'); box.appendChild(t);
+    return box;
+  }
   function renderGroup(g){
     var m = document.getElementById('prac-' + g); if(!m) return;
     var s = load(), t = ptFmtDate(new Date()), wk = weekDates(0), yd = ptFmtDate(new Date(Date.now() - 864e5)), yd2 = ptFmtDate(new Date(Date.now() - 2 * 864e5));
@@ -3767,11 +3926,7 @@ try{
       var row = el('div', 'pr-row');
       var cb = el('button', 'pr-chip' + (done ? ' on' : ''), done ? '✓' : ''); cb.type = 'button';
       cb.setAttribute('aria-label', (done ? 'Untick ' : 'Tick ') + p.name);
-      cb.onclick = function(){
-        var d = load(); d.log[t] = d.log[t] || []; d.mn = d.mn || {}; d.mn[t] = d.mn[t] || [];
-        var i = d.log[t].indexOf(p.id); if(i >= 0){ d.log[t].splice(i, 1); d.mn[t] = d.mn[t].filter(function(x){ return x !== p.id; }); } else d.log[t].push(p.id);
-        save(d); renderAll();
-      };
+      cb.onclick = function(){ var d = load(); pracSet(d, t, p.id, done ? 0 : 1); save(d); renderAll(); };
       var n = wk.filter(logd).length, st = streak(s, p.id), nMin = wk.filter(function(x){ return ((s.mn || {})[x] || []).indexOf(p.id) >= 0; }).length;
       var info = el('div'); info.style.flex = '1';
       info.appendChild(el('div', null, p.name));
@@ -3782,13 +3937,15 @@ try{
       if(p.coord != null && COORD_LABELS[p.coord]) design.push('Serves: ' + COORD_LABELS[p.coord]);
       if(design.length){ var dl = el('div', null, design.join(' · ')); dl.style.cssText = 'font-size:11.5px;color:var(--ink-soft);margin-top:2px'; info.appendChild(dl); }
       else { var nd = el('div', null, 'Add a cue and a minimum so it runs on autopilot.'); nd.style.cssText = 'font-size:11.5px;color:var(--ink-faint);margin-top:2px'; info.appendChild(nd); }
+      var d2 = []; if(p.slot) d2.push(slotName(p.slot)); d2.push(daysText(p)); if(p.auto && AUTO_SHORT[p.auto]) d2.push('ticks itself: ' + AUTO_SHORT[p.auto]); if(p.at) d2.push('reminder ' + p.at);
+      var l2 = el('div', null, d2.join(' \u00b7 ')); l2.style.cssText = 'font-size:11.5px;color:var(--ink-faint);margin-top:2px'; info.appendChild(l2); var hs = histStrip(p, s); if(hs) info.appendChild(hs);
       if(!done && !logd(yd) && logd(yd2)){ var nm = el('div', null, 'Missed yesterday. Never miss twice' + (p.min ? ': do the minimum today.' : '.')); nm.style.cssText = 'font-size:11.5px;color:var(--accent-ink);margin-top:2px'; info.appendChild(nm); }
       var fed = mk.filter(function(x){ return x.prac === p.id; });
       fed.forEach(function(x){ var fl = el('div', null, (x.done ? '✓ ' : '→ ') + 'Marker: ' + x.text + (x.due ? ' (by ' + x.due + ')' : '')); fl.style.cssText = 'font-size:11.5px;color:var(--ink-faint);margin-top:2px'; info.appendChild(fl); });
       row.appendChild(cb); row.appendChild(info);
       if(p.min && !done){
         var mb = el('button', 'pr-sug', 'Min'); mb.type = 'button'; mb.title = 'Do the minimum: ' + p.min; mb.setAttribute('aria-label', 'Tick the minimum version of ' + p.name);
-        mb.onclick = function(){ var d = load(); d.log[t] = d.log[t] || []; d.mn = d.mn || {}; d.mn[t] = d.mn[t] || []; if(d.log[t].indexOf(p.id) < 0) d.log[t].push(p.id); if(d.mn[t].indexOf(p.id) < 0) d.mn[t].push(p.id); save(d); renderAll(); };
+        mb.onclick = function(){ var d = load(); pracSet(d, t, p.id, 2); save(d); renderAll(); };
         row.appendChild(mb);
       }
       var ed = el('button', 'entry-del', '✎'); ed.type = 'button'; ed.setAttribute('aria-label', 'Design ' + p.name + ': cue, minimum, rhythm');
@@ -3796,7 +3953,7 @@ try{
       var rm = el('button', 'entry-del', '✕'); rm.type = 'button'; rm.setAttribute('aria-label', 'Remove ' + p.name);
       rm.onclick = function(){
         if(!confirm('Remove "' + p.name + '"? Its history will be removed too.')) return;
-        var d = load(); d.list = d.list.filter(function(x){ return x.id !== p.id; });
+        var d = load(); d.list = d.list.filter(function(x){ return x.id !== p.id; }); d.del = d.del || {}; d.del[p.id] = Date.now();
         Object.keys(d.log).forEach(function(k){ d.log[k] = d.log[k].filter(function(x){ return x !== p.id; }); });
         Object.keys(d.mn || {}).forEach(function(k){ d.mn[k] = d.mn[k].filter(function(x){ return x !== p.id; }); });
         save(d); renderAll(); try{ renderAllGoals(); }catch(e){}
@@ -3805,7 +3962,7 @@ try{
       if(editId === p.id) m.appendChild(editPanel(p));
     });
     function add(name, target){
-      var d = load(), id = 'p' + Date.now() + Math.random().toString(36).slice(2, 5); d.list.push({ id: id, name: name, group: g, target: target });
+      var d = load(), id = 'p' + Date.now() + Math.random().toString(36).slice(2, 5); d.list.push({ id: id, name: name, group: g, target: target, mt: Date.now() });
       editId = id; save(d); renderAll(); try{ renderAllGoals(); }catch(e){}
     }
     var have = items.map(function(p){ return p.name; });
@@ -3825,26 +3982,38 @@ try{
     ab.onclick = function(){ var v = inp.value.trim(); if(v) add(v, Number(sel.value)); };
     form.appendChild(inp); form.appendChild(sel); form.appendChild(ab); m.appendChild(form);
   }
-  /* the small design panel for one practice: cue, minimum, rhythm, what it serves */
+  /* the small design panel for one practice: cue, minimum, when, how it ticks, what it serves */
   function editPanel(p){
     var box = el('div'); box.style.cssText = 'border:1px solid var(--line);border-radius:12px;padding:12px;margin:4px 0 10px;background:var(--paper-raised);display:grid;gap:8px';
     var fs = 'border:1px solid var(--line);border-radius:9px;padding:9px 12px;font-size:13.5px;background:var(--paper);color:var(--ink);width:100%;box-sizing:border-box';
     function field(label, node, hint){ var w = el('label'); w.style.cssText = 'display:grid;gap:3px;font-size:12px;color:var(--ink-soft)'; w.appendChild(el('span', null, label)); w.appendChild(node); if(hint){ var h = el('span', null, hint); h.style.cssText = 'font-size:11px;color:var(--ink-faint)'; w.appendChild(h); } return w; }
+    function opts(sel, list, val){ list.forEach(function(o){ var x = el('option', null, o[1]); x.value = o[0]; sel.appendChild(x); }); sel.value = val; }
     var cue = el('input'); cue.type = 'text'; cue.value = p.cue || ''; cue.placeholder = 'e.g. after my morning coffee'; cue.style.cssText = fs;
     var mn = el('input'); mn.type = 'text'; mn.value = p.min || ''; mn.placeholder = 'e.g. one verse, or 2 minutes'; mn.style.cssText = fs;
-    var rh = el('select'); rh.style.cssText = fs; for(var i = 1; i <= 7; i++){ var o = el('option', null, i === 7 ? 'Every day' : i + '× a week'); o.value = i; rh.appendChild(o); } rh.value = p.target || 3;
-    var cd = el('select'); cd.style.cssText = fs; var o0 = el('option', null, 'Not linked'); o0.value = ''; cd.appendChild(o0);
-    COORD_LABELS.forEach(function(l, i){ var o = el('option', null, l); o.value = i; cd.appendChild(o); }); cd.value = p.coord == null ? '' : String(p.coord);
+    var sl = el('select'); sl.style.cssText = fs; opts(sl, SLOTS, p.slot || '');
+    var au = el('select'); au.style.cssText = fs; opts(au, AUTOS, p.auto || '');
+    var at = el('input'); at.type = 'time'; at.value = p.at || ''; at.style.cssText = fs;
+    var sel = pdays(p).slice(), chips = el('div'), count = el('span', null, ''); chips.style.cssText = 'display:flex;gap:5px;flex-wrap:wrap';
+    function paint(){ count.textContent = sel.length + '\u00d7 a week'; Array.prototype.forEach.call(chips.children, function(c){ var on = sel.indexOf(Number(c.getAttribute('data-d'))) >= 0; c.setAttribute('aria-pressed', on ? 'true' : 'false'); c.style.cssText = 'min-width:42px;min-height:38px;border-radius:19px;border:1px solid ' + (on ? 'var(--ink)' : 'var(--line)') + ';background:' + (on ? 'var(--ink)' : 'var(--paper)') + ';color:' + (on ? 'var(--paper)' : 'var(--ink-soft)') + ';font:inherit;font-size:12.5px;cursor:pointer'; }); }
+    DAYORDER.forEach(function(i){ var c = el('button', null, DAYN[i]); c.type = 'button'; c.setAttribute('data-d', i); c.onclick = function(){ var k = sel.indexOf(i); if(k >= 0) sel.splice(k, 1); else sel.push(i); paint(); }; chips.appendChild(c); });
+    paint();
+    var dayWrap = field('Days', chips); dayWrap.querySelector('span').appendChild(document.createTextNode(' \u00b7 ')); dayWrap.querySelector('span').appendChild(count);
     box.appendChild(field('Cue: when or where does it happen?', cue, 'Attach it to something you already do.'));
     box.appendChild(field('Minimum version: the smallest thing that still counts', mn, 'On a bad day, do this instead of nothing. Never miss twice.'));
-    box.appendChild(field('Rhythm', rh));
-    box.appendChild(field('What does it serve?', cd, 'Optional: the coordinate this practice supports.'));
+    box.appendChild(field('Time of day', sl, 'Today lists your practices in this order across Spirit, Soul and Body.'));
+    box.appendChild(dayWrap);
+    box.appendChild(field('Ticks itself when\u2026', au, 'You can still tick or untick it by hand.'));
+    box.appendChild(field('Calendar reminder time (optional)', at, 'Included when you download your calendar reminders in the Weekly review.'));
     var bar = el('div'); bar.style.cssText = 'display:flex;gap:8px';
     var sv = el('button', 'save-btn', 'Save'); sv.type = 'button'; sv.style.marginTop = '0';
     sv.onclick = function(){
       var d = load(), x = d.list.filter(function(q){ return q.id === p.id; })[0];
-      if(x){ x.cue = cue.value.trim(); x.min = mn.value.trim(); x.target = Number(rh.value) || x.target; x.coord = cd.value === '' ? null : Number(cd.value); }
-      editId = null; save(d); renderAll(); try{ renderAllGoals(); document.dispatchEvent(new Event('visibilitychange')); }catch(e){}
+      if(x){
+        x.cue = cue.value.trim(); x.min = mn.value.trim(); x.slot = sl.value; x.auto = au.value; x.at = /^\d\d:\d\d$/.test(at.value) ? at.value : '';
+        if(sel.length){ x.days = DAYORDER.filter(function(i){ return sel.indexOf(i) >= 0; }); x.target = x.days.length; }
+        x.mt = Date.now();
+      }
+      editId = null; save(d); renderAll(); try{ renderAllGoals(); runAuto(); document.dispatchEvent(new Event('visibilitychange')); }catch(e){}
     };
     var cl = btn('Close', function(){ editId = null; renderAll(); });
     bar.appendChild(sv); bar.appendChild(cl); box.appendChild(bar);
@@ -3911,6 +4080,13 @@ try{
     head(m, 'Did the system run?');
     var onT = 0, lag = []; s.list.forEach(function(p){ var n = wk.filter(function(x){ return (s.log[x] || []).indexOf(p.id) >= 0; }).length; if(n >= p.target) onT++; else lag.push({ p:p, n:n }); });
     line(m, 'Practices on target', s.list.length ? onT + ' of ' + s.list.length : 'No practices yet');
+    var priorW = [].concat.apply([], lastWeeks(4, rvOff + 1));
+    s.list.forEach(function(p){
+      var cur = pracWindow(p, s, wk), prv = pracWindow(p, s, priorW);
+      if(cur.pct === null && prv.pct === null) return;
+      var d = (cur.pct !== null && prv.pct !== null) ? cur.pct - prv.pct : null;
+      line(m, p.name, (cur.pct === null ? '\u2013' : cur.pct + '%') + ' this week \u00b7 ' + (prv.pct === null ? 'no earlier weeks' : prv.pct + '% over the 4 before') + (d === null ? '' : d > 5 ? ' \u2191' : d < -5 ? ' \u2193' : ' \u2192'));
+    });
     lag.forEach(function(o){
       var r = el('div', 'rv-line'); r.appendChild(el('span', null, o.p.name + ' \u00b7 ' + o.n + '/' + o.p.target));
       var ab = btn('Adjust', function(){ editId = o.p.id; renderAll(); try{ setActivePage(o.p.group); var sc = document.getElementById('sec-prac-' + o.p.group); if(sc){ sc.classList.add('open'); sectionState['prac-' + o.p.group] = true; LS.set(SECTION_STATE_KEY, JSON.stringify(sectionState)); setTimeout(function(){ sc.scrollIntoView({ behavior:'smooth', block:'start' }); }, 80); } }catch(e){} });
@@ -4025,15 +4201,24 @@ try{
       ['Calisthenics: Upper body','MO',tPm],['Calisthenics: Lower body','TU',tPm],['Calisthenics: Cardio (optional)','WE',tPm],['Calisthenics: Core','TH',tPm],['Calisthenics: Full body','SA',tPm],
       ['Weekly review','SU',tPm]
     ];
+    var BYD = ['SU','MO','TU','WE','TH','FR','SA'];
+    try{
+      var PD = load().list.filter(function(p){ return /^\d\d:\d\d$/.test(p.at || ''); });
+      if(PD.length){
+        EV = EV.filter(function(e){ return e[0] !== 'Daily practices'; });
+        PD.forEach(function(p){ EV.push([p.name, pdays(p).map(function(i){ return BYD[i]; }).join(','), p.at, 'Practice' + (p.cue ? '. Cue: ' + p.cue : '') + (p.min ? '. Minimum: ' + p.min : ''), 'seasons-prac-' + p.id + '@seasons.local']); });
+      }
+    }catch(e){}
+    function icsEsc(t){ return String(t == null ? '' : t).replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n'); }
     var now = new Date(), utc = now.getUTCFullYear() + p2(now.getUTCMonth() + 1) + p2(now.getUTCDate()) + 'T' + p2(now.getUTCHours()) + p2(now.getUTCMinutes()) + '00Z';
     var out = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Seasons//Reminders//EN', 'CALSCALE:GREGORIAN'];
     EV.forEach(function(e, n){
       var days = e[1].split(','), hm = e[2].split(':'), d = new Date(now.getFullYear(), now.getMonth(), now.getDate(), Number(hm[0]), Number(hm[1]));
       for(var k = 0; k < 8; k++){ if(days.some(function(x){ return DAY[x] === d.getDay(); }) && d >= now) break; d.setDate(d.getDate() + 1); }
       var end = new Date(d.getTime() + 20 * 60000);
-      out.push('BEGIN:VEVENT', 'UID:seasons-' + n + '-' + e[0].replace(/\W+/g, '') + '@seasons.local', 'DTSTAMP:' + utc,
-        'DTSTART:' + stamp(d), 'DTEND:' + stamp(end), 'RRULE:FREQ=WEEKLY;BYDAY=' + e[1], 'SUMMARY:' + e[0],
-        'BEGIN:VALARM', 'TRIGGER:-PT0M', 'ACTION:DISPLAY', 'DESCRIPTION:' + e[0], 'END:VALARM', 'END:VEVENT');
+      out.push('BEGIN:VEVENT', 'UID:' + (e[4] || ('seasons-' + n + '-' + e[0].replace(/\W+/g, '') + '@seasons.local')), 'DTSTAMP:' + utc,
+        'DTSTART:' + stamp(d), 'DTEND:' + stamp(end), 'RRULE:FREQ=WEEKLY;BYDAY=' + e[1], 'SUMMARY:' + icsEsc(e[0]), 'DESCRIPTION:' + icsEsc(e[3] || e[0]),
+        'BEGIN:VALARM', 'TRIGGER:-PT0M', 'ACTION:DISPLAY', 'DESCRIPTION:' + icsEsc(e[0]), 'END:VALARM', 'END:VEVENT');
     });
     out.push('END:VCALENDAR');
     return out.join('\r\n');
@@ -4060,6 +4245,45 @@ try{
   /* a marker added, ticked or removed shows up under the practice that feeds it */
   var baseRenderGoals = renderGoals;
   renderGoals = function(k){ baseRenderGoals(k); try{ renderGroup(k); }catch(e){} };
+  /* ---------- practices that tick themselves ---------- */
+  var DUEN = { 1:'reveal', 3:'reframe', 5:'respond' }, autoBusy = false;
+  function rd(k, d){ try{ var v = JSON.parse(LS.get(k) || 'null'); return v == null ? d : v; }catch(e){ return d; } }
+  function autoMet(kind, t){
+    try{
+      if(kind === 'scripture'){ var nm = DUEN[dowOf(t)]; var ss = (rd('seasons-verse-cache', {}).__ss || {}).ticks || {}; return !!(nm && ss[nowWeek] && ss[nowWeek][nm]); }
+      if(kind === 'reading'){ var hit = false; (rd('rc_v1', {}).books || []).forEach(function(b){ (b.sessions || []).forEach(function(x){ if(x.date === t && (x.mins > 0 || x.to > x.from)) hit = true; }); }); return hit; }
+      if(kind === 'journal') return loadEntries().some(function(e){ return ptFmtDate(new Date(e.ts)) === t; });
+      if(kind === 'learning') return loadLearningEntries().some(function(e){ return ptFmtDate(new Date(e.ts)) === t; });
+      if(kind === 'recall') return ((rd('seasons-recall', {}).log) || []).some(function(l){ return ptFmtDate(new Date(l.t)) === t; });
+      if(kind === 'training'){
+        if(typeof ptState !== 'undefined' && ptState && ptState.logs && ptState.logs[t] && ptState.logs[t].complete) return true;
+        var x = ((all().__cal || {}).done || {})[t]; return !!x && Object.keys(x).some(function(k){ return Array.isArray(x[k]) ? x[k].some(function(v){ return v > 0; }) : x[k] > 0; });
+      }
+    }catch(e){}
+    return false;
+  }
+  function runAuto(){
+    if(autoBusy) return false; autoBusy = true;
+    try{
+      var s = load(), t = ptFmtDate(new Date()), changed = false;
+      s.list.forEach(function(p){
+        var kind = p.auto || (p.auto === undefined && /^reading$/i.test(String(p.name || '').trim()) ? 'reading' : '');
+        if(!kind) return;
+        var has = (s.log[t] || []).indexOf(p.id) >= 0, hasEv = !!(s.ev && s.ev[t] && s.ev[t][p.id]);
+        if(has || hasEv) return;                        /* already ticked, or you unticked it yourself: leave it */
+        if(autoMet(kind, t)){ pracSet(s, t, p.id, 1, true); changed = true; }
+      });
+      if(changed){ save(s); renderAll(); try{ document.dispatchEvent(new Event('visibilitychange')); }catch(e){} }
+      return changed;
+    }catch(e){ return false; } finally{ autoBusy = false; }
+  }
+  window.__pracRun = runAuto; window.__pracRender = function(){ renderAll(); };
+  document.addEventListener('visibilitychange', function(){ if(!document.hidden) setTimeout(runAuto, 50); });
+  document.addEventListener('click', function(){ setTimeout(runAuto, 800); }, true);
+  document.addEventListener('submit', function(){ setTimeout(runAuto, 800); }, true);
+  setInterval(function(){ if(!document.hidden) runAuto(); }, 30000);
+  setTimeout(runAuto, 700);
+
 
   mkSec('sec-prac-spirit', 'prac-spirit', 'spirit', 'Practices', 'your spiritual disciplines', 'prac-spirit', 'sec-goals-spirit', 'This is your system. Each practice has a cue (when it happens), a minimum (the smallest version that still counts) and a rhythm. Tap the pencil to design one, and tick it off daily.');
   mkSec('sec-prac-soul', 'prac-soul', 'soul', 'Practices', 'your soul care', 'prac-soul', 'sec-goals-soul', 'This is your system. Each practice has a cue (when it happens), a minimum (the smallest version that still counts) and a rhythm. Tap the pencil to design one, and tick it off daily.');
@@ -4555,10 +4779,9 @@ try{
 
   /* ---------- the things you can tick from the dashboard ---------- */
   function togglePractice(id, asMin){
-    var a = allGoals(), p = a.__prac || { list:[], log:{} }; p.log = p.log || {}; p.mn = p.mn || {};
-    var t = ptFmtDate(new Date()); p.log[t] = p.log[t] || []; p.mn[t] = p.mn[t] || [];
-    var i = p.log[t].indexOf(id);
-    if(i >= 0){ p.log[t].splice(i, 1); p.mn[t] = p.mn[t].filter(function(x){ return x !== id; }); } else { p.log[t].push(id); if(asMin) p.mn[t].push(id); }
+    var a = allGoals(), p = a.__prac || { list:[], log:{} }; p.log = p.log || {};
+    var t = ptFmtDate(new Date()), on = (p.log[t] || []).indexOf(id) >= 0;
+    if(window.__pracSet) window.__pracSet(p, t, id, on ? 0 : (asMin ? 2 : 1));
     a.__prac = p; LS.set(KEY, JSON.stringify(a));
     refreshOthers(); renderAll();
   }
@@ -4617,10 +4840,15 @@ try{
       var cwk = c.C.start ? Math.floor(Math.round((new Date(c.ts + 'T00:00:00') - new Date(c.C.start + 'T00:00:00')) / 86400000) / 7) + 1 : 0;
       items.push({ pillar:'body', label:'Calisthenics: ' + CALS[c.dow], sub:cwk > 0 ? 'Week ' + Math.min(12, cwk) + ' of 12' + (cwk === 4 || cwk === 8 ? ' \u00b7 easy week' : cwk >= 12 ? ' \u00b7 test week' : '') : '', done:hasWork(c.C.done && c.C.done[c.ts]), optional:!!CAL_OPT[c.dow], go:['body','sec-body','cal'] });
     }
+    var SO = { morning:0, midday:1, evening:2 }, pr = [], notToday = 0;
     c.P.list.forEach(function(p){
-      var pdone = (c.P.log[c.ts] || []).indexOf(p.id) >= 0;
-      items.push({ pillar:p.group, label:p.name, sub:(p.cue ? p.cue + ' \u00b7 ' : '') + (p.min && !pdone ? 'min: ' + p.min + ' \u00b7 ' : '') + pracWeekCount(c, p) + '/' + p.target + ' this week \u00b7 ' + PAGES[p.group], done:pdone, tick:p.id, minId:(p.min && !pdone) ? p.id : '', minText:p.min || '' });
+      var pdone = (c.P.log[c.ts] || []).indexOf(p.id) >= 0, due = window.__pracDue ? window.__pracDue(p, c.ts, c.wk, c.P.log) : 'due', late = due === 'catchup' && !pdone;
+      if(!pdone && !due){ notToday++; return; }
+      pr.push({ pillar:p.group, label:p.name, sub:(late ? 'catch-up \u00b7 ' : '') + (p.cue ? p.cue + ' \u00b7 ' : '') + (p.min && !pdone ? 'min: ' + p.min + ' \u00b7 ' : '') + pracWeekCount(c, p) + '/' + p.target + ' this week \u00b7 ' + PAGES[p.group] + (p.auto && !pdone ? ' \u00b7 ticks itself' : ''), done:pdone, tick:p.id, minId:(p.min && !pdone) ? p.id : '', minText:p.min || '', slot:p.slot || '', optional:late });
     });
+    pr.sort(function(a, b){ return (SO[a.slot] == null ? 3 : SO[a.slot]) - (SO[b.slot] == null ? 3 : SO[b.slot]); });
+    pr.forEach(function(i){ items.push(i); });
+    var anySlot = pr.some(function(i){ return i.slot; }), SLN = { morning:'Morning', midday:'Midday', evening:'Evening' };
     /* reading: minutes against your daily goal (left out if you already have a "Reading" practice, which ticks itself) */
     try{
       var RC = JSON.parse(LS.get('rc_v1') || 'null'), nowReading = RC && RC.books ? RC.books.filter(function(b){ return b.status === 'reading'; }) : [];
@@ -4644,8 +4872,14 @@ try{
     window.__SU_today = cnt;
     var req = items.filter(function(i){ return !i.optional; }), n = req.filter(function(i){ return i.done; }).length, pct = req.length ? Math.round(100 * n / req.length) : 0;
     var h = req.length ? '<div class="d-sum"><b>' + n + ' of ' + req.length + ' done</b><span>' + pct + '%</span></div><div class="d-bar"><i style="width:' + pct + '%"></i></div>' : '<div class="d-empty">Nothing scheduled that needs ticking today.</div>';
-    h += '<div style="margin-top:6px">' + items.map(row).join('') + '</div>';
+    var lastSlot = null;
+    h += '<div style="margin-top:6px">' + items.map(function(i){
+      var pre = '';
+      if(anySlot && i.tick){ var sl = i.slot || ''; if(sl !== lastSlot){ pre = '<div class="d-slot">' + (SLN[sl] || 'Anytime') + '</div>'; lastSlot = sl; } }
+      return pre + row(i);
+    }).join('') + '</div>';
     if(!c.P.list.length) h += '<div class="d-sub">Add daily practices on any page to tick them off here.</div>';
+    else if(notToday) h += '<div class="d-sub">' + notToday + ' practice' + (notToday === 1 ? ' is' : 's are') + ' not scheduled today.</div>';
     cards.today.mount.innerHTML = h;
     setMeta('today', DOW[c.dow] + ' \u00b7 ' + (req.length ? n + '/' + req.length : 'rest'));
   }
@@ -6251,7 +6485,7 @@ try{
       var item = p.list.filter(function(x){ return /^reading$/i.test(String(x.name || '').trim()); })[0];
       if(!item) return;                                      /* no Reading practice set up: nothing to tick */
       p.log = p.log || {}; p.log[t] = p.log[t] || [];
-      if(p.log[t].indexOf(item.id) < 0) p.log[t].push(item.id);
+      if(p.log[t].indexOf(item.id) < 0){ if(window.__pracSet && !(p.ev && p.ev[t] && p.ev[t][item.id])) window.__pracSet(p, t, item.id, 1, true); else if(!(p.ev && p.ev[t] && p.ev[t][item.id])) p.log[t].push(item.id); }
       a.__prac = p; LS.set(GK, JSON.stringify(a)); LS.set(DK, t);
       document.dispatchEvent(new Event('visibilitychange'));   /* let Practices and the Dashboard redraw */
     }catch(e){} finally{ syncing = false; }
@@ -6445,6 +6679,8 @@ try{
     }catch(e){}
   }
   function mergeReading(a, b){ return window.__mergeRC ? window.__mergeRC(a, b) : null; }
+  /* items that are combined record by record instead of newest-wins */
+  function mergeFn(k){ return k === 'rc_v1' ? window.__mergeRC : k === 'seasons-goals' ? window.__mergeGoals : null; }
   function readingStats(text){
     try{
       var o = JSON.parse(text), books = (o.books || []).length, notes = 0, sums = 0, words = (o.vocab || []).length;
@@ -6657,7 +6893,7 @@ try{
       KEYS.forEach(function(k){ var f = files[fileName(k)]; if(f) jobs.push(readFile(f).then(function(t){ try{ remote[k] = JSON.parse(t); }catch(e){} })); });
       return Promise.all(jobs).then(function(){
         var hasRemote = Object.keys(remote).length > 0;
-        var MERGED = {}; KEYS.forEach(function(k){ MERGED[k] = (k === 'rc_v1' && !!window.__mergeRC); });
+        var MERGED = {}; KEYS.forEach(function(k){ MERGED[k] = !!mergeFn(k); });
         var anyFresh = KEYS.some(function(k){ return !MERGED[k] && m[k] && m[k].fresh && LS.get(k) != null && remote[k]; });
         var preferRemote = false;
         if(hasRemote && anyFresh && !cfg().joined){
@@ -6673,7 +6909,7 @@ try{
             var remoteChanged = rts > (lm.base || 0), localChanged = lm.sh == null || lm.h !== lm.sh;
             if(remoteChanged){
               work.push(open(key, r).then(function(rt){
-                var merged = null; try{ merged = mergeReading(lv, rt); }catch(e){}
+                var merged = null; try{ merged = (mergeFn(k) || mergeReading)(lv, rt); }catch(e){}
                 if(merged == null){ LS.set(k, rt); done(k, rts, rt); applied++; return; }
                 snapshot(k, lv);
                 if(merged !== lv){ LS.set(k, merged); applied++; }
@@ -6763,6 +6999,7 @@ try{
             var cur = LS.get(k);
             if(!combine || cur == null){ LS.set(k, data[k]); return; }
             if(k === 'rc_v1'){ var mg = mergeReading(cur, data[k]); if(mg) LS.set(k, mg); }
+            else if(k === 'seasons-goals' && window.__mergeGoals){ try{ var mg2 = window.__mergeGoals(cur, data[k]); if(mg2) LS.set(k, mg2); }catch(e){} }
           });
           LS.set('seasons-last-backup', String(Date.now())); location.reload();
         }catch(e){ alert('Could not read that backup file.'); }
