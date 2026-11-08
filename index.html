@@ -426,9 +426,12 @@
     </button>
     <div class="csec-body">
       <p class="csec-sub" id="weekly-sub">Loading…</p>
-      <div class="progress-row" id="progress-row"></div>
-      <div class="week-grid" id="week-grid"></div>
       <div class="week-detail" id="week-detail"></div>
+      <details class="wk-all" id="wk-all">
+        <summary>Browse all 52 weeks</summary>
+        <div class="progress-row" id="progress-row"></div>
+        <div class="week-grid" id="week-grid"></div>
+      </details>
     </div>
   </section>
 
@@ -454,7 +457,6 @@
       </div>
 
       <div id="notes-panel-learning">
-        <p class="journal-sub">Capture what you read — books, articles, sermons, anything worth remembering.</p>
         <div id="learning-form-mount"></div>
         <input type="text" id="learning-filter" placeholder="Search notes…" style="width:100%; border:1px solid var(--line); border-radius:9px; padding:9px 12px; font-size:13px; background:var(--paper-raised); color:var(--ink); margin-bottom:6px;">
         <div class="entries" id="learning-entries"></div>
@@ -507,7 +509,8 @@
 
   <div class="foot-tuck">
     <div id="backup-reminder" class="pt-banner nudge" style="display:none; width:100%; text-align:left; margin-bottom:10px;"></div>
-    <div style="font-family:'IBM Plex Mono',monospace; font-size:10.5px; color:var(--ink-faint); margin-bottom:6px;">Export — saves to iCloud Drive via Share</div>
+    <details class="foot-det"><summary>Export, import and notes</summary>
+    <div style="font-family:'IBM Plex Mono',monospace; font-size:10.5px; color:var(--ink-faint); margin:8px 0 6px;">Export — saves to iCloud Drive via Share</div>
     <div class="stage-quick" id="export-scope">
       <button data-scope="all" class="active">All</button>
       <button data-scope="spirit">Spirit</button>
@@ -520,6 +523,7 @@
     </div>
     <input type="file" id="import-input" accept="application/json" style="display:none;">
     <div class="notes-panel" id="notes-panel"><div id="notes-list"></div></div>
+    </details>
   </div>
 </div>
 
@@ -2028,7 +2032,7 @@ function ptGetLog(dateStr){ if(!ptState.logs[dateStr]){ ptState.logs[dateStr] = 
 function ptUpdateTagline(){
   const tagline = document.getElementById('pt-tagline');
   if(!tagline) return;
-  if(!ptState){ tagline.textContent = 'A 4-week bodyweight program — pick a level below to begin.'; return; }
+  if(!ptState){ tagline.textContent = ''; return; }
   const pos = ptProgramPositionFor(ptTodayStr());
   const complete = pos.idx >= 28;
   const weekLabel = pos.idx < 0 ? 'Not started yet' : complete ? `${PT_LEVELS[ptCurrentLevel()].label} cycle complete` : `Week ${pos.weekIndex+1} of 4`;
@@ -2076,7 +2080,7 @@ function ptRender(){
 function ptRenderOnboarding(){
   return `
     <div class="pt-onboard">
-      <p>4-week program building push-ups, sit-ups, squats, plank hold, pull-ups and running toward a fitness standard. Pick the level that matches where you're starting from — you can change this later in Settings.</p>
+      <p>A 4-week bodyweight program: push-ups, sit-ups, squats, plank, pull-ups and running. Pick your level; you can change it later in Settings.</p>
       <div class="stage-quick">${ptLevelChips(ptOnboardLevel, 'pt-onboard')}</div>
       <p>Set your start date to open your card.</p>
       <input type="date" id="pt-start-date-input" value="${ptTodayStr()}">
@@ -2551,7 +2555,7 @@ function checkBackupReminder(){
   const days = last ? Math.floor((Date.now() - last) / 86400000) : null;
   if(days === null){
     banner.style.display = 'block';
-    banner.textContent = "You haven't backed up yet — tap Export below, then Save to Files → iCloud Drive.";
+    banner.textContent = "You haven't backed up yet. Open Export, import and notes below.";
   }else if(days > 14){
     banner.style.display = 'block';
     banner.textContent = `It's been ${days} days since your last backup — worth saving a fresh copy to iCloud Drive.`;
@@ -3573,8 +3577,8 @@ try{
     var m = document.getElementById('cal-mount'); if(!m) return;
     var s = load(), t = ptFmtDate(new Date());
     if(!s.start){
-      m.innerHTML = '<div class="week-detail"><p style="margin:0 0 10px;font-size:13px;color:var(--ink-soft)">A 12-week progressive plan with no equipment. Four required sessions a week: Upper (Mon), Lower (Tue), Core (Thu) and Full body (Sat), plus an optional Cardio day on Wednesday. You log your reps, and the plan tells you when to make an exercise harder.</p>' +
-        '<p style="margin:0 0 12px;font-size:13px;color:var(--ink-soft)">Stop a set if you feel sharp pain, and check with a doctor first if you have an injury or health condition.</p><div class="entry-meta" style="margin:6px 0">Your starting profile (optional)</div>' + profileHTML(s) + '<button class="save-btn" data-act="start" style="margin-top:0">Start today</button></div>';
+      m.innerHTML = '<div class="week-detail"><details class="bm-about"><summary>How the plan works</summary><p style="margin:0 0 10px;font-size:13px;color:var(--ink-soft)">A 12-week progressive plan with no equipment. Four required sessions a week: Upper (Mon), Lower (Tue), Core (Thu) and Full body (Sat), plus an optional Cardio day on Wednesday. You log your reps, and the plan tells you when to make an exercise harder.</p>' +
+        '<p style="margin:0 0 12px;font-size:13px;color:var(--ink-soft)">Stop a set if you feel sharp pain, and check with a doctor first if you have an injury or health condition.</p></details><div class="entry-meta" style="margin:6px 0">Your starting profile (optional)</div>' + profileHTML(s) + '<button class="save-btn" data-act="start" style="margin-top:0">Start today</button></div>';
       return;
     }
     var wk = weekOf(s, t), w = Math.max(1, Math.min(12, wk)), P = plan(w);
@@ -3733,7 +3737,7 @@ try{
     sec.className = 'csec' + (sectionState.calisthenics === true ? ' open' : '');
     sec.id = 'sec-calisthenics'; sec.setAttribute('data-key', 'calisthenics'); sec.setAttribute('data-group', 'body');
     sec.innerHTML = '<button class="csec-head"><div class="csec-head-left"><span class="csec-title">Calisthenics plan</span><span class="csec-meta">12 weeks \u00b7 no equipment</span></div><span class="csec-chevron">\u2304</span></button>' +
-      '<div class="csec-body"><p class="csec-sub">A progressive plan for arms, chest, shoulders, back, core, glutes and legs, in the simplest forms.</p><div id="cal-mount"></div></div>';
+      '<div class="csec-body"><div id="cal-mount"></div></div>';
     ref.parentNode.insertBefore(sec, ref.nextSibling);
     sec.querySelector('.csec-head').onclick = function(){
       var o = sec.classList.toggle('open'); sectionState.calisthenics = o; LS.set(SECTION_STATE_KEY, JSON.stringify(sectionState));
@@ -4744,6 +4748,7 @@ try{
     '.d-bar{height:7px;border-radius:4px;background:var(--line);overflow:hidden}.d-bar i{display:block;height:100%;border-radius:4px;background:var(--c,var(--ink))}' +
     '.d-pill{padding:10px 0;border-top:1px solid var(--line)}.d-pill:first-child{border-top:none;padding-top:2px}' +
     '.d-pill-h{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px;font-size:13.5px}.d-pill-h span{font:11px "IBM Plex Mono",monospace;color:var(--ink-faint)}' +
+    '.d-more>summary{cursor:pointer;font-size:12.5px;color:var(--ink-soft);padding:8px 2px;list-style:none}.d-more>summary::-webkit-details-marker{display:none}.d-more>summary::before{content:"+ "}.d-more[open]>summary::before{content:"\\2212 "}' +
     '.d-sub{font-size:11.5px;color:var(--ink-faint);margin-top:5px;line-height:1.5}' +
     '.d-chips{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}' +
     '.d-chip{border:1px solid var(--line);border-radius:10px;padding:9px 11px;background:var(--paper)}.d-chip b{font:600 20px "Fraunces",serif;display:block;line-height:1.2}.d-chip span{font-size:11.5px;color:var(--ink-faint)}' +
@@ -4947,7 +4952,7 @@ try{
     out.sort(function(a, b){ return a.sev - b.sev; });
     var m = cards.attention.mount;
     if(!out.length){ m.innerHTML = '<div class="d-empty">All caught up. Nothing overdue and nothing falling behind.</div>'; setMeta('attention', 'all clear'); return; }
-    m.innerHTML = out.slice(0, 12).map(function(o){
+    function arow(o){
       var a = o.act, btn = '';
       if(a){
         if(a.kind === 'goal') btn = '<button class="d-go pri" data-act="goal" data-page="' + a.page + '" data-id="' + esc(a.id) + '">Done</button>';
@@ -4956,7 +4961,9 @@ try{
         else btn = '<button class="d-go" data-act="go" data-page="' + a.page + '" data-sec="' + a.sec + '"' + (a.tab ? ' data-tab="' + a.tab + '"' : '') + '>Open</button>';
       }
       return '<div class="d-row"><span class="d-flag"><i class="s' + o.sev + '"></i></span><div class="d-main"><b>' + esc(o.text) + '</b></div>' + btn + '</div>';
-    }).join('') + (out.length > 12 ? '<div class="d-sub">+ ' + (out.length - 12) + ' more</div>' : '');
+    }
+    var shown = out.slice(0, 3), more = out.slice(3, 15);
+    m.innerHTML = shown.map(arow).join('') + (more.length ? '<details class="d-more"><summary>Show ' + more.length + ' more' + (out.length > 15 ? ' (' + (out.length - 15) + ' further not listed)' : '') + '</summary>' + more.map(arow).join('') + '</details>' : '');
     setMeta('attention', out.length + (out.length === 1 ? ' item' : ' items'));
   }
 
@@ -5167,7 +5174,7 @@ try{
   var ORDER = ['spirit','soul','body'];
   var NAME = { home:'Home', spirit:'Spirit', soul:'Soul', body:'Body' };
   var TAG = { spirit:'Scripture, prayer, stillness', soul:'Notes, reflection, reading', body:'Training, rest, daily habits' };
-  var SHORT = { 'Display and privacy':'Settings' };
+  var SHORT = { 'Display and privacy':'Settings', 'Settings and backup':'Settings' };
   var CHECK = '<path d="M4.5 8.2l2.4 2.4 4.6-4.8" stroke="var(--paper)" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/>';
   var reduce = false; try{ reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches; }catch(e){}
   var cur = 'home', prev = {}, secs = [], banner = null, jump = null, chipsEl = null, allBtn = null, tick = null;
@@ -5298,7 +5305,7 @@ try{
   function syncAll(){ if(allBtn) allBtn.textContent = secs.some(function(s){ return s.classList.contains('open'); }) ? 'Collapse all' : 'Expand all'; }
   function buildJump(page){
     jump.style.setProperty('--grp', 'var(--pc-' + page + ')');
-    secs = Array.prototype.filter.call(document.querySelectorAll('.csec'), function(s){ return s.style.display !== 'none' && s.querySelector('.csec-title'); });
+    secs = Array.prototype.filter.call(document.querySelectorAll('.csec'), function(s){ return s.style.display !== 'none' && !s.classList.contains('tdy-in') && !s.classList.contains('tdy-bar') && s.querySelector('.csec-title'); });
     chipsEl.innerHTML = secs.map(function(s, i){ var t = s.querySelector('.csec-title').textContent; return '<button type="button" class="lj-chip" data-i="' + i + '">' + esc(SHORT[t] || t) + '</button>'; }).join('');
     syncAll(); spy();
   }
@@ -5629,7 +5636,7 @@ CSS += '.rc-toast{position:fixed;left:50%;bottom:calc(88px + env(safe-area-inset
   '.rc a[data-act]{color:var(--rc-acc);cursor:pointer}';
 
 /* ---------- views ---------- */
-var TABS = [['library', 'Library'], ['today', 'Today'], ['notes', 'Notes'], ['review', 'Review'], ['words', 'Words'], ['reader', 'Reader'], ['stats', 'Stats'], ['next', 'Next']];
+var TABS = [['library', 'Library'], ['today', 'Today'], ['notes', 'Notes'], ['review', 'Review'], ['reader', 'Reader'], ['stats', 'Stats']];
 
 function chips(items, cur, act) { return items.map(function (i) { return '<button type="button" class="rc-chip' + (cur === i[0] ? ' rc-on' : '') + '" data-act="' + act + '" data-v="' + i[0] + '">' + i[1] + '</button>'; }).join(''); }
 
@@ -5655,16 +5662,18 @@ function libList() {
 function vLibrary() {
   if (ui.book && B(ui.book)) return vBook(B(ui.book));
   var cnt = function (st) { return S.books.filter(function (b) { return b.status === st; }).length; };
-  var h = '<form data-form="addBook" class="rc-card"><h3>Add a book</h3><div class="rc-row"><input name="title" placeholder="Title" required><input name="author" placeholder="Author"></div>' +
+  var h = '<details class="rc-add"' + (S.books.length ? '' : ' open') + '><summary>Add a book</summary><form data-form="addBook" class="rc-card"><div class="rc-row"><input name="title" placeholder="Title" required><input name="author" placeholder="Author"></div>' +
     '<div class="rc-row"><select name="format"><option value="physical">Physical book</option><option value="ebook">E-book</option><option value="audio">Audiobook</option></select>' +
     '<select name="unit"><option value="">Units: auto</option><option value="pages">Pages</option><option value="%">Percent</option><option value="min">Minutes</option></select>' +
     '<input name="total" type="number" min="1" inputmode="numeric" placeholder="Total pages / minutes"></div>' +
-    '<div class="rc-row"><select name="kind"><option value="fiction">Fiction (story with characters)</option><option value="nonfiction">Non-fiction</option></select><select name="status"><option value="to-read">To read</option><option value="reading">Reading now</option></select></div><button class="rc-btn">Add book</button></form>';
+    '<div class="rc-row"><select name="kind"><option value="fiction">Fiction (story with characters)</option><option value="nonfiction">Non-fiction</option></select><select name="status"><option value="to-read">To read</option><option value="reading">Reading now</option></select></div><button class="rc-btn">Add book</button></form></details>';
   h += '<div class="rc-muted rc-sm" style="margin:2px 0 8px">' + cnt('reading') + ' reading · ' + cnt('to-read') + ' to read · ' + cnt('finished') + ' finished</div>';
-  h += '<input data-live="lq" placeholder="Search your books" value="' + esc(ui.lq) + '">';
+  var many = S.books.length > 1;
+  if(many) h += '<input data-live="lq" placeholder="Search your books" value="' + esc(ui.lq) + '">';
   h += '<div>' + chips([['all', 'All'], ['reading', 'Reading'], ['to-read', 'To read'], ['finished', 'Finished']], ui.filter, 'filter') + '</div>';
-  h += '<div class="rc-muted rc-sm" style="margin:6px 0 2px">Sort</div><div>' + chips([['recent', 'Recent'], ['title', 'Title'], ['progress', 'Progress']], ui.sort, 'sort') + '</div>';
+  if(many) h += '<div class="rc-muted rc-sm" style="margin:6px 0 2px">Sort</div><div>' + chips([['recent', 'Recent'], ['title', 'Title'], ['progress', 'Progress']], ui.sort, 'sort') + '</div>';
   h += '<div id="rc-lib" style="margin-top:8px">' + libList() + '</div>';
+  h += '<details class="rc-find" data-keep="find"' + (ui.find ? ' open' : '') + '><summary>Find or pick a book</summary>' + vNext() + '</details>';
   return h;
 }
 
@@ -5787,6 +5796,9 @@ function dueItems() {
     .filter(function (i) { return (i.x.due || t) <= t; }).sort(function (a, b) { return (a.x.due || '') < (b.x.due || '') ? -1 : 1; });
 }
 function vReview() {
+  return vReview0() + '<details class="rc-find" data-keep="words"' + (ui.words ? ' open' : '') + '><summary>Words (' + S.vocab.length + ')</summary>' + vWords() + '</details>';
+}
+function vReview0() {
   var items = dueItems(), total = S.cards.length + S.vocab.length;
   var h = '<div class="rc-top"><h3>Review</h3>' + (S.vocab.length >= 4 ? '<button type="button" class="rc-chip' + (ui.mc ? ' rc-on' : '') + '" data-act="mcmode">Multiple choice (words)</button>' : '') + '</div>';
   if (!items.length) return h + '<div class="rc-card"><p>' + (total ? 'All caught up — nothing is due today.' : 'No cards or words yet. Add quiz cards from a book’s notes, or save words in the Words tab.') + '</p><p class="rc-muted rc-sm">' + total + ' item(s) in your review deck.</p></div>';
@@ -5896,6 +5908,7 @@ function render() {
   if (!root) return;
   var th = S.theme;
   root.className = 'rc'; root.setAttribute('data-theme', th === 'light' ? 'light' : th);
+  if(ui.tab === 'words'){ ui.tab = 'review'; ui.words = true; } else if(ui.tab === 'next'){ ui.tab = 'library'; ui.find = true; }
   var views = { library: vLibrary, today: vToday, notes: vNotes, review: vReview, words: vWords, reader: vReader, stats: vStats, next: vNext };
   root.innerHTML = '<div class="rc-top rc-title"><h2>📚 Reading Companion</h2></div><nav>' + TABS.map(function (t) { return '<button type="button" data-act="tab" data-v="' + t[0] + '" class="' + (ui.tab === t[0] ? 'rc-on' : '') + '">' + t[1] + '</button>'; }).join('') + '</nav>' + views[ui.tab]();
   if (ui.tab === 'reader' && S.reader.text) { var p = root.querySelector('#rc-rd p.rc-on'); if (p && p.scrollIntoView && S.reader.pos > 0) p.scrollIntoView({ block: 'center' }); }
@@ -6011,7 +6024,7 @@ var ACT = {
   rdsavew: function () {
     var w = (ui.sel || '').trim(); if (!w) { alert('Select a word in the text first.'); return; }
     if (w.split(/\s+/).length > 3) { alert('Select just a word or short phrase.'); return; }
-    S.vocab.push({ id: uid(), word: w, def: '', ex: '', bookId: '', box: 0, due: iso() }); save(); ui.tab = 'words'; ui.wq = w; render(); alert('Added “' + w + '” — add a definition in the Words tab.');
+    S.vocab.push({ id: uid(), word: w, def: '', ex: '', bookId: '', box: 0, due: iso() }); save(); ui.tab = 'review'; ui.words = true; ui.wq = w; render(); alert('Added “' + w + '” — add a definition under Words in the Review tab.');
   },
   rdsaveq: function () {
     var q = (ui.sel || '').trim(), id = root.querySelector('#rc-qbook').value;
@@ -6097,6 +6110,7 @@ function mount(el) {
   if (!el) return; unmount(); root = el; load();
   root.addEventListener('click', onClick); root.addEventListener('submit', onSubmit); root.addEventListener('change', onChange);
   root.addEventListener('input', onInput); root.addEventListener('mousedown', onDown);
+  root.addEventListener('toggle', function (e) { var k = e.target && e.target.getAttribute && e.target.getAttribute('data-keep'); if (k) ui[k] = e.target.open; }, true);
   document.addEventListener('selectionchange', onSel);
   tick = setInterval(updateTimer, 1000); render();
 }
@@ -6427,7 +6441,7 @@ try{
         ? 'Your starting profile matches your Fitness test level (<b>' + p.level + '</b>). Change it below if it feels wrong.'
         : 'Your Fitness test level is <b>' + p.level + '</b>, so <b>' + m[1] + '</b> is a good starting profile.<br><button type="button" class="pri" data-bm="use">Use ' + m[1] + '</button>';
     } else {
-      hint.innerHTML = 'Not sure where to start? Take the <b>Fitness test</b> first (you repeat it at week 4, week 8 and the end) and this plan will suggest a starting profile.<br><button type="button" class="pri" data-bm="fit">Open Fitness test</button>';
+      hint.innerHTML = 'Not sure where to start? The <b>Fitness test</b> suggests a profile.<br><button type="button" class="pri" data-bm="fit">Open Fitness test</button>';
     }
     hint.style.display = '';
     hint.setAttribute('data-m', m ? m[0] : '');
@@ -7342,9 +7356,9 @@ try{
 
   /* ---------- the cards on Soul, Spirit and Body ---------- */
   var HELP = {
-    soul:'Close the book and write what you remember. Your Learning entries, and from Reading your chapter summaries, quotes, thoughts, characters, plot, quiz cards and words, come back here on a spaced schedule, so they move from “I read it” to “I know it”.',
-    spirit:'This week’s verses come back after their day (Reveal after Monday, Reframe after Wednesday, Respond after Friday). Star a verse, or tap Memorise on it, to keep it in rotation.',
-    body:'Say the form cues and what each move builds before you do it. Knowing the why makes the movement better and keeps you doing it.'
+    soul:'Write what you remember before you look. Notes, quotes and words come back on a spaced schedule.',
+    spirit:'Verses come back after their day (Mon, Wed, Fri). Star one, or tap Memorise, to keep it in rotation.',
+    body:'Say each move’s cues and purpose before you do it.'
   };
   var EMPTY = {
     soul:'Nothing here yet. Add a Learning entry, or write what stuck after a reading session, and it will show up tomorrow.',
@@ -7447,6 +7461,21 @@ try{
   }
   var css = document.createElement('style');
   css.textContent =
+    '.tdy-tabs{display:flex;gap:6px;margin:0 0 14px;padding-top:10px;flex-wrap:wrap}.tdy-tabs button{font:500 12.5px "Inter",sans-serif;padding:6px 13px;border-radius:999px;border:1px solid var(--line);background:var(--paper);color:var(--ink-soft);cursor:pointer}.tdy-tabs button.on{background:var(--ink);border-color:var(--ink);color:var(--paper)}' +
+    'body[data-page=spirit] #life-jump,body[data-page=soul] #life-jump,body[data-page=body] #life-jump{display:none!important}' +
+    'body[data-page=spirit] #today-card,body[data-page=soul] #today-card,body[data-page=body] #today-card{display:none!important}' +
+    '#spirit-overview,#soul-overview,#body-overview{padding:10px 14px!important;margin:0 0 10px!important}' +
+    '#coord-callout-soul,#coord-callout-body{padding:8px 14px!important;margin:0 0 10px!important}' +
+    '.rc-find{margin-top:14px;border-top:1px solid var(--line);padding-top:4px}.rc-find>summary{cursor:pointer;list-style:none;font-size:13.5px;color:var(--ink-soft);padding:10px 2px}.rc-find>summary::-webkit-details-marker{display:none}.rc-find>summary::before{content:"+";margin-right:.4em}.rc-find[open]>summary::before{content:"\\2212"}' +
+    '.foot-det>summary{cursor:pointer;list-style:none;text-align:center;font-size:12px;color:var(--ink-faint);padding:6px 0}.foot-det>summary::-webkit-details-marker{display:none}.foot-det>summary::after{content:" +"}.foot-det[open]>summary::after{content:" \\2212"}.foot-tuck .pt-banner.nudge{padding:8px 12px!important;font-size:12.5px!important}' +
+    '.rc-add{margin:0 0 10px}.rc-add>summary{cursor:pointer;list-style:none;font-size:13.5px;color:var(--ink-soft);padding:8px 2px}.rc-add>summary::-webkit-details-marker{display:none}.rc-add>summary::before{content:"+";margin-right:.4em}.rc-add[open]>summary::before{content:"\\2212"}.rc-add>.rc-card{margin-top:4px}' +
+    '.bm-about{margin:0 0 8px}.bm-about>summary{cursor:pointer;list-style:none;font-size:12.5px;color:var(--ink-soft);padding:4px 2px}.bm-about>summary::-webkit-details-marker{display:none}.bm-about>summary::before{content:"+ "}.bm-about[open]>summary::before{content:"\\2212 "}' +
+    '.wk-all{margin-top:14px;border-top:1px solid var(--line);padding-top:4px}.wk-all>summary{cursor:pointer;list-style:none;font-size:13px;color:var(--ink-soft);padding:10px 2px}.wk-all>summary::-webkit-details-marker{display:none}.wk-all>summary::before{content:"+ "}.wk-all[open]>summary::before{content:"\\2212 "}' +
+    '.wd-rest{margin-top:8px}.wd-rest>summary{cursor:pointer;list-style:none;font-size:12.5px;color:var(--ink-soft);padding:6px 2px}.wd-rest>summary::-webkit-details-marker{display:none}.wd-rest>summary::before{content:"+ "}.wd-rest[open]>summary::before{content:"\\2212 "}' +
+    '.tdy-bar{display:none!important}' +
+    '.tdy-bar-old{border:0!important;background:none!important;box-shadow:none!important;margin:2px 0 10px!important;padding:0!important}.tdy-bar>.csec-head{display:none!important}.tdy-bar>.csec-body{display:block!important;padding:0!important;border:0!important;max-height:none!important}.tdy-bar .d-short{display:flex!important;gap:8px;overflow-x:auto;padding:2px 0 6px;-webkit-overflow-scrolling:touch;scrollbar-width:none}.tdy-bar .d-short::-webkit-scrollbar{display:none}.tdy-bar .d-short button{flex:0 0 auto;white-space:nowrap;padding:8px 14px!important;border-radius:999px!important}.tdy-bar .d-short button small{display:none}' +
+    '.tdy-in{border:0!important;background:none!important;box-shadow:none!important;margin:0!important;padding:0!important;display:none!important}.tdy-in.tdy-sel{display:block!important}.tdy-in>.csec-head{display:none!important}.tdy-in>.csec-body{display:block!important;padding:0!important;max-height:none!important;border:0!important}' +
+    '#sec-dash-rhythm .d-sub{display:none}#sec-dash-rhythm .d-chips{grid-template-columns:repeat(4,1fr)!important;gap:6px!important}#sec-dash-rhythm .d-chip{padding:8px 6px!important;text-align:center}#sec-dash-rhythm .d-chip b{font-size:20px!important}#sec-dash-rhythm .d-chip span{font-size:10px!important;line-height:1.2}#sec-dash-rhythm .tdy-l{margin-top:12px}' +
     '.tdy-l{font:10.5px "IBM Plex Mono",monospace;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint);margin:18px 0 4px}.tdy-l:first-child{margin-top:0}' +
     '#qk-fab{position:fixed;right:16px;bottom:calc(86px + env(safe-area-inset-bottom,0px));z-index:7000;width:52px;height:52px;border-radius:50%;border:0;background:var(--accent);color:#fff;font-size:28px;line-height:1;box-shadow:0 4px 14px rgba(0,0,0,.25);cursor:pointer}' +
     '#qk-fab:focus-visible{outline:2px solid var(--ink);outline-offset:3px}#sy-strip{padding-right:70px}' +
@@ -7465,6 +7494,29 @@ try{
     '.qk-hit mark{background:rgba(200,150,40,.28);color:inherit;border-radius:3px;padding:0 1px}';
   document.head.appendChild(css);
 
+  /* one card with tabs, built from existing cards so their ids, renderers and links keep working */
+  function tabCard(id, key, title, meta, tabs, group){
+    if($(id)) return $(id);
+    var found = tabs.filter(function(t){ return $(t[1]); }); if(found.length < 2) return null;
+    if(sectionState[key] === undefined) sectionState[key] = false;
+    var w = mkSection(id, key, title, meta, group || 'home'), body = w.querySelector('.csec-body'), bar = document.createElement('div'); bar.className = 'tdy-tabs'; body.appendChild(bar);
+    var first = $(found[0][1]);
+    first.parentNode.insertBefore(w, first);
+    function pick(i){ found.forEach(function(t, j){ var sec = $(t[1]); sec.classList.toggle('tdy-sel', j === i); bar.children[j].classList.toggle('on', j === i); }); }
+    found.forEach(function(t, i){
+      var sec = $(t[1]), b = document.createElement('button'); b.type = 'button'; b.textContent = t[0]; b.onclick = function(){ pick(i); }; bar.appendChild(b);
+      sec.classList.add('tdy-in'); sec.classList.remove('open'); body.appendChild(sec);
+      var ik = sec.getAttribute('data-key'); if(ik) sectionState[ik] = false;
+      /* anything that opens a folded card (a link, a shortcut, the jump bar) opens this card on the right tab */
+      new MutationObserver(function(){
+        if(!sec.classList.contains('open')) return;
+        sec.classList.remove('open'); pick(i);
+        if(!w.classList.contains('open')){ w.classList.add('open'); sectionState[key] = true; saveState(); }
+      }).observe(sec, { attributes:true, attributeFilter:['class'] });
+      sec.scrollIntoView = function(o){ if(!sec.classList.contains('tdy-sel')) pick(i); if(!w.classList.contains('open')){ w.classList.add('open'); sectionState[key] = true; saveState(); } Element.prototype.scrollIntoView.call(w, o); };
+    });
+    pick(0); try{ saveState(); }catch(e){} return w;
+  }
   /* ---------- 1. Dashboard structure ---------- */
   function tidyDash(){
     var today = $('sec-dash-today'); if(!today) return;
@@ -7483,14 +7535,19 @@ try{
       var l2 = document.createElement('div'); l2.className = 'tdy-l'; l2.textContent = 'Markers this season';
       se.querySelector('.csec-body').appendChild(l2); se.querySelector('.csec-body').appendChild(mg); go.parentNode.removeChild(go);
     }
-    /* order: attention, sync strip, today, about me, rhythm, season, compass, shortcuts, reviews, settings */
+    (function(){ var sh = $('sec-dash-short'); if(sh) sh.classList.add('tdy-bar'); })();
+    tabCard('tdy-dir', 'tdy-dir', 'Direction', 'season, compass, about me', [['Season', 'sec-dash-season'], ['Compass', 'sec-compass'], ['About me', 'sec-dash-profile']]);
+    tabCard('tdy-rev', 'tdy-rev', 'Reviews', 'week and season', [['Week', 'sec-review'], ['Season', 'sec-season']]);
+    tabCard('tdy-set', 'tdy-set', 'Settings and backup', 'display, privacy, sync', [['Display', 'sec-xset'], ['Sync', 'sec-sync']]);
+    /* order: attention, sync strip, today, rhythm, direction, shortcuts, reviews, settings */
     var strip = $('sy-strip'), att = $('sec-dash-attention'), anchor = strip || today;
     if(att) parent.insertBefore(att, anchor);
-    var seq = ['sec-dash-profile', 'sec-dash-rhythm', 'sec-dash-season', 'sec-compass', 'sec-dash-short', 'sec-review', 'sec-season'], ref = today.nextSibling;
+    var seq = ['sec-dash-short', 'sec-dash-rhythm', 'tdy-dir', 'tdy-rev'], ref = today.nextSibling;
     seq.forEach(function(id){ var s = $(id); if(!s) return; parent.insertBefore(s, ref); ref = s.nextSibling; });
     var xs = $('sec-xset'), sy = $('sec-sync');
     if(xs && !$('tdy-settings-label')){ var gl = document.createElement('div'); gl.className = 'group-label'; gl.id = 'tdy-settings-label'; gl.setAttribute('data-group', 'home'); gl.textContent = 'Settings'; parent.insertBefore(gl, ref); ref = gl.nextSibling; }
-    [xs, sy].forEach(function(s){ if(!s) return; parent.insertBefore(s, ref); ref = s.nextSibling; });
+    var tset = $('tdy-set');
+    (tset ? [tset] : [xs, sy]).forEach(function(s){ if(!s) return; parent.insertBefore(s, ref); ref = s.nextSibling; });
     /* Needs attention: one line when all is clear */
     if(att && !att._tdy){
       att._tdy = true;
@@ -7508,7 +7565,37 @@ try{
     });
     saveState(); LS.set(DONE, '1');
   }
-  tidyDash(); defaults();
+  /* second pass: Rhythm folds up too, once; after that your own choice stays */
+  function defaults2(){
+    var F = 'seasons-tidy2-defaults'; if(LS.get(F)) return;
+    if(sectionState['dash-rhythm'] === undefined || true){ sectionState['dash-rhythm'] = false; var r = $('sec-dash-rhythm'); if(r) r.classList.remove('open'); }
+    saveState(); LS.set(F, '1');
+  }
+  /* ---------- pillar pages: fewer, fuller cards ---------- */
+  function tidyPages(){
+    ['spirit', 'soul', 'body'].forEach(function(g){
+      tabCard('tdy-pm-' + g, 'tdy-pm-' + g, 'Practices and markers', 'system, dated outcomes', [['Practices', 'sec-prac-' + g], ['Markers', 'sec-goals-' + g]], g);
+    });
+    tabCard('tdy-cf', 'tdy-cf', 'Coordinates and foundations', 'plan direction', [['Coordinates', 'sec-coordinates'], ['Foundations', 'sec-foundations']], 'spirit');
+    tabCard('tdy-mem', 'tdy-mem', 'Memory and search', 'recall, verse search', [['Say it', 'sec-recall-spirit'], ['Search', 'sec-xsearch']], 'spirit');
+    tabCard('tdy-ns', 'tdy-ns', 'Notes and search', 'journal, learning, search', [['Notes', 'sec-notes'], ['Search', 'sec-xsoul']], 'soul');
+  }
+  /* this week's scripture: the step to do now stays open, the other two fold away */
+  function foldSteps(){
+    try{
+      var m = $('week-detail'); if(!m || typeof activeWeek === 'undefined' || activeWeek !== nowWeek) return;
+      var rows = [].slice.call(m.querySelectorAll('.wd-verses > .wd-verse')); if(rows.length < 2 || m.querySelector('.wd-rest')) return;
+      var cache = {}; try{ cache = JSON.parse(LS.get('seasons-verse-cache') || '{}'); }catch(e){}
+      var tk = ((((cache.__ss || {}).ticks) || {})[nowWeek]) || {}, names = ['reveal', 'reframe', 'respond'];
+      var focus = names.findIndex(function(n){ return !tk[n]; });
+      var host = rows[0].parentNode, d = document.createElement('details'); d.className = 'wd-rest';
+      var sm = document.createElement('summary'); sm.textContent = focus < 0 ? 'All three steps are done. Show them' : 'Other steps'; d.appendChild(sm);
+      rows.forEach(function(r, i){ if(i !== focus) d.appendChild(r); });
+      host.appendChild(d);
+    }catch(e){}
+  }
+  var wdOrig = window.renderWeekDetail; if(typeof wdOrig === 'function'){ renderWeekDetail = function(){ wdOrig(); foldSteps(); }; }
+  tidyDash(); tidyPages(); defaults(); defaults2(); foldSteps();
 
   /* ---------- 2. Quick sheet: capture + search ---------- */
   var ov = document.createElement('div'); ov.id = 'qk-ov'; ov.setAttribute('role', 'dialog'); ov.setAttribute('aria-modal', 'true'); ov.setAttribute('aria-label', 'Quick capture and search'); document.body.appendChild(ov);
