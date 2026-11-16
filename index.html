@@ -2511,7 +2511,7 @@ const EXPORT_KEY_GROUPS = {
 const LAST_BACKUP_KEY = 'seasons-last-backup';
 async function exportData(scope){
   const keys = scope === 'all'
-    ? ['seasons-completed-weeks','seasons-journal-entries','seasons-domain-tasks','seasons-share-bg-photo','seasons-section-state','seasons-verse-cache','seasons-learning-entries','seasons-pt-state','seasons-active-page','seasons-goals','rc_v1','seasons-profile','seasons-names','seasons-learning-weekly','seasons-learning-season','seasons-compass','seasons-recall']
+    ? ['seasons-completed-weeks','seasons-journal-entries','seasons-domain-tasks','seasons-share-bg-photo','seasons-section-state','seasons-verse-cache','seasons-learning-entries','seasons-pt-state','seasons-active-page','seasons-goals','rc_v1','seasons-profile','seasons-names','seasons-learning-weekly','seasons-learning-season','seasons-compass','seasons-recall','seasons-measures']
     : (EXPORT_KEY_GROUPS[scope] || []);
   const data = {};
   keys.forEach(k=>{ const v = LS.get(k); if(v!==null) data[k]=v; });
@@ -3855,7 +3855,9 @@ try{
         if(r.t > 0){ (ev[d] = ev[d] || {})[id] = r; }
       });
     });
-    var out = fillMissing({}, a); out = fillMissing(out, b); out.list = list; out.log = log; out.mn = mn; out.ev = ev; out.del = del; return out;
+    var notes = {};
+    [a.notes, b.notes].forEach(function(nm){ if(!isObj(nm)) return; Object.keys(nm).forEach(function(k){ var cur = notes[k] = notes[k] || {}; var n = nm[k]; if(!isObj(n)) return; Object.keys(n).forEach(function(f){ var v = String(n[f] == null ? '' : n[f]); if(v.length >= String(cur[f] || '').length) cur[f] = v; }); }); });
+    var out = fillMissing({}, a); out = fillMissing(out, b); out.list = list; out.log = log; out.mn = mn; out.ev = ev; out.del = del; if(Object.keys(notes).length) out.notes = notes; return out;
   }
   /* combines two copies of the whole goals store: markers by id, practices and ticks by event, workout logs by the fuller record */
   function mergeGoals(aText, bText){
@@ -4100,7 +4102,7 @@ try{
     /* notes for this week */
     head(m, 'My notes for this week');
     var note = (s.notes && s.notes[iso]) || {};
-    [['well', 'What went well?'], ['fix', 'What will I change in the system next week?']].forEach(function(f){
+    [['focus', 'My one focus for next week'], ['well', 'What went well?'], ['fix', 'What will I change in the system next week?']].forEach(function(f){
       var lb = el('div', null, f[1]); lb.style.cssText = 'font-size:12px;color:var(--ink-faint);margin:6px 0 2px'; m.appendChild(lb);
       var ta = el('textarea', 'journal-input'); ta.style.minHeight = '56px'; ta.value = note[f[0]] || ''; ta.setAttribute('aria-label', f[1]);
       ta.addEventListener('input', function(){ var d = load(); d.notes = d.notes || {}; d.notes[iso] = d.notes[iso] || {}; d.notes[iso][f[0]] = ta.value; save(d); });
@@ -4254,7 +4256,7 @@ try{
   function rd(k, d){ try{ var v = JSON.parse(LS.get(k) || 'null'); return v == null ? d : v; }catch(e){ return d; } }
   function autoMet(kind, t){
     try{
-      if(kind === 'scripture'){ var nm = DUEN[dowOf(t)]; var ss = (rd('seasons-verse-cache', {}).__ss || {}).ticks || {}; return !!(nm && ss[nowWeek] && ss[nowWeek][nm]); }
+      if(kind === 'scripture'){ var nm = DUEN[dowOf(t)]; var ss = (rd('seasons-verse-cache', {}).__ss || {}).ticks || {}; if(nm && ss[nowWeek] && ss[nowWeek][nm]) return true; var wk0 = WEEKS.filter(function(x){ return x.w === nowWeek; })[0], aid = wk0 ? 'V:' + wk0.r : ''; return !!aid && ((rd('seasons-recall', {}).log) || []).some(function(l){ return l.i === aid && ptFmtDate(new Date(l.t)) === t; }); }
       if(kind === 'reading'){ var hit = false; (rd('rc_v1', {}).books || []).forEach(function(b){ (b.sessions || []).forEach(function(x){ if(x.date === t && (x.mins > 0 || x.to > x.from)) hit = true; }); }); return hit; }
       if(kind === 'journal') return loadEntries().some(function(e){ return ptFmtDate(new Date(e.ts)) === t; });
       if(kind === 'learning') return loadLearningEntries().some(function(e){ return ptFmtDate(new Date(e.ts)) === t; });
@@ -4885,6 +4887,15 @@ try{
     }).join('') + '</div>';
     if(!c.P.list.length) h += '<div class="d-sub">Add daily practices on any page to tick them off here.</div>';
     else if(notToday) h += '<div class="d-sub">' + notToday + ' practice' + (notToday === 1 ? ' is' : 's are') + ' not scheduled today.</div>';
+    try{
+      var fx = (c.P.notes && c.P.notes[addDays(c.wk[0], -7)] && c.P.notes[addDays(c.wk[0], -7)].focus || '').trim();
+      var pre = '';
+      if(fx) pre += '<div class="d-focus"><b>Focus this week:</b> ' + esc(fx) + '</div>';
+      var d1 = window.__dayFocus ? window.__dayFocus(c.ts) : ''; if(d1) pre += '<div class="d-focus"><b>Today\u2019s one thing:</b> ' + esc(d1) + '</div>';
+      if(items.some(function(i){ return i.tick && !i.done; })) pre += '<button type="button" class="d-run" data-act="runday">Run my day</button>';
+      if(window.__seasonEnding && window.__seasonEnding()) pre += '<button type="button" class="d-run" data-act="season" style="background:transparent;color:var(--ink)">Season review</button>';
+      h = pre + h;
+    }catch(e){}
     cards.today.mount.innerHTML = h;
     setMeta('today', DOW[c.dow] + ' \u00b7 ' + (req.length ? n + '/' + req.length : 'rest'));
   }
@@ -4910,10 +4921,10 @@ try{
     var out = [], soon = addDays(c.ts, 3);
     function push(sev, text, act){ out.push({ sev:sev, text:text, act:act }); }
     if(!checkStorageHealth()) push(0, 'Your entries are not saving on this device. See the red banner at the top.', null);
-    Object.keys(DUE).forEach(function(n){
-      n = Number(n);
-      if(c.dow > n && !c.ticks[DUE[n]]) push(0, 'Scripture ' + DUE[n] + ' (due ' + DOW[n] + ') is not ticked.', { kind:'go', page:'spirit', sec:'sec-weekly' });
-    });
+    var missedS = [];
+    Object.keys(DUE).forEach(function(n){ n = Number(n); if(c.dow > n && !c.ticks[DUE[n]]) missedS.push(DUE[n]); });
+    if(missedS.length) push(0, 'Scripture: ' + missedS.join(' and ') + (missedS.length === 1 ? ' is' : ' are') + ' not ticked.', { kind:'go', page:'spirit', sec:'sec-weekly' });
+    try{ (c.P.list || []).forEach(function(p){ if(window.__pracBroken && window.__pracBroken(p, c.ts) && (c.P.log[c.ts] || []).indexOf(p.id) < 0) push(1, p.name + ': missed twice. Today the minimum is enough.', { kind:'runday' }); }); }catch(e){}
     if(ptEnabled()){
       c.wk.forEach(function(d){
         if(d >= c.ts || d < ptState.startDate) return;
@@ -4957,6 +4968,7 @@ try{
       if(a){
         if(a.kind === 'goal') btn = '<button class="d-go pri" data-act="goal" data-page="' + a.page + '" data-id="' + esc(a.id) + '">Done</button>';
         else if(a.kind === 'task') btn = '<button class="d-go pri" data-act="task" data-domain="' + a.domain + '" data-id="' + esc(a.id) + '">Done</button>';
+        else if(a.kind === 'runday') btn = '<button class="d-go pri" data-act="runday">Do it</button>';
         else if(a.kind === 'backup') btn = '<button class="d-go pri" data-act="backup">Back up</button>';
         else btn = '<button class="d-go" data-act="go" data-page="' + a.page + '" data-sec="' + a.sec + '"' + (a.tab ? ' data-tab="' + a.tab + '"' : '') + '>Open</button>';
       }
@@ -5109,6 +5121,8 @@ try{
     else if(a === 'go') go(b.getAttribute('data-page'), b.getAttribute('data-sec'), b.getAttribute('data-tab'));
     else if(a === 'recall'){ try{ window.__recallOpen('all'); }catch(e){} }
     else if(a === 'capture'){ try{ window.__qkOpen(); }catch(e){} }
+    else if(a === 'runday'){ try{ window.__runDay(false); }catch(e){} }
+    else if(a === 'season'){ try{ window.__seasonReview(); }catch(e){} }
   }
 
   /* ---------- build: label, cards, nav tab ---------- */
@@ -6665,7 +6679,7 @@ window.__SU = window.__SU || { ok:[], fail:[] };
 try{
 (function(){
   var CFG = 'seasons-sync-cfg', META = 'seasons-sync-meta', PRE = 'seasons-sync-prebackup', DESC = 'Seasons sync (encrypted)', FNAME = 'seasons-sync-meta.json';
-  var KEYS = ['seasons-completed-weeks','seasons-journal-entries','seasons-domain-tasks','seasons-learning-entries','seasons-learning-weekly','seasons-learning-season','seasons-pt-state','seasons-goals','rc_v1','seasons-profile','seasons-names','seasons-compass','seasons-recall'];
+  var KEYS = ['seasons-completed-weeks','seasons-journal-entries','seasons-domain-tasks','seasons-learning-entries','seasons-learning-weekly','seasons-learning-season','seasons-pt-state','seasons-goals','rc_v1','seasons-profile','seasons-names','seasons-compass','seasons-recall','seasons-measures'];
   var host = document.getElementById('sec-xset'); if(!host) throw new Error('Dashboard cards not found');
   var enc = new TextEncoder(), dec = new TextDecoder();
 
@@ -7170,10 +7184,10 @@ try{
     /* Spirit: this week's verses appear after their day, the week itself after Friday, and any starred or memorising verse */
     try{
       var w = WEEKS.filter(function(x){ return x.w === nowWeek; })[0], ss = ssRead(), refs = {};
-      function addRef(ref, theme, first){ if(!ref || refs[ref]) return; refs[ref] = 1;
-        out.push({ id:'V:' + ref, scope:'spirit', tag:theme || 'Verse', kind:'verse', ref:ref, prompt:'Write ' + ref + ' from memory.' + (theme ? ' (' + theme + ')' : ''), answer:typeof cache[ref] === 'string' ? cache[ref] : '', first:first }); }
+      function addRef(ref, theme, first, anchor){ if(!ref || refs[ref]) return; refs[ref] = 1;
+        out.push({ id:'V:' + ref, anchor:!!anchor, scope:'spirit', tag:(anchor ? 'This week\u2019s anchor' : (theme || 'Verse')), kind:'verse', ref:ref, prompt:'Write ' + ref + ' from memory.' + (theme ? ' (' + theme + ')' : ''), answer:typeof cache[ref] === 'string' ? cache[ref] : '', first:first }); }
       if(w){
-        addRef(w.r, w.t, '+1');
+        addRef(w.r, w.t, t, true);
         if(dow === 0 || dow >= 3) addRef(w.f, w.t, '+1');
         if(dow === 0 || dow >= 5) addRef(w.s, w.t, '+1');
       }
@@ -7206,9 +7220,9 @@ try{
       var x = r.it[i.id];
       if(i.ext){ if((i.due || t) <= t){ i.sort = i.due || t; due.push(i); } return; }
       if(i.first === '+1'){ r.seen = r.seen || {}; if(!r.seen[i.id]){ r.seen[i.id] = t; dirty = true; } i.first = addD(r.seen[i.id], 1); }
-      if(x && x.n){ if(x.due <= t){ i.box = x.box || 0; i.sort = x.due; due.push(i); } }
+      if(x && x.n){ if(x.due <= t || (i.anchor && iso(new Date(x.last || 0)) !== t)){ i.box = x.box || 0; i.sort = i.anchor ? '0' : x.due; due.push(i); } }
       else if(x && x.intro === t){ i.sort = '9'; due.push(i); }
-      else if(i.first <= t){ i.sort = i.first; fresh.push(i); }
+      else if(i.first <= t){ i.sort = i.anchor ? '0' : i.first; fresh.push(i); }
     });
     if(dirty) save(r);
     due.sort(function(a, b){ return a.sort < b.sort ? -1 : a.sort > b.sort ? 1 : 0; });
@@ -7308,13 +7322,13 @@ try{
     var it = ses.list[ses.i], r = load();
     if(!it.rep && it.ext){
       try{ window.__rcGrade(it.ext.k, it.ext.id, g === 2, g === 1); }catch(e){}
-      r.log.push({ t:Date.now(), r:g, s:it.scope }); save(r);
+      r.log.push({ t:Date.now(), r:g, s:it.scope, i:it.id }); save(r);
       if(g === 0){ var c0 = {}; for(var k0 in it) c0[k0] = it[k0]; c0.rep = true; ses.list.push(c0); }
     } else if(!it.rep){
       var x = r.it[it.id] || { box:0, n:0 };
       if(g === 2) x.box = Math.min(IV.length - 1, (x.box || 0) + 1); else if(g === 0) x.box = 0;
       x.n = (x.n || 0) + 1; x.due = addD(iso(), g === 0 ? 1 : IV[x.box]); x.last = Date.now(); x.sc = it.scope; x.intro = x.intro || iso();
-      r.it[it.id] = x; r.log.push({ t:Date.now(), r:g, s:it.scope }); save(r);
+      r.it[it.id] = x; r.log.push({ t:Date.now(), r:g, s:it.scope, i:it.id }); save(r);
       if(g === 2 && it.kind === 'verse') bumpVerse(it.ref);
       if(g === 0){ var c = {}; for(var k in it) c[k] = it[k]; c.rep = true; ses.list.push(c); }
     }
@@ -7710,6 +7724,477 @@ try{
 
  window.__SU.ok.push('Tidy: Rhythm card, quick capture and search, settings');
 }catch(e){ window.__SU.fail.push(['Tidy: Rhythm card, quick capture and search, settings', String(e && e.message || e)]); if(window.console) console.error('Tidy', e); }
+
+
+/* ===== lean-upgrade A: scripture as a practice, anchor verse, Respond note, offline verses ===== */
+try{
+(function(){
+  var CK = 'seasons-verse-cache', $ = function(i){ return document.getElementById(i); };
+  function ssGet(){ var c = {}; try{ c = JSON.parse(LS.get(CK) || '{}'); }catch(e){} var d = c.__ss || {}; d.ticks = d.ticks || {}; d.notes = d.notes || {}; d.resp = d.resp || {}; return d; }
+  function ssPut(d){ var c = {}; try{ c = JSON.parse(LS.get(CK) || '{}'); }catch(e){} c.__ss = d; LS.set(CK, JSON.stringify(c)); }
+  function weekRow(w){ return WEEKS.filter(function(x){ return x.w === w; })[0]; }
+
+  /* 1. Scripture becomes one practice that ticks itself (once; delete it and it stays deleted) */
+  (function ensure(){
+    var F = 'seasons-lean-scripture'; if(LS.get(F)) return;
+    try{
+      var g = JSON.parse(LS.get('seasons-goals') || '{}'); var P = g.__prac = g.__prac || { list:[], log:{}, mn:{} }; P.list = P.list || []; P.log = P.log || {};
+      if(!P.list.some(function(p){ return p.auto === 'scripture' || /scripture/i.test(p.name || ''); })){
+        P.list.push({ id:'p' + Date.now().toString(36) + 'sc', name:'Scripture', group:'spirit', target:7, cue:'With your first drink of the day', min:'Read this week’s anchor verse once', auto:'scripture', slot:'morning', mt:Date.now() });
+        LS.set('seasons-goals', JSON.stringify(g));
+      }
+      LS.set(F, '1');
+    }catch(e){}
+  })();
+
+  /* 2. Anchor tag on the Reveal verse, and a Respond line that becomes a Learning note */
+  function respondBox(row, w){
+    var wk = weekRow(w); if(!wk || row.querySelector('.wd-resp')) return;
+    var d = ssGet(), cur = d.resp[w] || null, box = document.createElement('div'); box.className = 'wd-resp'; box.style.cssText = 'margin-top:8px';
+    var lab = document.createElement('div'); lab.className = 'entry-meta'; lab.style.marginBottom = '4px'; lab.textContent = 'What will you do about this?';
+    var inp = document.createElement('input'); inp.type = 'text'; inp.className = 'journal-input'; inp.style.cssText = 'width:100%;box-sizing:border-box'; inp.placeholder = 'One thing, this week…'; inp.value = cur ? cur.text : '';
+    var b = document.createElement('button'); b.type = 'button'; b.textContent = cur ? 'Update note' : 'Save as a note'; b.style.cssText = 'margin-top:6px;font-size:12px;border:1px solid var(--line);border-radius:14px;padding:5px 12px;background:var(--paper-raised);color:var(--ink);cursor:pointer';
+    b.onclick = function(){
+      var text = inp.value.trim(); if(!text) return;
+      var list = loadLearningEntries(), id = cur && cur.id, e = id ? list.filter(function(x){ return x.id === id; })[0] : null;
+      if(e){ e.action = text; e.edited = Date.now(); }
+      else{ id = 'l' + Date.now() + Math.random().toString(36).slice(2, 7); list.unshift({ id:id, ts:Date.now(), source:'Scripture · ' + wk.t, takeaway:wk.s + ' (Respond, week ' + w + ')', action:text, weekNum:w, seasonKey:SEASONS[currentSeasonIndex].key, photo:null }); }
+      saveLearningEntries(list); try{ renderLearningEntries(); }catch(x){}
+      var s2 = ssGet(); s2.resp[w] = { id:id, text:text }; ssPut(s2);
+      var tb = [].slice.call(row.querySelectorAll('.wd-verse-head button')).filter(function(x){ return /Done/.test(x.textContent); })[0]; if(tb && /Done\?/.test(tb.textContent)) tb.click(); else b.textContent = 'Update note';
+    };
+    box.appendChild(lab); box.appendChild(inp); box.appendChild(b); row.appendChild(box);
+  }
+  var wdPrev = window.renderWeekDetail;
+  if(typeof wdPrev === 'function'){
+    renderWeekDetail = function(){
+      wdPrev();
+      try{
+        var m = $('week-detail'); if(!m) return;
+        var rows = m.querySelectorAll('.wd-verse');
+        if(rows[0]){ var t0 = [].slice.call(rows[0].querySelectorAll('.wd-verse-head span')).filter(function(x){ return /^Mon/.test(x.textContent); })[0]; if(t0 && t0.textContent.indexOf('anchor') < 0) t0.textContent = t0.textContent.replace(/^Mon/, 'Mon · anchor'); }
+        if(rows[2]) respondBox(rows[2], activeWeek);
+      }catch(e){}
+    };
+  }
+
+  /* 3. Offline: keep the verse text on the device */
+  function refsFor(ok){ var r = []; WEEKS.forEach(function(x){ if(ok(x.w)) [x.r, x.f, x.s].forEach(function(f){ if(f && r.indexOf(f) < 0) r.push(f); }); }); return r; }
+  function have(ref){ try{ return !!JSON.parse(LS.get(CK) || '{}')[ref]; }catch(e){ return false; } }
+  var pulling = false;
+  async function pull(refs, step){
+    if(pulling) return; pulling = true; var fails = 0;
+    try{
+      for(var i = 0; i < refs.length; i++){
+        if(!have(refs[i])){ try{ await fetchVerseText(refs[i]); fails = 0; }catch(e){ if(++fails >= 3) break; } await new Promise(function(r){ setTimeout(r, 250); }); }
+        if(step) step(refs);
+      }
+    }finally{ pulling = false; }
+  }
+  function counts(){ var all = refsFor(function(){ return true; }); return { have:all.filter(have).length, total:all.length, all:all }; }
+  function drawOffline(){
+    var det = $('wk-all'); if(!det) return; var box = $('wk-off');
+    if(!box){ box = document.createElement('div'); box.id = 'wk-off'; box.style.cssText = 'margin:12px 0 4px;font-size:12.5px;color:var(--ink-soft)';
+      var b = document.createElement('button'); b.type = 'button'; b.id = 'wk-off-btn'; b.style.cssText = 'font-size:12px;border:1px solid var(--line);border-radius:14px;padding:5px 12px;background:var(--paper-raised);color:var(--ink);cursor:pointer;margin-right:8px'; b.textContent = 'Save all verses for offline';
+      var st = document.createElement('span'); st.id = 'wk-off-st'; box.appendChild(b); box.appendChild(st); det.appendChild(box);
+      b.onclick = function(){ if(navigator.onLine === false){ st.textContent = 'You are offline. Try again when you have a connection.'; return; } pull(counts().all, upd); };
+    }
+    upd();
+    function upd(){ var c = counts(), st = $('wk-off-st'), b = $('wk-off-btn'); if(!st) return; st.textContent = c.have >= c.total ? 'All ' + c.total + ' verses are saved on this device.' : c.have + ' of ' + c.total + ' saved'; if(b) b.style.display = c.have >= c.total ? 'none' : ''; }
+  }
+  drawOffline();
+  /* quietly keep the next four weeks on the device while online */
+  setTimeout(function(){ try{ if(navigator.onLine !== false) pull(refsFor(function(w){ return w >= nowWeek && w < nowWeek + 4; }), drawOffline); }catch(e){} }, 5000);
+
+  try{ renderWeekDetail(); }catch(e){}
+})();
+ window.__SU.ok.push('Lean A: scripture practice, anchor verse, Respond note, offline verses');
+}catch(e){ window.__SU.fail.push(['Lean A', String(e && e.message || e)]); if(window.console) console.error('Lean A', e); }
+
+
+/* ===== lean-upgrade B: Run my day, short workout ===== */
+try{
+(function(){
+  var $ = function(i){ return document.getElementById(i); };
+  function esc(t){ return String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;'); }
+  var css = document.createElement('style');
+  css.textContent =
+    '#rd-ov{position:fixed;inset:0;z-index:1200;background:var(--paper);display:none;overflow-y:auto;-webkit-overflow-scrolling:touch}#rd-ov.on{display:block}' +
+    '.rd-in{max-width:560px;margin:0 auto;padding:22px 18px 40px;min-height:100%;box-sizing:border-box;display:flex;flex-direction:column}' +
+    '.rd-top{display:flex;align-items:center;gap:8px;justify-content:space-between;margin-bottom:6px}.rd-top b{font:500 18px "Fraunces",serif;color:var(--ink)}' +
+    '.rd-x{background:none;border:1px solid var(--line);border-radius:999px;padding:6px 13px;color:var(--ink-soft);font:13px "Inter",sans-serif;cursor:pointer}' +
+    '.rd-chips{display:flex;gap:6px;margin:4px 0 14px}.rd-chips button{font:500 12.5px "Inter",sans-serif;padding:5px 12px;border-radius:999px;border:1px solid var(--line);background:var(--paper);color:var(--ink-soft);cursor:pointer}.rd-chips button.on{background:var(--ink);border-color:var(--ink);color:var(--paper)}' +
+    '.rd-dots{display:flex;gap:5px;margin-bottom:22px}.rd-dots i{flex:1;height:4px;border-radius:2px;background:var(--line)}.rd-dots i.d{background:var(--ink)}.rd-dots i.c{background:var(--ink-faint)}' +
+    '.rd-card{flex:1;display:flex;flex-direction:column;justify-content:center;text-align:center;gap:10px;padding:10px 4px}' +
+    '.rd-slot{font:10.5px "IBM Plex Mono",monospace;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint)}' +
+    '.rd-name{font:500 30px/1.15 "Fraunces",serif;color:var(--ink)}.rd-cue{font-size:15px;color:var(--ink-soft)}.rd-min{font-size:13.5px;color:var(--ink-faint)}' +
+    '.rd-btns{display:flex;flex-direction:column;gap:10px;margin-top:22px}.rd-btns button{font:500 16px "Inter",sans-serif;padding:15px;border-radius:14px;border:1px solid var(--line);background:var(--paper-raised,var(--paper));color:var(--ink);cursor:pointer}.rd-btns button.pri{background:var(--ink);border-color:var(--ink);color:var(--paper)}.rd-btns button.q{font-size:14px;padding:10px;border:none;background:none;color:var(--ink-faint)}' +
+    '.d-run{width:100%;margin:2px 0 10px;padding:11px;border-radius:12px;border:1px solid var(--ink);background:var(--ink);color:var(--paper);font:500 14px "Inter",sans-serif;cursor:pointer}' +
+    '.d-focus{font-size:13px;color:var(--ink-soft);margin:2px 0 10px;padding:8px 11px;border-left:3px solid var(--accent,var(--ink-faint));background:var(--paper-raised,transparent);border-radius:0 8px 8px 0}.d-focus b{color:var(--ink)}' +
+    '#cal-mount.cal-short .pt-exercise:not(.cal-keep){display:none}#cal-mount.cal-short .cal-set:nth-child(n+2){display:none}' +
+    '.cal-shortnote{font-size:12.5px;color:var(--ink-soft);margin:6px 0 10px}';
+  document.head.appendChild(css);
+
+  var ov = document.createElement('div'); ov.id = 'rd-ov'; ov.setAttribute('role', 'dialog'); ov.setAttribute('aria-label', 'Run my day'); document.body.appendChild(ov);
+  var SO = { morning:0, midday:1, evening:2 }, SN = ['Morning', 'Midday', 'Evening'], S = null;
+  function store(){ var g = {}; try{ g = JSON.parse(LS.get('seasons-goals') || '{}'); }catch(e){} g.__prac = g.__prac || { list:[], log:{}, mn:{} }; g.__prac.list = g.__prac.list || []; g.__prac.log = g.__prac.log || {}; return g; }
+  function weekOfToday(){ var d = new Date(), out = []; for(var i = 0; i < 7; i++) out.push(ptFmtDate(new Date(d.getFullYear(), d.getMonth(), d.getDate() - d.getDay() + i))); return out; }
+  function build(all){
+    var g = store(), P = g.__prac, ts = ptFmtDate(new Date()), wk = weekOfToday(), h = new Date().getHours(), cur = h < 12 ? 0 : h < 17 ? 1 : 2;
+    return P.list.filter(function(p){
+      var due = window.__pracDue ? window.__pracDue(p, ts, wk, P.log) : 'due';
+      if(!due || due === 'catchup') return false;
+      if((P.log[ts] || []).indexOf(p.id) >= 0) return false;
+      if(all) return true; var so = SO[p.slot]; return so == null || so <= cur;
+    }).sort(function(a, b){ var x = SO[a.slot], y = SO[b.slot]; return (x == null ? 3 : x) - (y == null ? 3 : y); });
+  }
+  function refresh(){ try{ if(typeof renderAllGoals === 'function') renderAllGoals(); }catch(e){} try{ document.dispatchEvent(new Event('visibilitychange')); }catch(e){} }
+  function mark(p, state){
+    var g = store(), t = ptFmtDate(new Date()); if(window.__pracSet) window.__pracSet(g.__prac, t, p.id, state); LS.set('seasons-goals', JSON.stringify(g));
+  }
+  function draw(){
+    if(!S) return; var L = S.list, i = S.i, done = L.filter(function(x){ return S.res[x.id] === 'd'; }).length;
+    var h = '<div class="rd-in"><div class="rd-top"><b>Run my day</b><button type="button" class="rd-x" data-rd="close">Close</button></div>';
+    h += '<div class="rd-chips"><button type="button" data-rd="now" class="' + (S.all ? '' : 'on') + '">Now</button><button type="button" data-rd="all" class="' + (S.all ? 'on' : '') + '">Everything today</button></div>';
+    if(!L.length){ h += '<div class="rd-card"><div class="rd-name">Nothing left to run</div><div class="rd-cue">' + (S.all ? 'Everything due today is ticked.' : 'Nothing is due for now. Try Everything today.') + '</div></div></div>'; ov.innerHTML = h; return; }
+    h += '<div class="rd-dots">' + L.map(function(x, k){ return '<i class="' + (S.res[x.id] === 'd' ? 'd' : S.res[x.id] === 's' ? 'c' : '') + '"></i>'; }).join('') + '</div>';
+    if(i >= L.length){
+      h += '<div class="rd-card"><div class="rd-name">' + (done === L.length ? 'All done' : done + ' of ' + L.length + ' done') + '</div><div class="rd-cue">' + (done === L.length ? 'That is the run. Well done.' : 'The skipped ones will still be on Today.') + '</div></div><div class="rd-btns"><button type="button" class="pri" data-rd="close">Close</button></div></div>';
+      ov.innerHTML = h; return;
+    }
+    var p = L[i];
+    h += '<div class="rd-card"><div class="rd-slot">' + (p.slot ? SN[SO[p.slot]] : 'Anytime') + ' · ' + (i + 1) + ' of ' + L.length + '</div><div class="rd-name">' + esc(p.name) + '</div>' +
+      (p.cue ? '<div class="rd-cue">' + esc(p.cue) + '</div>' : '') + (p.min ? '<div class="rd-min">Minimum: ' + esc(p.min) + '</div>' : '') + (p.auto ? '<div class="rd-min">This one can tick itself when you do it.</div>' : '') + '</div>';
+    h += '<div class="rd-btns"><button type="button" class="pri" data-rd="done">Done</button>' + (p.min ? '<button type="button" data-rd="min">I did the minimum</button>' : '') + '<button type="button" class="q" data-rd="skip">Skip for now</button></div></div>';
+    ov.innerHTML = h;
+  }
+  function open(all){ S = { all:!!all, list:build(!!all), i:0, res:{} }; draw(); ov.classList.add('on'); document.body.style.overflow = 'hidden'; }
+  function close(){ ov.classList.remove('on'); document.body.style.overflow = ''; S = null; refresh(); }
+  ov.addEventListener('click', function(e){
+    var b = e.target.closest && e.target.closest('[data-rd]'); if(!b || !S) return; var a = b.getAttribute('data-rd'), p = S.list[S.i];
+    if(a === 'close') return close();
+    if(a === 'now' || a === 'all'){ S = { all:a === 'all', list:build(a === 'all'), i:0, res:{} }; return draw(); }
+    if(!p) return;
+    if(a === 'done'){ mark(p, 1); S.res[p.id] = 'd'; S.i++; }
+    else if(a === 'min'){ mark(p, 2); S.res[p.id] = 'd'; S.i++; }
+    else if(a === 'skip'){ S.res[p.id] = 's'; S.i++; }
+    draw();
+  });
+  document.addEventListener('keydown', function(e){ if(e.key === 'Escape' && ov.classList.contains('on')) close(); });
+  window.__runDay = open;
+
+  /* 5-minute version of the workout: first three moves, one set each */
+  var shortOn = false;
+  function injectShort(){
+    var m = $('cal-mount'); if(!m) return; var first = m.querySelector('.pt-exercise'); if(!first || m.querySelector('#cal-short-btn')) { m.classList.toggle('cal-short', shortOn); return; }
+    [].slice.call(m.querySelectorAll('.pt-exercise')).slice(0, 3).forEach(function(e){ e.classList.add('cal-keep'); });
+    var wrap = document.createElement('div'); wrap.className = 'cal-row'; wrap.style.margin = '6px 0';
+    var b = document.createElement('button'); b.type = 'button'; b.id = 'cal-short-btn'; b.className = 'cal-mini'; b.textContent = shortOn ? 'Show the full session' : 'Short on time? Show the 5-minute version';
+    var note = document.createElement('div'); note.className = 'cal-shortnote'; note.id = 'cal-short-note'; note.style.display = shortOn ? '' : 'none'; note.textContent = 'The first three moves, one set each. Log what you do and it counts as a session.';
+    b.onclick = function(){ shortOn = !shortOn; m.classList.toggle('cal-short', shortOn); b.textContent = shortOn ? 'Show the full session' : 'Short on time? Show the 5-minute version'; note.style.display = shortOn ? '' : 'none'; };
+    wrap.appendChild(b); first.parentNode.insertBefore(wrap, first); first.parentNode.insertBefore(note, first);
+    m.classList.toggle('cal-short', shortOn);
+  }
+  var cm = $('cal-mount'); if(cm){ var busy = false; new MutationObserver(function(){ if(busy) return; busy = true; try{ injectShort(); }finally{ busy = false; } }).observe(cm, { childList:true }); injectShort(); }
+})();
+ window.__SU.ok.push('Lean B: Run my day, short workout version');
+}catch(e){ window.__SU.fail.push(['Lean B', String(e && e.message || e)]); if(window.console) console.error('Lean B', e); }
+
+
+/* ===== lean-upgrade C: one notes stream, hide cards you do not use ===== */
+try{
+(function(){
+  var $ = function(i){ return document.getElementById(i); };
+  function esc(t){ return String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;'); }
+  var css = document.createElement('style');
+  css.textContent =
+    '.entry-kind{font:10px "IBM Plex Mono",monospace;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-faint);border:1px solid var(--line);border-radius:6px;padding:1px 6px}' +
+    '#notes-all{margin-top:10px}#notes-all-list .entries{display:contents}' +
+    '.u-hide{display:none!important}' +
+    '.u-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line);font-size:13.5px}.u-row span{flex:1;color:var(--ink)}.u-row small{color:var(--ink-faint);display:block;font-size:11.5px}' +
+    '.u-row button{font:12px "Inter",sans-serif;border:1px solid var(--line);border-radius:999px;padding:5px 12px;background:var(--paper);color:var(--ink-soft);cursor:pointer}';
+  document.head.appendChild(css);
+
+  /* ---- 1. Journal and Learning in one list, newest first, one search box ---- */
+  (function(){
+    var pj = $('notes-panel-journal'), pl = $('notes-panel-learning'), jf = $('journal-filter'), lf = $('learning-filter'), je = $('entries'), le = $('learning-entries');
+    if(!pj || !pl || !jf || !lf || !je || !le) return;
+    var all = document.createElement('div'); all.id = 'notes-all';
+    var q = document.createElement('input'); q.type = 'text'; q.id = 'notes-all-filter'; q.placeholder = 'Search all notes…'; q.setAttribute('aria-label', 'Search all notes'); q.style.cssText = lf.style.cssText;
+    var list = document.createElement('div'); list.id = 'notes-all-list'; list.style.cssText = 'display:flex;flex-direction:column';
+    list.appendChild(le); list.appendChild(je); all.appendChild(q); all.appendChild(list); pj.parentNode.appendChild(all);
+    jf.style.display = 'none'; lf.style.display = 'none';
+    q.addEventListener('input', function(){ [jf, lf].forEach(function(i){ i.value = q.value; i.dispatchEvent(new Event('input', { bubbles:true })); }); });
+    var sw = document.querySelectorAll('#notes-tab-switch button'); if(sw[0]) sw[0].textContent = 'Write a learning note'; if(sw[1]) sw[1].textContent = 'Write a point taken';
+    function tsMap(){ var m = {}; try{ loadEntries().forEach(function(e){ m[e.id] = e.ts; }); }catch(e){} try{ loadLearningEntries().forEach(function(e){ m[e.id] = e.ts; }); }catch(e){} return m; }
+    function post(){
+      try{
+        var ts = tsMap(), total = 0;
+        [[le, 'Learning'], [je, 'Point']].forEach(function(a){
+          [].slice.call(a[0].children).forEach(function(c){
+            if(!c.classList.contains('entry')){ c.style.order = '-2000000000'; return; }
+            total++; c.style.order = String(-Math.floor((ts[c.getAttribute('data-eid')] || 0) / 1000));
+            var m = c.querySelector('.entry-meta'); if(m && !m.querySelector('.entry-kind')){ var s = document.createElement('span'); s.className = 'entry-kind'; s.textContent = a[1]; m.insertBefore(s, m.children[1] || null); }
+          });
+        });
+        var en = je.querySelector('.empty-note'), ln = le.querySelector('.empty-note');
+        if(en) en.style.display = 'none'; if(ln) ln.style.display = (total ? 'none' : '');
+      }catch(e){}
+    }
+    var rE = window.renderEntries, rL = window.renderLearningEntries;
+    if(typeof rE === 'function') renderEntries = function(){ var r = rE.apply(this, arguments); post(); return r; };
+    if(typeof rL === 'function') renderLearningEntries = function(){ var r = rL.apply(this, arguments); post(); return r; };
+    post();
+  })();
+
+  /* ---- 2. Note which cards you open; list the ones you have not touched in 30 days ---- */
+  var UK = 'seasons-usage', DAY = 864e5, EXCLUDE = { 'sec-dash-today':1, 'sec-dash-attention':1, 'tdy-set':1 };
+  function ugs(){ var u = {}; try{ u = JSON.parse(LS.get(UK) || '{}'); }catch(e){} u.since = u.since || Date.now(); u.seen = u.seen || {}; u.hide = u.hide || {}; return u; }
+  function ups(u){ try{ LS.set(UK, JSON.stringify(u)); }catch(e){} }
+  var u0 = ugs(); if(!LS.get(UK)) ups(u0);
+  function cards(){ return [].slice.call(document.querySelectorAll('section.csec')).filter(function(s){ return s.id && !s.classList.contains('tdy-in') && !s.classList.contains('tdy-bar') && !EXCLUDE[s.id] && s.querySelector('.csec-title'); }); }
+  function title(s){ return (s.querySelector('.csec-title') || {}).textContent || s.id; }
+  function applyHide(){ var u = ugs(); cards().forEach(function(s){ s.classList.toggle('u-hide', !!u.hide[s.id]); }); }
+  function stamp(s){ if(!s.id || EXCLUDE[s.id]) return; var u = ugs(); u.seen[s.id] = Date.now(); ups(u); }
+  /* tab cards: opening an inner card counts as using the merged card; opening a merged card counts as using it */
+  [].slice.call(document.querySelectorAll('section.csec')).forEach(function(s){
+    var was = s.classList.contains('open');
+    new MutationObserver(function(){ var now = s.classList.contains('open'); if(now && !was){ stamp(s); } was = now; }).observe(s, { attributes:true, attributeFilter:['class'] });
+  });
+  /* tab clicks count too */
+  document.addEventListener('click', function(e){ var b = e.target.closest && e.target.closest('.tdy-tabs button'); if(b){ var w = b.closest('section.csec'); if(w) stamp(w); } }, true);
+
+  function drawPrune(){
+    var host = $('sec-xset'); if(!host) return; var body = host.querySelector('.csec-body') || host, box = $('u-prune');
+    if(!box){ box = document.createElement('div'); box.id = 'u-prune'; box.style.marginTop = '16px'; body.appendChild(box); }
+    var u = ugs(), old = Date.now() - u.since >= 30 * DAY, rows = '', n = 0;
+    var stale = cards().filter(function(s){ if(u.hide[s.id]) return false; var last = u.seen[s.id] || 0; return old && (Date.now() - Math.max(last, u.since) >= 30 * DAY) && last < Date.now() - 30 * DAY; });
+    var hidden = cards().filter(function(s){ return u.hide[s.id]; });
+    var h = '<div class="rv-h">Cards you do not use</div>';
+    if(!old) h += '<div class="d-sub">After 30 days of use, cards you have not opened will be listed here so you can hide them.</div>';
+    else if(!stale.length) h += '<div class="d-sub">Every card has been opened in the last 30 days.</div>';
+    stale.forEach(function(s){ var last = u.seen[s.id]; h += '<div class="u-row"><span>' + esc(title(s)) + '<small>' + (last ? 'last opened ' + Math.round((Date.now() - last) / DAY) + ' days ago' : 'not opened in 30 days') + '</small></span><button type="button" data-u="hide" data-id="' + s.id + '">Hide</button></div>'; });
+    if(hidden.length){ h += '<div class="rv-h" style="margin-top:12px">Hidden</div>'; hidden.forEach(function(s){ h += '<div class="u-row"><span>' + esc(title(s)) + '</span><button type="button" data-u="show" data-id="' + s.id + '">Show</button></div>'; }); }
+    box.innerHTML = h;
+  }
+  document.addEventListener('click', function(e){
+    var b = e.target.closest && e.target.closest('#u-prune [data-u]'); if(!b) return; var u = ugs(), id = b.getAttribute('data-id');
+    if(b.getAttribute('data-u') === 'hide') u.hide[id] = 1; else { delete u.hide[id]; u.seen[id] = Date.now(); }
+    ups(u); applyHide(); drawPrune();
+  });
+  var origSet = window.setActivePage; if(typeof origSet === 'function'){ setActivePage = function(p){ var r = origSet.apply(this, arguments); applyHide(); return r; }; }
+  var ws = $('tdy-set'); if(ws) new MutationObserver(function(){ if(ws.classList.contains('open')) drawPrune(); }).observe(ws, { attributes:true, attributeFilter:['class'] });
+  applyHide(); drawPrune();
+  window.__usageInfo = function(){ return { stale:cards().filter(function(s){ var u = ugs(); return !u.hide[s.id] && (u.seen[s.id] || 0) < Date.now() - 30 * DAY; }).length }; };
+})();
+ window.__SU.ok.push('Lean C: one notes stream, hide unused cards');
+}catch(e){ window.__SU.fail.push(['Lean C', String(e && e.message || e)]); if(window.console) console.error('Lean C', e); }
+
+/* ===== lean-upgrade D: health measures, mobility block, evening wind-down, streak-proof rule, season review ===== */
+try{
+(function(){
+  var $ = function(i){ return document.getElementById(i); };
+  function esc(t){ return String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;'); }
+  function today(){ return ptFmtDate(new Date()); }
+  function dayAdd(iso, n){ var d = new Date(iso + 'T12:00:00'); d.setDate(d.getDate() + n); return ptFmtDate(d); }
+  function weekOfDate(iso){ var d = new Date(iso + 'T12:00:00'), out = []; for(var i = 0; i < 7; i++){ var x = new Date(d.getFullYear(), d.getMonth(), d.getDate() - d.getDay() + i, 12); out.push(ptFmtDate(x)); } return out; }
+  function goals(){ var g = {}; try{ g = JSON.parse(LS.get('seasons-goals') || '{}'); }catch(e){} g.__prac = g.__prac || { list:[], log:{}, mn:{} }; g.__prac.list = g.__prac.list || []; g.__prac.log = g.__prac.log || {}; g.__prac.mn = g.__prac.mn || {}; return g; }
+  var DK = 'seasons-lean-d';
+  function dget(){ var d = {}; try{ d = JSON.parse(LS.get(DK) || '{}'); }catch(e){} d.mob = d.mob || {}; d.foc = d.foc || {}; d.sr = d.sr || {}; return d; }
+  function dput(d){ LS.set(DK, JSON.stringify(d)); }
+
+  var css = document.createElement('style');
+  css.textContent =
+    '.hm-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:8px 0}.hm-grid label{font-size:11.5px;color:var(--ink-soft);display:flex;flex-direction:column;gap:3px}' +
+    '.hm-grid input,.hm-h input{border:1px solid var(--line);border-radius:7px;padding:8px;background:var(--paper-raised,var(--paper));color:var(--ink);font:14px "IBM Plex Mono",monospace;width:100%;box-sizing:border-box}' +
+    '.hm-row{display:flex;gap:10px;align-items:baseline;padding:6px 0;border-bottom:1px solid var(--line);font-size:13px}.hm-row b{font-weight:500;min-width:76px}.hm-row span{flex:1;color:var(--ink-soft)}.hm-row button{background:none;border:0;color:var(--ink-faint);cursor:pointer;font-size:16px}' +
+    '.hm-note{font-size:12.5px;color:var(--ink-soft);margin:8px 0;line-height:1.45}.hm-note b{color:var(--ink)}' +
+    '.mob-m{padding:7px 0;border-bottom:1px solid var(--line);font-size:13.5px}.mob-m small{display:block;color:var(--ink-faint);font-size:12px}' +
+    '#rd-wd{margin-top:18px;border-top:1px solid var(--line);padding-top:14px;text-align:left}#rd-wd h4{font:500 17px "Fraunces",serif;margin:0 0 8px}#rd-wd label{display:block;font-size:12px;color:var(--ink-soft);margin:10px 0 4px}#rd-wd input{width:100%;box-sizing:border-box;border:1px solid var(--line);border-radius:9px;padding:11px;background:var(--paper-raised,var(--paper));color:var(--ink);font:15px "Inter",sans-serif}' +
+    '#rd-wd button,.rd-tf button{margin-top:12px;width:100%;padding:13px;border-radius:12px;border:1px solid var(--ink);background:var(--ink);color:var(--paper);font:500 15px "Inter",sans-serif;cursor:pointer}' +
+    '.rd-tf{font-size:13.5px;color:var(--ink-soft);padding:9px 12px;border-left:3px solid var(--accent,var(--ink-faint));margin:0 0 12px}.rd-tf b{color:var(--ink)}' +
+    '.rd-broke{font-size:13px;color:var(--ink-soft);background:var(--paper-raised,transparent);border:1px solid var(--line);border-radius:10px;padding:9px 12px;margin-top:6px}' +
+    '#sr-ov{position:fixed;inset:0;z-index:1200;background:var(--paper);display:none;overflow-y:auto;-webkit-overflow-scrolling:touch}#sr-ov.on{display:block}' +
+    '.sr-in{max-width:560px;margin:0 auto;padding:18px 18px 60px;color:var(--ink)}.sr-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}.sr-top b{font:500 22px "Fraunces",serif}' +
+    '.sr-in h4{font:10.5px "IBM Plex Mono",monospace;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint);margin:20px 0 8px}' +
+    '.sr-bar{display:flex;align-items:center;gap:10px;font-size:13.5px;padding:5px 0}.sr-bar span{flex:1}.sr-bar i{display:block;height:6px;border-radius:3px;background:var(--ink);opacity:.8}.sr-bar u{display:block;width:90px;height:6px;border-radius:3px;background:var(--line);text-decoration:none}.sr-bar em{font-style:normal;color:var(--ink-faint);font-size:12px;min-width:38px;text-align:right}' +
+    '.sr-in textarea{width:100%;box-sizing:border-box;border:1px solid var(--line);border-radius:10px;padding:11px;background:var(--paper-raised,var(--paper));color:var(--ink);font:15px "Inter",sans-serif;min-height:80px}.sr-in p{font-size:13.5px;color:var(--ink-soft);line-height:1.5;margin:6px 0}';
+  document.head.appendChild(css);
+
+  /* ---------- 1. Health measures (waist, resting heart rate, weight) ---------- */
+  var MK = 'seasons-measures';
+  function mget(){ var m = {}; try{ m = JSON.parse(LS.get(MK) || '{}'); }catch(e){} m.e = m.e || []; return m; }
+  function mput(m){ m.u = Date.now(); LS.set(MK, JSON.stringify(m)); }
+  function num(v){ v = parseFloat(String(v).replace(',', '.')); return isFinite(v) && v > 0 ? v : null; }
+  function mText(m){
+    var e = m.e.slice().sort(function(a, b){ return a.d < b.d ? 1 : -1; }), last = {}, first = {};
+    ['w', 'wa', 'hr'].forEach(function(k){ var v = e.filter(function(x){ return x[k] != null; }); if(v.length){ last[k] = v[0][k]; first[k] = v[v.length - 1][k]; } });
+    var t = '';
+    if(last.wa != null){
+      var risk = last.wa < 94 ? 'below 94 cm, the lower-risk range for men' : last.wa < 102 ? 'between 94 and 102 cm, where risk is increased' : '102 cm or more, where risk is high';
+      t += '<div class="hm-note"><b>Waist ' + last.wa + ' cm:</b> ' + risk + '.' + (num(m.h) ? ' Waist to height is <b>' + (last.wa / m.h).toFixed(2) + '</b>; under 0.50 is the usual target.' : ' Add your height to see waist to height; under 0.50 is the usual target.') + '</div>';
+    }
+    if(last.hr != null) t += '<div class="hm-note"><b>Resting heart rate ' + last.hr + ' bpm:</b> 60 to 100 is the typical adult range, and fitter people often sit lower. Measure it the same way each time, seated and calm, ideally on waking.</div>';
+    if(t) t += '<div class="hm-note" style="font-size:11.5px">Based on general NHS guidance for adult men. It is a pointer, not a diagnosis. The direction over weeks matters more than any single reading.</div>';
+    return t;
+  }
+  function mDraw(){
+    var host = $('bm-measures'); if(!host) return; var m = mget(), open = host.querySelector('details') && host.querySelector('details').open;
+    var rows = m.e.slice().sort(function(a, b){ return a.d < b.d ? 1 : -1; }).slice(0, 6).map(function(x, i, arr){
+      var prev = arr[i + 1], dl = function(k, u){ return x[k] != null ? (x[k] + u + (prev && prev[k] != null && prev[k] !== x[k] ? ' (' + (x[k] - prev[k] > 0 ? '+' : '') + (Math.round((x[k] - prev[k]) * 10) / 10) + ')' : '')) : ''; };
+      return '<div class="hm-row"><b>' + esc(x.d) + '</b><span>' + [dl('w', ' kg'), dl('wa', ' cm'), dl('hr', ' bpm')].filter(Boolean).join(' · ') + '</span><button type="button" data-hm="del" data-d="' + esc(x.d) + '" aria-label="Delete this reading">×</button></div>';
+    }).join('');
+    host.innerHTML = '<details class="stretch-block" style="border:1px solid var(--line);border-radius:9px;padding:8px 10px;margin-top:14px"' + (open ? ' open' : '') + '><summary style="font-family:\'Fraunces\',serif;font-size:12.5px;font-weight:500;cursor:pointer">Health measures: waist, resting heart rate, weight</summary>' +
+      '<p class="hm-note">Three numbers once a week, same time of day. They show health change that reps alone can miss.</p>' +
+      '<div class="hm-grid"><label>Weight (kg)<input id="hm-w" type="number" step="0.1" inputmode="decimal"></label><label>Waist (cm)<input id="hm-wa" type="number" step="0.5" inputmode="decimal"></label><label>Resting HR<input id="hm-hr" type="number" inputmode="numeric"></label></div>' +
+      '<div class="hm-grid" style="grid-template-columns:1fr 1fr"><label>Height (cm, once)<input id="hm-h" type="number" inputmode="numeric" value="' + (num(m.h) || '') + '"></label><label>&nbsp;<button type="button" class="mark-btn" data-hm="save" style="margin:0">Save today</button></label></div>' +
+      mText(m) + (rows || '<div class="empty-note">No readings yet.</div>') + '</details>';
+  }
+  document.addEventListener('click', function(e){
+    var b = e.target.closest && e.target.closest('[data-hm]'); if(!b) return; var m = mget(), a = b.getAttribute('data-hm');
+    if(a === 'save'){
+      var w = num(($('hm-w') || {}).value), wa = num(($('hm-wa') || {}).value), hr = num(($('hm-hr') || {}).value), h = num(($('hm-h') || {}).value);
+      if(h) m.h = h; if(w || wa || hr){ var t = today(), r = m.e.filter(function(x){ return x.d === t; })[0]; if(!r){ r = { d:t }; m.e.push(r); } if(w) r.w = w; if(wa) r.wa = wa; if(hr) r.hr = hr; }
+      mput(m); var op = true; mDraw(); var d = $('bm-measures') && $('bm-measures').querySelector('details'); if(d) d.open = op;
+    } else if(a === 'del'){ var dd = b.getAttribute('data-d'); m.e = m.e.filter(function(x){ return x.d !== dd; }); mput(m); mDraw(); var d2 = $('bm-measures') && $('bm-measures').querySelector('details'); if(d2) d2.open = true; }
+  });
+  (function(){ var cm = $('cal-mount'); if(!cm || !cm.parentNode) return; var h = document.createElement('div'); h.id = 'bm-measures'; cm.parentNode.insertBefore(h, cm.nextSibling); mDraw(); })();
+  window.__measures = mget;
+
+  /* ---------- 2. Mobility block after the workout, and a practice that ticks when you do it ---------- */
+  var MOB = [
+    ['Hip flexor stretch', '45 seconds each side', 'Half-kneeling, tuck the pelvis under, lean forward gently. Desk sitting shortens these.'],
+    ['90/90 hip switch', '8 each way', 'Sit with both knees at right angles and rotate from one side to the other without using your hands if you can.'],
+    ['Thoracic rotation', '8 each side', 'On all fours, hand behind your head, rotate the elbow to the ceiling. It loosens the upper back.'],
+    ['Doorway chest stretch', '40 seconds each side', 'Forearm on the frame, step through. It counters rounded shoulders.'],
+    ['Hamstring stretch', '45 seconds each side', 'Heel on a step or the floor, hinge from the hips with a flat back.'],
+    ['Cat to cow', '10 slow breaths', 'On all fours, round then arch the spine with each breath.']
+  ];
+  (function ensure(){
+    var F = 'seasons-lean-mob'; if(LS.get(F)) return;
+    try{
+      var g = goals(), P = g.__prac;
+      if(!P.list.some(function(p){ return /mobility/i.test(p.name || ''); })){
+        P.list.push({ id:'p' + Date.now().toString(36) + 'mb', name:'Mobility, 10 minutes', group:'body', target:3, cue:'Straight after your workout', min:'Hip flexor stretch, 45 seconds each side', slot:'evening', mt:Date.now() });
+        LS.set('seasons-goals', JSON.stringify(g));
+      }
+      LS.set(F, '1');
+    }catch(e){}
+  })();
+  function mobPrac(){ var P = goals().__prac, r = null; P.list.forEach(function(p){ if(!r && /^mobility/i.test(p.name || '')) r = p; }); return r; }
+  function injectMob(){
+    var m = $('cal-mount'); if(!m || m.querySelector('#cal-mob')) return; var anchor = m.querySelector('.pt-extra-block') || null; if(!m.querySelector('.week-detail')) return;
+    var host = m.querySelector('.week-detail') || m, done = !!dget().mob[today()];
+    var det = document.createElement('details'); det.id = 'cal-mob'; det.className = 'stretch-block'; det.style.cssText = 'border:1px solid var(--line);border-radius:9px;padding:8px 10px;margin-top:14px';
+    det.innerHTML = '<summary style="font-family:\'Fraunces\',serif;font-size:12.5px;font-weight:500;cursor:pointer">Mobility finisher, 10 minutes' + (done ? ' · done today' : '') + '</summary>' +
+      '<p class="hm-note">Slow and easy, no pain. Do it after the session or on a rest day. Short on time? The first move alone counts as the minimum.</p>' +
+      MOB.map(function(x){ return '<div class="mob-m"><b>' + x[0] + '</b> · ' + x[1] + '<small>' + x[2] + '</small></div>'; }).join('') +
+      '<button type="button" class="mark-btn" data-mob="done" style="margin-top:10px">' + (done ? 'Done today. Tap to undo' : 'Mobility done') + '</button>';
+    if(anchor && anchor.parentNode === host) host.insertBefore(det, anchor); else host.appendChild(det);
+  }
+  document.addEventListener('click', function(e){
+    var b = e.target.closest && e.target.closest('[data-mob]'); if(!b) return; var d = dget(), t = today(), on = !d.mob[t];
+    if(on) d.mob[t] = 1; else delete d.mob[t]; dput(d);
+    try{ var p = mobPrac(); if(p){ var g = goals(); if(window.__pracSet) window.__pracSet(g.__prac, t, p.id, on ? 1 : 0); LS.set('seasons-goals', JSON.stringify(g)); } }catch(x){}
+    b.textContent = on ? 'Done today. Tap to undo' : 'Mobility done'; var s = b.parentNode.querySelector('summary'); if(s) s.textContent = 'Mobility finisher, 10 minutes' + (on ? ' · done today' : '');
+    try{ if(typeof renderAllGoals === 'function') renderAllGoals(); }catch(x){}
+  });
+  (function(){ var cm = $('cal-mount'); if(!cm) return; var busy = false; new MutationObserver(function(){ if(busy) return; busy = true; try{ injectMob(); }finally{ busy = false; } }).observe(cm, { childList:true }); injectMob(); })();
+
+  /* ---------- 3. Streak-proof rule: missed twice, so today the minimum is enough ---------- */
+  window.__pracBroken = function(p, ts){
+    try{
+      if(!p || !p.min || !window.__pracDue) return false; var P = goals().__prac, miss = 0, lastDone = false, seenDue = 0;
+      function did(d){ return (P.log[d] || []).indexOf(p.id) >= 0 || (P.mn[d] || []).indexOf(p.id) >= 0; }
+      for(var i = 1; i <= 30; i++){
+        var d = dayAdd(ts, -i), due = window.__pracDue(p, d, weekOfDate(d), P.log);
+        if(did(d)){ lastDone = true; break; }
+        if(due === 'due' && seenDue < 2){ miss++; seenDue++; }
+      }
+      return lastDone && miss >= 2;
+    }catch(e){ return false; }
+  };
+
+  /* ---------- 4. Run my day: tomorrow's one focus, evening wind-down, minimum-first on broken streaks ---------- */
+  window.__dayFocus = function(iso){ return (dget().foc[iso] || '').trim(); };
+  var ov = $('rd-ov'), wbusy = false;
+  function pByName(n){ var r = null; goals().__prac.list.forEach(function(p){ if(!r && (p.name || '').trim() === n.trim()) r = p; }); return r; }
+  function decorate(){
+    if(!ov || !ov.classList.contains('on')) return; var inn = ov.querySelector('.rd-in'); if(!inn) return;
+    var tf = window.__dayFocus(today());
+    if(tf && !inn.querySelector('.rd-tf')){ var d = document.createElement('div'); d.className = 'rd-tf'; d.innerHTML = '<b>Today’s one thing:</b> ' + esc(tf); var ch = inn.querySelector('.rd-chips'); if(ch) ch.parentNode.insertBefore(d, ch); else inn.appendChild(d); }
+    var nm = inn.querySelector('.rd-card .rd-name');
+    if(nm && /done|Nothing left/i.test(nm.textContent) && new Date().getHours() >= 15 && !inn.querySelector('#rd-wd')){
+      var w = document.createElement('div'); w.id = 'rd-wd';
+      w.innerHTML = '<h4>Wind down</h4><p class="hm-note" style="margin:0 0 6px">1. Write down any open loops, then close the files. 2. Set tomorrow’s one thing. 3. One line to close the day.</p>' +
+        '<label for="rd-wd-f">Tomorrow’s one focus</label><input id="rd-wd-f" type="text" placeholder="The one thing that would make tomorrow count" value="' + esc(window.__dayFocus(dayAdd(today(), 1))) + '">' +
+        '<label for="rd-wd-j">One line for today (saved to your journal)</label><input id="rd-wd-j" type="text" placeholder="What happened, what you noticed">' +
+        '<button type="button" data-wd="save">Close the day</button>';
+      inn.appendChild(w);
+    }
+    var c = inn.querySelector('.rd-card'); var name = nm && nm.textContent;
+    if(name && !inn.querySelector('.rd-broke')){
+      var p = pByName(name); if(p && window.__pracBroken(p, today())){
+        var n = document.createElement('div'); n.className = 'rd-broke'; n.textContent = 'Missed twice in a row. Today the minimum is the whole job: ' + p.min + '.';
+        c.appendChild(n); var mb = inn.querySelector('[data-rd="min"]'), db = inn.querySelector('[data-rd="done"]'); if(mb && db){ db.parentNode.insertBefore(mb, db); mb.classList.add('pri'); mb.textContent = 'Do the minimum (enough today)'; }
+      }
+    }
+  }
+  if(ov){
+    new MutationObserver(function(){ if(wbusy) return; wbusy = true; try{ decorate(); }finally{ wbusy = false; } }).observe(ov, { childList:true, subtree:false, attributes:true, attributeFilter:['class'] });
+    ov.addEventListener('click', function(e){
+      var b = e.target.closest && e.target.closest('[data-wd="save"]'); if(!b) return;
+      var f = ($('rd-wd-f') || {}).value || '', j = (($('rd-wd-j') || {}).value || '').trim(), d = dget(), tm = dayAdd(today(), 1);
+      if(f.trim()) d.foc[tm] = f.trim(); else delete d.foc[tm]; dput(d);
+      if(j){ try{ var all = loadEntries(); all.push({ id:'e' + Date.now() + Math.random().toString(36).slice(2, 7), seasonKey:SEASONS[currentSeasonIndex].key, ts:Date.now(), text:'Evening: ' + j }); saveEntries(all); if(typeof renderEntries === 'function') renderEntries(); }catch(x){} }
+      b.textContent = 'Saved. Rest well.'; b.disabled = true;
+    });
+  }
+
+  /* ---------- 5. Season review ---------- */
+  function seasonWeeks(){ var a = []; for(var w = 1; w <= 52; w++) if(seasonIndexForWeek(w) === currentSeasonIndex) a.push(w); return a; }
+  window.__seasonEnding = function(){ try{ var s = seasonWeeks(); return s.length && nowWeek >= s[s.length - 1] - 1; }catch(e){ return false; } };
+  var sr = document.createElement('div'); sr.id = 'sr-ov'; sr.setAttribute('role', 'dialog'); sr.setAttribute('aria-label', 'Season review'); document.body.appendChild(sr);
+  function build(){
+    var S = SEASONS[currentSeasonIndex], ts = today(), P = goals().__prac, from = dayAdd(ts, -90), key = S.key + ' ' + new Date().getFullYear(), D = dget();
+    var first = null; Object.keys(P.log).forEach(function(d){ if((P.log[d] || []).length && (!first || d < first)) first = d; }); if(first && first > from) from = first;
+    var rows = [];
+    P.list.forEach(function(p){
+      var n = 0, dn = 0, firstP = null; Object.keys(P.log).forEach(function(d){ if((P.log[d] || []).indexOf(p.id) >= 0 && (!firstP || d < firstP)) firstP = d; });
+      if(!firstP) return; var start = firstP > from ? firstP : from;
+      for(var d = start; d <= ts; d = dayAdd(d, 1)){
+        var due = window.__pracDue ? window.__pracDue(p, d, weekOfDate(d), P.log) : 'due'; if(due !== 'due') continue; n++;
+        if((P.log[d] || []).indexOf(p.id) >= 0 || (P.mn[d] || []).indexOf(p.id) >= 0) dn++;
+      }
+      if(n >= 3) rows.push({ name:p.name, pct:Math.round(dn / n * 100), dn:dn, n:n, p:p });
+    });
+    rows.sort(function(a, b){ return b.pct - a.pct; });
+    var h = '<div class="sr-in"><div class="sr-top"><b>' + esc(S.name) + ' review</b><button type="button" class="rd-x" data-sr="close">Close</button></div><p>The last ' + Math.max(1, Math.round((new Date(ts) - new Date(from)) / 864e5 / 7)) + ' weeks, as the system actually ran.</p>';
+    h += '<h4>Practices that ran</h4>' + (rows.length ? rows.map(function(r){ return '<div class="sr-bar"><span>' + esc(r.name) + '</span><u><i style="width:' + r.pct + '%"></i></u><em>' + r.pct + '%</em></div>'; }).join('') : '<p>Not enough practice history yet. Tick practices for a few weeks and this fills in.</p>');
+    if(rows.length > 1){ var lo = rows[rows.length - 1], hi = rows[0]; h += '<p><b>Strongest:</b> ' + esc(hi.name) + '. <b>Weakest:</b> ' + esc(lo.name) + (lo.pct < 50 ? ', which ran less than half the time. Either shrink it to its minimum, move it to a better cue, or drop it.' : '.') + '</p>'; }
+    var tk = 0, tt = 0; try{ var vc = JSON.parse(LS.get('seasons-verse-cache') || '{}'), tks = (vc.__ss && vc.__ss.ticks) || {}; seasonWeeks().forEach(function(w){ if(w > nowWeek) return; tt += 3; var o = tks[w] || {}; ['reveal', 'reframe', 'respond'].forEach(function(k){ if(o[k]) tk++; }); }); }catch(e){}
+    if(tt) h += '<h4>Scripture</h4><div class="sr-bar"><span>Reveal, Reframe, Respond ticked</span><u><i style="width:' + Math.round(tk / tt * 100) + '%"></i></u><em>' + tk + '/' + tt + '</em></div>';
+    var m = mget(), e = m.e.slice().sort(function(a, b){ return a.d < b.d ? -1 : 1; }), ml = [];
+    [['w', 'Weight', 'kg'], ['wa', 'Waist', 'cm'], ['hr', 'Resting heart rate', 'bpm']].forEach(function(k){ var v = e.filter(function(x){ return x[k[0]] != null; }); if(v.length > 1) ml.push('<div class="sr-bar"><span>' + k[1] + '</span><em style="min-width:150px">' + v[0][k[0]] + ' to ' + v[v.length - 1][k[0]] + ' ' + k[2] + '</em></div>'); });
+    if(ml.length) h += '<h4>Body measures</h4>' + ml.join('');
+    var from_ms = new Date(from + 'T00:00:00').getTime(), nj = 0, nl = 0; try{ nj = loadEntries().filter(function(x){ return x.ts >= from_ms; }).length; nl = loadLearningEntries().filter(function(x){ return x.ts >= from_ms; }).length; }catch(x){}
+    h += '<h4>Notes</h4><p>' + nj + ' journal points and ' + nl + ' learning notes in this period.</p>';
+    var fixes = []; Object.keys(P.notes || {}).sort().reverse().forEach(function(k){ var n = P.notes[k]; if(k >= from && n && (n.fix || '').trim() && fixes.length < 3) fixes.push(n.fix.trim()); });
+    if(fixes.length) h += '<h4>What you kept needing to fix</h4>' + fixes.map(function(f){ return '<p>• ' + esc(f) + '</p>'; }).join('');
+    h += '<h4>The one change for next season</h4><textarea id="sr-change" placeholder="What will you start, stop or shrink?">' + esc(D.sr[key] || '') + '</textarea><p style="font-size:12px;color:var(--ink-faint)">Saved on this device as you type.</p></div>';
+    sr.innerHTML = h; sr.setAttribute('data-key', key);
+  }
+  window.__seasonReview = function(){ build(); sr.classList.add('on'); document.body.style.overflow = 'hidden'; sr.scrollTop = 0; };
+  sr.addEventListener('click', function(e){ if(e.target.closest && e.target.closest('[data-sr="close"]')){ sr.classList.remove('on'); document.body.style.overflow = ''; } });
+  sr.addEventListener('input', function(e){ if(e.target.id === 'sr-change'){ var d = dget(); d.sr[sr.getAttribute('data-key')] = e.target.value; dput(d); } });
+  document.addEventListener('keydown', function(e){ if(e.key === 'Escape' && sr.classList.contains('on')){ sr.classList.remove('on'); document.body.style.overflow = ''; } });
+  (function(){
+    var host = $('sec-xset'); if(!host) return; var body = host.querySelector('.csec-body') || host, b = document.createElement('button'); b.type = 'button'; b.className = 'cal-mini'; b.textContent = 'Open the season review'; b.style.marginTop = '14px'; b.onclick = function(){ window.__seasonReview(); }; body.appendChild(b);
+  })();
+})();
+ window.__SU.ok.push('Lean D: measures, mobility, wind-down, streak-proof, season review');
+}catch(e){ window.__SU.fail.push(['Lean D', String(e && e.message || e)]); if(window.console) console.error('Lean D', e); }
+
 
 </script>
 </body>
