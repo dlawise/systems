@@ -3573,12 +3573,23 @@ try{
     return '<svg class="cal-spark" viewBox="0 0 ' + W + ' ' + H + '" width="' + W + '" height="' + H + '" role="img" aria-label="' + String(name).replace(/["<>&]/g, '') + ': ' + real.join(', ') + '"><path d="' + line + '" fill="none" stroke="var(--ink-soft)" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/>' +
       xy.map(function(q, i){ return '<circle cx="' + q[0].toFixed(1) + '" cy="' + q[1].toFixed(1) + '" r="' + (i === xy.length - 1 ? 3.2 : 2.2) + '" fill="' + (i === xy.length - 1 ? 'var(--accent)' : 'var(--ink-soft)') + '"/>'; }).join('') + '</svg>';
   }
+  function preTestHTML(s){
+    var pre = s.tests.pre;
+    if(pre){
+      return '<div class="pt-extra-block"><h4>Start test saved</h4><div style="font-size:12.5px;color:var(--ink-soft)">' + TESTS.filter(function(x){ return pre[x[0]] != null; }).map(function(x){ return x[1].replace(/ \(.*\)$/, '') + ': <b>' + pre[x[0]] + '</b>'; }).join(' · ') + '</div><div class="entry-meta" style="margin:6px 0">Retake it any time before you start. Saving again replaces these numbers.</div>' +
+        '<details class="cal-tab"><summary>Retake the start test</summary>' + preForm() + '</details></div>';
+    }
+    return '<div class="pt-extra-block"><h4>Take the fitness test first (optional)</h4><div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:8px">Do the eight tests now, with rest between them, then start the 12 weeks when you are ready. This becomes your Start check, so you do not repeat it in week 1.</div>' + preForm() + '</div>';
+  }
+  function preForm(){
+    return TESTS.map(function(x){ return '<div class="pt-set-input" style="margin-bottom:6px"><label>' + x[1] + '</label><input class="cal-in" type="number" min="0" inputmode="numeric" id="cal-t-pre-' + x[0] + '"></div>'; }).join('') + '<button class="mark-btn" data-act="test" data-k="pre">Save start test</button>';
+  }
   function render(){
     var m = document.getElementById('cal-mount'); if(!m) return;
     var s = load(), t = ptFmtDate(new Date());
     if(!s.start){
       m.innerHTML = '<div class="week-detail"><details class="bm-about"><summary>How the plan works</summary><p style="margin:0 0 10px;font-size:13px;color:var(--ink-soft)">A 12-week progressive plan with no equipment. Four required sessions a week: Upper (Mon), Lower (Tue), Core (Thu) and Full body (Sat), plus an optional Cardio day on Wednesday. You log your reps, and the plan tells you when to make an exercise harder.</p>' +
-        '<p style="margin:0 0 12px;font-size:13px;color:var(--ink-soft)">Stop a set if you feel sharp pain, and check with a doctor first if you have an injury or health condition.</p></details><div class="entry-meta" style="margin:6px 0">Your starting profile (optional)</div>' + profileHTML(s) + '<button class="save-btn" data-act="start" style="margin-top:0">Start today</button></div>';
+        '<p style="margin:0 0 12px;font-size:13px;color:var(--ink-soft)">Stop a set if you feel sharp pain, and check with a doctor first if you have an injury or health condition.</p></details><div class="entry-meta" style="margin:6px 0">Your starting profile (optional)</div>' + profileHTML(s) + preTestHTML(s) + '<button class="save-btn" data-act="start" style="margin-top:0">' + (s.tests.pre ? 'Start the 12 weeks today' : 'Start today') + '</button></div>';
       return;
     }
     var wk = weekOf(s, t), w = Math.max(1, Math.min(12, wk)), P = plan(w);
@@ -8038,6 +8049,18 @@ try{
     if(t) t += '<div class="hm-note" style="font-size:11.5px">Based on general NHS guidance for adult men. It is a pointer, not a diagnosis. The direction over weeks matters more than any single reading.</div>';
     return t;
   }
+  function pushRate(m){
+    try{
+      var g = goals(), t = g.__cal && g.__cal.tests || {}, v = null, lab = '';
+      [['post', 'Final'], ['w8', 'Week 8'], ['w4', 'Week 4'], ['pre', 'Start']].some(function(c){ if(t[c[0]] && t[c[0]].push){ v = +t[c[0]].push; lab = c[1]; return true; } });
+      if(!v) return '';
+      var age = num(m.age) || 35; if(age < 30 || age > 39) return '<div class="hm-note">Push-up rating tables here cover men aged 30 to 39. Set your age to 30 to 39 to see one.</div>';
+      var tiers = [[41, 'Excellent'], [34, 'Good'], [25, 'Above average'], [20, 'Average'], [15, 'Below average']], r = 'Needs building';
+      for(var i = 0; i < tiers.length; i++) if(v >= tiers[i][0]){ r = tiers[i][1]; break; }
+      var next = null; for(var j = tiers.length - 1; j >= 0; j--) if(v < tiers[j][0]){ next = tiers[j]; break; }
+      return '<div class="hm-note"><b>Push-ups ' + v + ' (' + lab + '): ' + r + '</b> for men 30 to 39' + (next ? '. ' + (next[0] - v) + ' more reaches ' + next[1] + '.' : '.') + ' These are the ACSM-based norms for full push-ups on the toes, so knee push-ups do not count against them.</div>';
+    }catch(e){ return ''; }
+  }
   function mDraw(){
     var host = $('bm-measures'); if(!host) return; var m = mget(), open = host.querySelector('details') && host.querySelector('details').open;
     var rows = m.e.slice().sort(function(a, b){ return a.d < b.d ? 1 : -1; }).slice(0, 6).map(function(x, i, arr){
@@ -8047,14 +8070,14 @@ try{
     host.innerHTML = '<details class="stretch-block" style="border:1px solid var(--line);border-radius:9px;padding:8px 10px;margin-top:14px"' + (open ? ' open' : '') + '><summary style="font-family:\'Fraunces\',serif;font-size:12.5px;font-weight:500;cursor:pointer">Health measures: waist, resting heart rate, weight</summary>' +
       '<p class="hm-note">Three numbers once a week, same time of day. They show health change that reps alone can miss.</p>' +
       '<div class="hm-grid"><label>Weight (kg)<input id="hm-w" type="number" step="0.1" inputmode="decimal"></label><label>Waist (cm)<input id="hm-wa" type="number" step="0.5" inputmode="decimal"></label><label>Resting HR<input id="hm-hr" type="number" inputmode="numeric"></label></div>' +
-      '<div class="hm-grid" style="grid-template-columns:1fr 1fr"><label>Height (cm, once)<input id="hm-h" type="number" inputmode="numeric" value="' + (num(m.h) || '') + '"></label><label>&nbsp;<button type="button" class="mark-btn" data-hm="save" style="margin:0">Save today</button></label></div>' +
-      mText(m) + (rows || '<div class="empty-note">No readings yet.</div>') + '</details>';
+      '<div class="hm-grid"><label>Height (cm, once)<input id="hm-h" type="number" inputmode="numeric" value="' + (num(m.h) || '') + '"></label><label>Age<input id="hm-age" type="number" inputmode="numeric" value="' + (num(m.age) || 35) + '"></label><label>&nbsp;<button type="button" class="mark-btn" data-hm="save" style="margin:0">Save today</button></label></div>' +
+      mText(m) + pushRate(m) + (rows || '<div class="empty-note">No readings yet.</div>') + '</details>';
   }
   document.addEventListener('click', function(e){
     var b = e.target.closest && e.target.closest('[data-hm]'); if(!b) return; var m = mget(), a = b.getAttribute('data-hm');
     if(a === 'save'){
-      var w = num(($('hm-w') || {}).value), wa = num(($('hm-wa') || {}).value), hr = num(($('hm-hr') || {}).value), h = num(($('hm-h') || {}).value);
-      if(h) m.h = h; if(w || wa || hr){ var t = today(), r = m.e.filter(function(x){ return x.d === t; })[0]; if(!r){ r = { d:t }; m.e.push(r); } if(w) r.w = w; if(wa) r.wa = wa; if(hr) r.hr = hr; }
+      var w = num(($('hm-w') || {}).value), wa = num(($('hm-wa') || {}).value), hr = num(($('hm-hr') || {}).value), h = num(($('hm-h') || {}).value), ag = num(($('hm-age') || {}).value);
+      if(h) m.h = h; if(ag) m.age = ag; if(w || wa || hr){ var t = today(), r = m.e.filter(function(x){ return x.d === t; })[0]; if(!r){ r = { d:t }; m.e.push(r); } if(w) r.w = w; if(wa) r.wa = wa; if(hr) r.hr = hr; }
       mput(m); var op = true; mDraw(); var d = $('bm-measures') && $('bm-measures').querySelector('details'); if(d) d.open = op;
     } else if(a === 'del'){ var dd = b.getAttribute('data-d'); m.e = m.e.filter(function(x){ return x.d !== dd; }); mput(m); mDraw(); var d2 = $('bm-measures') && $('bm-measures').querySelector('details'); if(d2) d2.open = true; }
   });
@@ -8099,7 +8122,7 @@ try{
     b.textContent = on ? 'Done today. Tap to undo' : 'Mobility done'; var s = b.parentNode.querySelector('summary'); if(s) s.textContent = 'Mobility finisher, 10 minutes' + (on ? ' · done today' : '');
     try{ if(typeof renderAllGoals === 'function') renderAllGoals(); }catch(x){}
   });
-  (function(){ var cm = $('cal-mount'); if(!cm) return; var busy = false; new MutationObserver(function(){ if(busy) return; busy = true; try{ injectMob(); }finally{ busy = false; } }).observe(cm, { childList:true }); injectMob(); })();
+  (function(){ var cm = $('cal-mount'); if(!cm) return; var busy = false; new MutationObserver(function(){ if(busy) return; busy = true; try{ injectMob(); var bm = $('bm-measures'), dd = bm && bm.querySelector('details'); if(dd && !dd.open) mDraw(); }finally{ busy = false; } }).observe(cm, { childList:true }); injectMob(); })();
 
   /* ---------- 3. Streak-proof rule: missed twice, so today the minimum is enough ---------- */
   window.__pracBroken = function(p, ts){
