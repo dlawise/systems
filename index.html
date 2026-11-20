@@ -4965,6 +4965,7 @@ try{
       });
     });
     c.P.list.forEach(function(p){
+      if(p.auto === 'scripture') return;
       var n = pracWeekCount(c, p), rem = p.target - n, avail = (7 - c.dow) - ((c.P.log[c.ts] || []).indexOf(p.id) >= 0 ? 1 : 0);
       if(rem > 0 && rem >= avail && c.dow >= 3) push(2, p.name + ': ' + n + '/' + p.target + ' this week. ' + (avail > 0 ? rem + ' more needed in ' + avail + ' day' + (avail === 1 ? '' : 's') + '.' : 'Target missed this week.'), { kind:'go', page:p.group, sec:'sec-prac-' + p.group });
     });
@@ -8197,6 +8198,7 @@ try{
     if(rows.length > 1){ var lo = rows[rows.length - 1], hi = rows[0]; h += '<p><b>Strongest:</b> ' + esc(hi.name) + '. <b>Weakest:</b> ' + esc(lo.name) + (lo.pct < 50 ? ', which ran less than half the time. Either shrink it to its minimum, move it to a better cue, or drop it.' : '.') + '</p>'; }
     var tk = 0, tt = 0; try{ var vc = JSON.parse(LS.get('seasons-verse-cache') || '{}'), tks = (vc.__ss && vc.__ss.ticks) || {}; seasonWeeks().forEach(function(w){ if(w > nowWeek) return; tt += 3; var o = tks[w] || {}; ['reveal', 'reframe', 'respond'].forEach(function(k){ if(o[k]) tk++; }); }); }catch(e){}
     if(tt) h += '<h4>Scripture</h4><div class="sr-bar"><span>Reveal, Reframe, Respond ticked</span><u><i style="width:' + Math.round(tk / tt * 100) + '%"></i></u><em>' + tk + '/' + tt + '</em></div>';
+    if(tt && window.__cpCounts){ var cc = window.__cpCounts(seasonWeeks()), ct = cc.mission + cc.mandate + cc.none; if(ct) h += '<p>Respond actions tagged: ' + cc.mission + ' served your mission, ' + cc.mandate + ' your mandate, ' + cc.none + ' neither.' + (cc.none > ct / 2 ? ' Most were not tied to your calling, so check that next season\u2019s actions point at it.' : '') + '</p>'; }
     var m = mget(), e = m.e.slice().sort(function(a, b){ return a.d < b.d ? -1 : 1; }), ml = [];
     [['w', 'Weight', 'kg'], ['wa', 'Waist', 'cm'], ['hr', 'Resting heart rate', 'bpm']].forEach(function(k){ var v = e.filter(function(x){ return x[k[0]] != null; }); if(v.length > 1) ml.push('<div class="sr-bar"><span>' + k[1] + '</span><em style="min-width:150px">' + v[0][k[0]] + ' to ' + v[v.length - 1][k[0]] + ' ' + k[2] + '</em></div>'); });
     if(ml.length) h += '<h4>Body measures</h4>' + ml.join('');
@@ -8217,6 +8219,71 @@ try{
 })();
  window.__SU.ok.push('Lean D: measures, mobility, wind-down, streak-proof, season review');
 }catch(e){ window.__SU.fail.push(['Lean D', String(e && e.message || e)]); if(window.console) console.error('Lean D', e); }
+
+
+/* ===== lean-upgrade E: scripture steps linked to the Compass ===== */
+try{
+(function(){
+  var CK2 = 'seasons-verse-cache';
+  function esc(t){ return String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;'); }
+  function ssG(){ var c = {}; try{ c = JSON.parse(LS.get(CK2) || '{}'); }catch(e){} var d = c.__ss || {}; d.ticks = d.ticks || {}; d.notes = d.notes || {}; d.resp = d.resp || {}; d.cp = d.cp || {}; return d; }
+  function ssP(d){ var c = {}; try{ c = JSON.parse(LS.get(CK2) || '{}'); }catch(e){} c.__ss = d; LS.set(CK2, JSON.stringify(c)); }
+  function comp(){ try{ return JSON.parse(LS.get('seasons-compass') || '{}') || {}; }catch(e){ return {}; } }
+  function short(t, n){ t = String(t || '').replace(/\s+/g, ' ').trim(); return t.length > n ? t.slice(0, n - 1).replace(/\s+\S*$/, '') + '…' : t; }
+  var css = document.createElement('style');
+  css.textContent = '.wd-cp{margin-top:8px;padding:8px 10px;border-left:3px solid var(--accent,var(--ink-faint));border-radius:2px;background:var(--paper-raised,transparent);font-size:12.5px;line-height:1.45;color:var(--ink-soft)}.wd-cp b{color:var(--ink);font-weight:500}.wd-cp i{display:block;font-style:normal;color:var(--ink-faint);font-size:11.5px;margin-top:2px}' +
+    '.wd-cp .cp-chips{display:flex;gap:6px;margin-top:7px;flex-wrap:wrap}.wd-cp .cp-chips button{font:11.5px "IBM Plex Mono",monospace;border:1px solid var(--line);border-radius:14px;padding:4px 11px;background:var(--paper);color:var(--ink-soft);cursor:pointer}.wd-cp .cp-chips button.on{background:var(--ink);color:var(--paper);border-color:var(--ink)}';
+  css.textContent += '.wd-cp{background:transparent!important;padding:2px 0 2px 10px!important;margin-top:10px!important;font-size:12px!important}.wd-cp i{font-size:11px!important}.wd-cp .cp-chips{margin-top:6px!important}.wd-cp .cp-chips button{font-size:10.5px!important;padding:3px 9px!important}' +
+    '.wd-resp input{border:1px solid var(--line)!important;border-radius:10px!important;padding:10px 12px!important;background:var(--paper-raised,var(--paper))!important;color:var(--ink);font:14px "Inter",sans-serif!important;outline:0}.wd-resp{margin-top:10px!important}' +
+    '.wd-verse textarea.journal-input{min-height:52px!important;font-size:14px!important}.wd-verse-head{gap:6px!important}';
+  document.head.appendChild(css);
+  var STEPS = [
+    { f:['vision'], q:'Does this verse show me something about who I am?', lab:'Vision' },
+    { f:['values'], q:'Which of my values does this verse speak to?', lab:'Values' },
+    { f:['mission', 'mandate'], q:'Which part of my calling does the action serve?', lab:'Mission and mandate' }
+  ];
+  function block(i, w){
+    var S = STEPS[i], c = comp(), box = document.createElement('div'); box.className = 'wd-cp'; box.setAttribute('data-cp', i);
+    var lines = S.f.map(function(k){ var v = short(c[k], 150); return v ? '<b>' + k.charAt(0).toUpperCase() + k.slice(1) + ':</b> ' + esc(v) : ''; }).filter(Boolean);
+    if(!lines.length) box.innerHTML = '<b>' + S.lab + '</b> is empty. <i>Write it in the Compass card on the Dashboard and it will appear here.</i>';
+    else box.innerHTML = lines.join('<br>') + '<i>' + S.q + '</i>';
+    if(i === 2){
+      var cur = ssG().cp[w] || '', ch = document.createElement('div'); ch.className = 'cp-chips';
+      [['mission', 'Mission'], ['mandate', 'Mandate'], ['none', 'Neither']].forEach(function(o){
+        var b = document.createElement('button'); b.type = 'button'; b.textContent = o[1]; if(cur === o[0]) b.className = 'on';
+        b.onclick = function(){ var d = ssG(), same = d.cp[w] === o[0]; if(same) delete d.cp[w]; else d.cp[w] = o[0]; ssP(d); [].forEach.call(ch.children, function(x){ x.className = ''; }); if(!same) b.className = 'on'; };
+        ch.appendChild(b);
+      });
+      box.appendChild(ch);
+    }
+    return box;
+  }
+  window.__cpCounts = function(weeks){
+    var d = ssG(), n = { mission:0, mandate:0, none:0 }; (weeks || []).forEach(function(w){ var t = d.cp[w]; if(t && n[t] != null) n[t]++; }); return n;
+  };
+  var prev = window.renderWeekDetail;
+  if(typeof prev === 'function'){
+    renderWeekDetail = function(){
+      prev();
+      try{
+        var m = document.getElementById('week-detail'); if(!m) return;
+        var rows = m.querySelectorAll('.wd-verse');
+        [0, 1, 2].forEach(function(i){ if(rows[i] && !rows[i].querySelector('.wd-cp')){ var bk = block(i, activeWeek), rb = i === 2 ? rows[i].querySelector('.wd-resp') : null; if(rb) rows[i].insertBefore(bk, rb); else rows[i].appendChild(bk); } });
+        var labs = m.querySelectorAll('.entry-meta');
+        [].forEach.call(labs, function(l){
+          if(l.textContent === 'What did this week say to me?' && rows[1]){
+            var bx = l.parentNode, ta = bx.querySelector('textarea');
+            l.textContent = 'Your reflection'; if(ta) ta.placeholder = 'A line or two on how this speaks to your values\u2026';
+            bx.style.marginTop = '8px'; rows[1].appendChild(bx);
+          }
+        });
+      }catch(e){}
+    };
+  }
+  try{ renderWeekDetail(); }catch(e){}
+})();
+ window.__SU.ok.push('Lean E: compass in scripture steps');
+}catch(e){ window.__SU.fail.push(['Lean E', String(e && e.message || e)]); if(window.console) console.error('Lean E', e); }
 
 
 </script>
