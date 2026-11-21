@@ -7660,10 +7660,19 @@ try{
         '<label class="qk-chk"><input type="checkbox" id="qk-mem"' + (draft.mem ? ' checked' : '') + '><span>I’m writing this from memory, without looking. It comes back for recall tomorrow.</span></label><button type="button" class="qk-save" data-qk="save">Save</button>';
     } else if(mode === 'read'){
       var bs = books().slice().sort(function(a, b){ return (a.status === 'reading' ? 0 : 1) - (b.status === 'reading' ? 0 : 1); });
-      if(!bs.length) h += '<p class="qk-hint">Add a book in Reading (Soul page) first, then you can drop notes in from here.</p>';
-      else h += '<select id="qk-book" aria-label="Book">' + bs.map(function(b){ return '<option value="' + esc(b.id) + '"' + (b.id === draft.book ? ' selected' : '') + '>' + esc(b.title) + '</option>'; }).join('') + '</select>' +
-        '<div class="qk-row"><select id="qk-type" aria-label="Type"><option value="thought">Thought</option><option value="quote"' + (draft.type === 'quote' ? ' selected' : '') + '>Quote</option><option value="summary"' + (draft.type === 'summary' ? ' selected' : '') + '>Chapter summary</option></select><input type="text" id="qk-chap" placeholder="Chapter (optional)" aria-label="Chapter" value="' + esc(draft.chap || '') + '"></div>' +
-        '<textarea id="qk-text" placeholder="Your note" aria-label="Note">' + esc(draft.read || '') + '</textarea><button type="button" class="qk-save" data-qk="save">Save note</button>';
+      var isW = draft.type === 'word';
+      if(!bs.length && !isW) h += '<p class="qk-hint">Add a book in Reading (Soul page) first, then you can drop notes in from here. Words can be saved without a book.</p>';
+      var tsel = '<select id="qk-type" aria-label="Type"><option value="thought">Thought</option><option value="quote"' + (draft.type === 'quote' ? ' selected' : '') + '>Quote</option><option value="summary"' + (draft.type === 'summary' ? ' selected' : '') + '>Chapter summary</option><option value="word"' + (isW ? ' selected' : '') + '>Word (dictionary)</option></select>';
+      if(bs.length || isW){
+        h += (bs.length ? '<select id="qk-book" aria-label="Book">' + (isW ? '<option value="">From book (optional)</option>' : '') + bs.map(function(b){ return '<option value="' + esc(b.id) + '"' + (b.id === draft.book ? ' selected' : '') + '>' + esc(b.title) + '</option>'; }).join('') + '</select>' : '');
+        if(isW){
+          h += '<div class="qk-row">' + tsel + '<input type="text" id="qk-word" placeholder="Word" aria-label="Word" autocapitalize="none" value="' + esc(draft.word || '') + '"><button type="button" class="qk-tab" data-qk="lookup">Look up</button></div>' +
+            '<input type="text" id="qk-def" placeholder="Definition (filled by Look up, or write your own)" aria-label="Definition" value="' + esc(draft.def || '') + '"><input type="text" id="qk-ex" placeholder="Example sentence (optional)" aria-label="Example" value="' + esc(draft.ex || '') + '"><button type="button" class="qk-save" data-qk="save">Save word</button>';
+        } else {
+          h += '<div class="qk-row">' + tsel + '<input type="text" id="qk-chap" placeholder="Chapter (optional)" aria-label="Chapter" value="' + esc(draft.chap || '') + '"></div>' +
+            '<textarea id="qk-text" placeholder="' + (draft.type === 'summary' ? 'What happened, or the key idea' : draft.type === 'quote' ? 'The quote (keep it short)' : 'Your note') + '" aria-label="Note">' + esc(draft.read || '') + '</textarea><button type="button" class="qk-save" data-qk="save">Save note</button>';
+        }
+      }
     } else {
       h += '<input type="search" id="qk-q" placeholder="Search scripture, journal, learning, reading, goals" aria-label="Search" value="' + esc(draft.q || '') + '"><div id="qk-res"></div>';
     }
@@ -7674,12 +7683,19 @@ try{
   }
   function grab(){ var g = function(i){ var e = $(i); return e ? e.value : undefined; };
     if(mode === 'journal') draft.journal = g('qk-text'); else if(mode === 'learn'){ draft.learn = g('qk-text'); draft.src = g('qk-src'); draft.act = g('qk-act'); var m = $('qk-mem'); draft.mem = m ? m.checked : false; }
-    else if(mode === 'read'){ draft.read = g('qk-text'); draft.book = g('qk-book'); draft.type = g('qk-type'); draft.chap = g('qk-chap'); } else draft.q = g('qk-q'); }
+    else if(mode === 'read'){ draft.read = g('qk-text') !== undefined ? g('qk-text') : draft.read; draft.book = g('qk-book'); draft.type = g('qk-type'); draft.chap = g('qk-chap'); if($('qk-word')){ draft.word = g('qk-word'); draft.def = g('qk-def'); draft.ex = g('qk-ex'); } } else draft.q = g('qk-q'); }
   function open(m){ grab && ov.classList.contains('on') && grab(); mode = m || (function(){ try{ return LS.get(MODE) || 'learn'; }catch(e){ return 'learn'; } })(); if(!MODES.some(function(x){ return x[0] === mode; })) mode = 'learn'; msg = ''; ov.classList.add('on'); document.body.style.overflow = 'hidden'; draw(); }
   function close(){ ov.classList.remove('on'); ov.innerHTML = ''; document.body.style.overflow = ''; try{ document.dispatchEvent(new Event('visibilitychange')); }catch(e){} }
   window.__qkOpen = open;
   function save(){
-    grab(); var txt = String(mode === 'journal' ? draft.journal : mode === 'learn' ? draft.learn : draft.read || '').trim();
+    grab();
+    if(mode === 'read' && draft.type === 'word'){
+      var wd = String(draft.word || '').trim(), df = String(draft.def || '').trim(); if(!wd){ msg = 'Type the word first.'; draw(); return; } if(!df){ msg = 'Add a definition, or tap Look up.'; draw(); return; }
+      var rc0 = jget('rc_v1', null) || { books:[], vocab:[], cards:[] }; rc0.vocab = rc0.vocab || [];
+      rc0.vocab.push({ id:'w' + Date.now() + Math.random().toString(36).slice(2, 6), word:wd, def:df, ex:String(draft.ex || '').trim(), bookId:draft.book || '', box:0, due:iso() });
+      LS.set('rc_v1', JSON.stringify(rc0)); try{ window.ReadingCompanion && window.ReadingCompanion.reload(); }catch(e){} draft.word = ''; draft.def = ''; draft.ex = ''; msg = 'Saved \u201C' + wd + '\u201D to your words.'; draw(); return;
+    }
+    var txt = String(mode === 'journal' ? draft.journal : mode === 'learn' ? draft.learn : draft.read || '').trim();
     if(!txt){ msg = 'Write something first.'; draw(); return; }
     if(mode === 'journal'){
       var all = loadEntries(); all.push({ id:'e' + Date.now() + Math.random().toString(36).slice(2, 7), seasonKey:SEASONS[currentSeasonIndex].key, ts:Date.now(), text:txt }); saveEntries(all);
@@ -7744,8 +7760,16 @@ try{
     if(a === 'close') close();
     else if(a === 'mode'){ grab(); mode = b.getAttribute('data-m'); msg = ''; draw(); }
     else if(a === 'save') save();
+    else if(a === 'lookup'){
+      grab(); var w0 = String(draft.word || '').trim(); if(!w0){ msg = 'Type the word first.'; draw(); return; }
+      msg = 'Looking up\u2026'; draw();
+      fetch('https://api.dictionaryapi.dev/api/v2/entries/en/' + encodeURIComponent(w0)).then(function(r){ if(!r.ok) throw 0; return r.json(); }).then(function(d){
+        var m = d[0].meanings[0]; draft.def = (m.partOfSpeech ? '(' + m.partOfSpeech + ') ' : '') + m.definitions[0].definition; var ex = m.definitions[0].example; if(ex && !String(draft.ex || '').trim()) draft.ex = ex; msg = ''; draw();
+      }).catch(function(){ msg = 'Could not find it. Type your own definition.'; draw(); });
+    }
     else if(a === 'hit'){ var x = hits[+b.getAttribute('data-i')]; if(x && x.g) x.g(); }
   });
+  ov.addEventListener('change', function(e){ if(e.target && e.target.id === 'qk-type'){ grab(); draft.type = e.target.value; draw(); } });
   document.addEventListener('keydown', function(e){ if(e.key === 'Escape' && ov.classList.contains('on')) close(); });
   fab.addEventListener('click', function(){ open(); });
 
