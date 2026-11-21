@@ -701,15 +701,13 @@ function weekStartDate(weekNum){
   return d;
 }
 function suggestedPostingDays(weekNum){
-  // weekStartDate now returns the Sunday the week numbering starts on.
-  // The Reveal/Reframe/Respond cadence stays pinned to Saturday/Tuesday/Thursday
-  // regardless of that — Reveal is the Saturday just before this Sunday.
+  // weekStartDate returns the Sunday the week starts on; Reveal, Reframe and Respond fall on Monday, Wednesday and Friday.
   const start = weekStartDate(weekNum);
   const fmt = (offset)=>{
     const d = new Date(start); d.setDate(d.getDate()+offset);
     return d.toLocaleDateString(undefined, { weekday:'short', month:'short', day:'numeric' });
   };
-  return { reveal: fmt(-1), reframe: fmt(2), respond: fmt(4) };
+  return { reveal: fmt(1), reframe: fmt(3), respond: fmt(5) };
 }
 
 const COORD_ROTATION_ORDER = [4,0,7,2,9,5,1,8,3,6];
@@ -1065,6 +1063,7 @@ function renderWeekDetail(){
         <label class="share-toggle"><input type="checkbox" id="inc-reframe" checked> Reframe</label>
         <label class="share-toggle"><input type="checkbox" id="inc-respond" checked> Respond</label>
         <label class="share-toggle"><input type="checkbox" id="inc-fulltext" checked> Full text (KJV)</label>
+        <label class="share-toggle"><input type="checkbox" id="inc-sig" checked> Signature</label>
       </div>
       <textarea class="share-note" id="share-personal-note" placeholder="Add a personal note (optional)…"></textarea>
       <div class="share-card-wrap"><canvas class="share-card-canvas" id="share-canvas" width="1080" height="1080"></canvas></div>
@@ -1118,6 +1117,7 @@ async function buildShareText(w, s){
   }
   const note = document.getElementById('share-personal-note').value.trim();
   if(note) lines.push('', note);
+  if(document.getElementById('inc-sig') && document.getElementById('inc-sig').checked) lines.push('', 'A DAY @ A TIME & IN DEEDS');
   lines.push('', '— Seasons, by EiMAGiNE');
   return lines.join('\n');
 }
@@ -1194,6 +1194,15 @@ function paintCard(ctx, W, H, w, s, rows, includeFullText, hasPhoto, measureOnly
     y += 16; ctx.fillStyle = textFaint; ctx.font = 'italic 28px Georgia, serif';
     wrapCanvasText(ctx, '\u201C' + note + '\u201D', W - pad*2).forEach(line=>{ if(!measureOnly) ctx.fillText(line, pad, y); y += 38; });
   }
+  const sigBox = document.getElementById('inc-sig');
+  if(sigBox && sigBox.checked){
+    y += note ? 40 : 24;
+    ctx.fillStyle = textAccent; ctx.font = '500 26px "IBM Plex Mono", monospace';
+    if('letterSpacing' in ctx) ctx.letterSpacing = '3px';
+    if(!measureOnly) ctx.fillText('A DAY @ A TIME & IN DEEDS', pad, y);
+    if('letterSpacing' in ctx) ctx.letterSpacing = '0px';
+    y += 24;
+  }
   y += 30;
   const footerReserve = 76;
   const contentBottom = y;
@@ -1261,7 +1270,8 @@ function buildCaption(w){
     const niceLabel = rows[0].label[0] + rows[0].label.slice(1).toLowerCase();
     stagePart = ` — ${niceLabel} (${stageMap[rows[0].label]})`;
   }
-  return `Week ${String(w.w).padStart(2,'0')} · ${coordLabel}${stagePart}`;
+  const sigOn = !document.getElementById('inc-sig') || document.getElementById('inc-sig').checked;
+  return `Week ${String(w.w).padStart(2,'0')} · ${coordLabel}${stagePart}` + (sigOn ? '\nA DAY @ A TIME & IN DEEDS' : '');
 }
 function downloadImage(w){
   const canvas = document.getElementById('share-canvas');
@@ -1345,7 +1355,7 @@ function initShare(w, s){
     panel.classList.toggle('open');
     if(panel.classList.contains('open')) drawShareCard(w, s);
   });
-  ['inc-title','inc-reveal','inc-reframe','inc-respond','inc-fulltext'].forEach(id=> document.getElementById(id).addEventListener('change', ()=>drawShareCard(w, s)));
+  ['inc-title','inc-reveal','inc-reframe','inc-respond','inc-fulltext','inc-sig'].forEach(id=> document.getElementById(id).addEventListener('change', ()=>drawShareCard(w, s)));
   document.getElementById('share-personal-note').addEventListener('input', ()=>drawShareCard(w, s));
   document.getElementById('share-native-btn').addEventListener('click', ()=>shareImage(w, s));
   document.getElementById('share-download-btn').addEventListener('click', ()=>downloadImage(w));
@@ -2511,7 +2521,7 @@ const EXPORT_KEY_GROUPS = {
 const LAST_BACKUP_KEY = 'seasons-last-backup';
 async function exportData(scope){
   const keys = scope === 'all'
-    ? ['seasons-completed-weeks','seasons-journal-entries','seasons-domain-tasks','seasons-share-bg-photo','seasons-section-state','seasons-verse-cache','seasons-learning-entries','seasons-pt-state','seasons-active-page','seasons-goals','rc_v1','seasons-profile','seasons-names','seasons-learning-weekly','seasons-learning-season','seasons-compass','seasons-recall','seasons-measures']
+    ? ['seasons-completed-weeks','seasons-journal-entries','seasons-domain-tasks','seasons-share-bg-photo','seasons-section-state','seasons-verse-cache','seasons-learning-entries','seasons-pt-state','seasons-active-page','seasons-goals','rc_v1','seasons-profile','seasons-names','seasons-learning-weekly','seasons-learning-season','seasons-compass','seasons-recall','seasons-measures','seasons-nkjv','seasons-posts']
     : (EXPORT_KEY_GROUPS[scope] || []);
   const data = {};
   keys.forEach(k=>{ const v = LS.get(k); if(v!==null) data[k]=v; });
@@ -4784,6 +4794,7 @@ try{
       var k = sec.getAttribute('data-key'); if(k){ sectionState[k] = true; LS.set(SECTION_STATE_KEY, JSON.stringify(sectionState)); }
     }
   }
+  window.__go = function(a, b, c){ return go(a, b, c); };
   function go(page, secId, tab){
     setActivePage(page);
     if(tab === 'cal' || tab === 'fit'){ try{ if(window.__bodyTab) window.__bodyTab(tab); }catch(e){} }
@@ -4904,6 +4915,7 @@ try{
       if(fx) pre += '<div class="d-focus"><b>Focus this week:</b> ' + esc(fx) + '</div>';
       var d1 = window.__dayFocus ? window.__dayFocus(c.ts) : ''; if(d1) pre += '<div class="d-focus"><b>Today\u2019s one thing:</b> ' + esc(d1) + '</div>';
       if(items.some(function(i){ return i.tick && !i.done; })) pre += '<button type="button" class="d-run" data-act="runday">Run my day</button>';
+      var pd = window.__postDue ? window.__postDue() : ''; if(pd) pre += '<button type="button" class="d-run" data-act="post" style="background:transparent;color:var(--ink)">Post today: ' + pd + ' (story)</button>';
       if(window.__seasonEnding && window.__seasonEnding()) pre += '<button type="button" class="d-run" data-act="season" style="background:transparent;color:var(--ink)">Season review</button>';
       h = pre + h;
     }catch(e){}
@@ -5135,6 +5147,7 @@ try{
     else if(a === 'capture'){ try{ window.__qkOpen(); }catch(e){} }
     else if(a === 'runday'){ try{ window.__runDay(false); }catch(e){} }
     else if(a === 'season'){ try{ window.__seasonReview(); }catch(e){} }
+    else if(a === 'post'){ try{ window.__postToday(); }catch(e){} }
   }
 
   /* ---------- build: label, cards, nav tab ---------- */
@@ -6691,7 +6704,7 @@ window.__SU = window.__SU || { ok:[], fail:[] };
 try{
 (function(){
   var CFG = 'seasons-sync-cfg', META = 'seasons-sync-meta', PRE = 'seasons-sync-prebackup', DESC = 'Seasons sync (encrypted)', FNAME = 'seasons-sync-meta.json';
-  var KEYS = ['seasons-completed-weeks','seasons-journal-entries','seasons-domain-tasks','seasons-learning-entries','seasons-learning-weekly','seasons-learning-season','seasons-pt-state','seasons-goals','rc_v1','seasons-profile','seasons-names','seasons-compass','seasons-recall','seasons-measures'];
+  var KEYS = ['seasons-completed-weeks','seasons-journal-entries','seasons-domain-tasks','seasons-learning-entries','seasons-learning-weekly','seasons-learning-season','seasons-pt-state','seasons-goals','rc_v1','seasons-profile','seasons-names','seasons-compass','seasons-recall','seasons-measures','seasons-nkjv','seasons-posts'];
   var host = document.getElementById('sec-xset'); if(!host) throw new Error('Dashboard cards not found');
   var enc = new TextEncoder(), dec = new TextDecoder();
 
@@ -7798,7 +7811,7 @@ try{
     if(pulling) return; pulling = true; var fails = 0;
     try{
       for(var i = 0; i < refs.length; i++){
-        if(!have(refs[i])){ try{ await fetchVerseText(refs[i]); fails = 0; }catch(e){ if(++fails >= 3) break; } await new Promise(function(r){ setTimeout(r, 250); }); }
+        if(!have(refs[i])){ try{ await fetchVerseText(refs[i]); fails = 0; }catch(e){ if(++fails >= 3) break; } await new Promise(function(r){ setTimeout(r, 2500); }); }
         if(step) step(refs);
       }
     }finally{ pulling = false; }
@@ -7816,7 +7829,7 @@ try{
   }
   drawOffline();
   /* quietly keep the next four weeks on the device while online */
-  setTimeout(function(){ try{ if(navigator.onLine !== false) pull(refsFor(function(w){ return w >= nowWeek && w < nowWeek + 4; }), drawOffline); }catch(e){} }, 5000);
+  setTimeout(function(){ try{ if(navigator.onLine !== false) pull(refsFor(function(w){ return w >= nowWeek && w < nowWeek + 4; }), drawOffline); }catch(e){} }, 25000);
 
   try{ renderWeekDetail(); }catch(e){}
 })();
@@ -8204,6 +8217,7 @@ try{
     if(ml.length) h += '<h4>Body measures</h4>' + ml.join('');
     var from_ms = new Date(from + 'T00:00:00').getTime(), nj = 0, nl = 0; try{ nj = loadEntries().filter(function(x){ return x.ts >= from_ms; }).length; nl = loadLearningEntries().filter(function(x){ return x.ts >= from_ms; }).length; }catch(x){}
     h += '<h4>Notes</h4><p>' + nj + ' journal points and ' + nl + ' learning notes in this period.</p>';
+    if(window.__postStats){ var np = window.__postStats(from), pw = Math.max(1, Math.round((new Date(ts) - new Date(from)) / 864e5 / 7)); h += '<p>Posted ' + np + ' of ' + (pw * 3) + ' planned scripture posts.</p>'; }
     var fixes = []; Object.keys(P.notes || {}).sort().reverse().forEach(function(k){ var n = P.notes[k]; if(k >= from && n && (n.fix || '').trim() && fixes.length < 3) fixes.push(n.fix.trim()); });
     if(fixes.length) h += '<h4>What you kept needing to fix</h4>' + fixes.map(function(f){ return '<p>• ' + esc(f) + '</p>'; }).join('');
     h += '<h4>The one change for next season</h4><textarea id="sr-change" placeholder="What will you start, stop or shrink?">' + esc(D.sr[key] || '') + '</textarea><p style="font-size:12px;color:var(--ink-faint)">Saved on this device as you type.</p></div>';
@@ -8284,6 +8298,160 @@ try{
 })();
  window.__SU.ok.push('Lean E: compass in scripture steps');
 }catch(e){ window.__SU.fail.push(['Lean E', String(e && e.message || e)]); if(window.console) console.error('Lean E', e); }
+
+
+/* ===== lean-upgrade F: NKJV first. Licensed text cannot be bundled, so NKJV opens in one tap, and you can keep your own NKJV wording per verse ===== */
+try{
+(function(){
+  var NK = 'seasons-nkjv';
+  function esc(t){ return String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;'); }
+  function nget(){ try{ return JSON.parse(LS.get(NK) || '{}') || {}; }catch(e){ return {}; } }
+  function nset(ref, text){ var d = nget(); d.t = d.t || {}; if(text && text.trim()) d.t[ref] = text.trim(); else delete d.t[ref]; d.u = Date.now(); LS.set(NK, JSON.stringify(d)); }
+  function own(ref){ var d = nget(); return (d.t && d.t[ref]) || ''; }
+  var prev = fetchVerseText;
+  fetchVerseText = async function(ref){
+    var o = own(ref); if(o) return esc(o).replace(/\n/g, '<br>');
+    try{ return await prev(ref); }
+    catch(e){
+      if(navigator.onLine === false) throw e;
+      await new Promise(function(r){ setTimeout(r, 3000); });
+      return await prev(ref);
+    }
+  };
+  var css = document.createElement('style');
+  css.textContent = '.nk-row{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;margin-top:6px;font-size:12px}.nk-row a{font-weight:500}.nk-row button{background:none;border:0;padding:0;color:var(--accent-ink,var(--ink-soft));text-decoration:underline;font:inherit;cursor:pointer}' +
+    '.nk-ed{margin-top:8px;width:100%}.nk-ed textarea{width:100%;box-sizing:border-box;min-height:70px;border:1px solid var(--line);border-radius:10px;padding:9px 11px;background:var(--paper-raised,var(--paper));color:var(--ink);font:16px "Inter",sans-serif}.nk-ed button{margin:6px 8px 0 0;padding:6px 12px;border-radius:14px;border:1px solid var(--line);background:var(--paper);color:var(--ink);font-size:12px;cursor:pointer}';
+  document.head.appendChild(css);
+  function href(ref){ return 'https://www.biblegateway.com/passage/?search=' + encodeURIComponent(ref) + '&version=NKJV'; }
+  async function rerender(box, ref, nm){
+    try{ var t = await fetchVerseText(ref); box.innerHTML = '<p class="verse-text">' + t + '</p><div class="verse-source">' + esc(nm) + '</div>'; box.dataset.loaded = '1'; }catch(e){ box.innerHTML = '<span class="verse-error">Could not load. <a href="' + href(ref) + '" target="_blank" rel="noopener">Open NKJV</a></span>'; }
+  }
+  function decorate(src){
+    if(src.getAttribute('data-nk')) return; var box = src.closest('.verse-text-box'); if(!box) return; var ref = box.getAttribute('data-box'); if(!ref) return;
+    src.setAttribute('data-nk', '1'); var o = own(ref), p = box.querySelector('.verse-text');
+    var nm = box.getAttribute('data-nm') || src.textContent.replace(/\s*\u00b7.*$/, '').replace(/\s+\u2014.*$/, '').replace(/\s+shown here.*$/, '').trim() || 'King James Version';
+    box.setAttribute('data-nm', nm);
+    src.innerHTML = o ? 'New King James Version · your own copy' : esc(nm) + ' shown here (public domain, closest to NKJV wording). The NKJV text is copyrighted, so it opens on Bible Gateway.';
+    var row = document.createElement('div'); row.className = 'nk-row';
+    row.innerHTML = '<a href="' + href(ref) + '" target="_blank" rel="noopener">Open NKJV ↗</a><button type="button" data-nk="edit">' + (o ? 'Edit my NKJV text' : 'Use my own NKJV text') + '</button>' + (o ? '<button type="button" data-nk="clear">Back to ' + esc(nm) + '</button>' : '');
+    src.parentNode.insertBefore(row, src.nextSibling);
+    row.addEventListener('click', function(e){
+      var b = e.target.closest('button'); if(!b) return; var a = b.getAttribute('data-nk');
+      if(a === 'clear'){ nset(ref, ''); rerender(box, ref, nm); return; }
+      if(a === 'edit'){
+        if(row.querySelector('.nk-ed')) return; var ed = document.createElement('div'); ed.className = 'nk-ed';
+        ed.innerHTML = '<textarea placeholder="Type or paste the verse from your own NKJV Bible"></textarea><button type="button" data-nk="save">Save</button><button type="button" data-nk="cancel">Cancel</button>';
+        ed.querySelector('textarea').value = o; row.appendChild(ed);
+        ed.addEventListener('click', function(ev){
+          var x = ev.target.closest('button'); if(!x) return; if(x.getAttribute('data-nk') === 'cancel'){ ed.remove(); return; }
+          if(x.getAttribute('data-nk') === 'save'){ nset(ref, ed.querySelector('textarea').value); rerender(box, ref, nm); }
+        });
+      }
+    });
+  }
+  function fixErr(er){
+    if(er.getAttribute('data-nk')) return; er.setAttribute('data-nk', '1'); var box = er.closest('.verse-text-box'); if(!box) return; var ref = box.getAttribute('data-box');
+    var why = navigator.onLine === false ? 'You are offline.' : 'The free verse service did not answer (it limits how fast it can be asked).';
+    var d = document.createElement('div'); d.className = 'nk-row'; d.innerHTML = '<span>' + why + '</span><button type="button" data-nk="retry">Try again</button>'; er.parentNode.appendChild(d);
+    d.querySelector('button').onclick = function(){ box.innerHTML = '<span class="verse-loading">Loading\u2026</span>'; rerender(box, ref, box.getAttribute('data-nm') || 'King James Version'); };
+  }
+  new MutationObserver(function(muts){
+    muts.forEach(function(m){ [].forEach.call(m.addedNodes, function(n){ if(n.nodeType !== 1) return; var f = function(x){ if(x.classList && x.classList.contains('verse-source')) decorate(x); else if(x.classList && x.classList.contains('verse-error')) fixErr(x); };
+      f(n); if(n.querySelectorAll) [].forEach.call(n.querySelectorAll('.verse-source,.verse-error'), f); }); });
+  }).observe(document.body, { childList:true, subtree:true });
+})();
+ window.__SU.ok.push('Lean F: NKJV first');
+}catch(e){ window.__SU.fail.push(['Lean F', String(e && e.message || e)]); if(window.console) console.error('Lean F', e); }
+
+
+/* ===== lean-upgrade G: Post today (story-first) and posting history ===== */
+try{
+(function(){
+  var PK = 'seasons-posts', FK = 'seasons-share-fmt', ST = ['reveal', 'reframe', 'respond'], LAB = { reveal:'Reveal', reframe:'Reframe', respond:'Respond', all:'All three' }, DOW = { reveal:1, reframe:3, respond:5 };
+  function esc(t){ return String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;'); }
+  function pget(){ var d = {}; try{ d = JSON.parse(LS.get(PK) || '{}') || {}; }catch(e){} d.l = d.l || []; return d; }
+  function pput(d){ d.u = Date.now(); LS.set(PK, JSON.stringify(d)); }
+  function ssG(){ var c = {}; try{ c = JSON.parse(LS.get('seasons-verse-cache') || '{}'); }catch(e){} var d = c.__ss || {}; d.ticks = d.ticks || {}; d.notes = d.notes || {}; d.resp = d.resp || {}; return d; }
+  function wkOf(w){ return WEEKS.filter(function(x){ return x.w === w; })[0]; }
+  function posted(w, st){ return pget().l.some(function(p){ return p.w === w && (p.st === st || p.st === 'all'); }); }
+  function stageFor(){
+    var dow = new Date().getDay(), i;
+    for(i = 0; i < 3; i++){ if(DOW[ST[i]] === dow) return posted(nowWeek, ST[i]) ? '' : ST[i]; }
+    for(i = 0; i < 3; i++){ if(DOW[ST[i]] < dow && !posted(nowWeek, ST[i])) return ST[i]; }
+    return '';
+  }
+  window.__postDue = function(){ try{ var s = stageFor(); return s ? LAB[s] : ''; }catch(e){ return ''; } };
+
+  var css = document.createElement('style');
+  css.textContent = '#post-hist{margin-top:14px;border-top:1px dashed var(--line);padding-top:10px}#post-hist h5{font:10.5px "IBM Plex Mono",monospace;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-faint);margin:0 0 6px;font-weight:400}' +
+    '.ph-row{padding:6px 0;border-bottom:1px solid var(--line);font-size:12.5px;color:var(--ink-soft)}.ph-row b{color:var(--ink);font-weight:500}.ph-row input{width:100%;box-sizing:border-box;margin-top:4px;border:1px solid var(--line);border-radius:8px;padding:7px 9px;background:var(--paper-raised,var(--paper));color:var(--ink);font:16px "Inter",sans-serif}.ph-row button{float:right;background:none;border:0;color:var(--ink-faint);font-size:16px;cursor:pointer}' +
+    '.ph-sum{font-size:12.5px;color:var(--ink-soft);margin:0 0 6px}#share-posted-btn{background:var(--paper)!important}';
+  document.head.appendChild(css);
+
+  function histHTML(){
+    var d = pget(), l = d.l.slice().sort(function(a, b){ return b.t - a.t; }), cut = Date.now() - 28 * 864e5, n28 = l.filter(function(p){ return p.t >= cut; }).length;
+    var h = '<h5>Your posts</h5><p class="ph-sum">' + (l.length ? n28 + ' of 12 planned posts in the last four weeks.' : 'Nothing logged yet. After you post, tap "I posted this".') + '</p>';
+    h += l.slice(0, 8).map(function(p){ return '<div class="ph-row"><button type="button" data-ph="del" data-id="' + esc(p.id) + '" aria-label="Remove this post">×</button><b>' + new Date(p.t).toLocaleDateString(undefined, { weekday:'short', day:'numeric', month:'short' }) + '</b> · ' + LAB[p.st] + ' · ' + esc(p.rf || '') + '<input type="text" data-ph="note" data-id="' + esc(p.id) + '" placeholder="How it landed (optional)" value="' + esc(p.n || '') + '"></div>'; }).join('');
+    return h;
+  }
+  function drawHist(){ var h = document.getElementById('post-hist'); if(h) h.innerHTML = histHTML(); }
+  window.__postStats = function(fromIso){ var f = new Date(fromIso + 'T00:00:00').getTime(); return pget().l.filter(function(p){ return p.t >= f; }).length; };
+
+  function curStage(){
+    var on = ST.filter(function(k){ var e = document.getElementById('inc-' + k); return e && e.checked; });
+    return on.length === 1 ? on[0] : 'all';
+  }
+  document.addEventListener('click', function(e){
+    var t = e.target;
+    if(t.closest && t.closest('#share-posted-btn')){
+      var st = curStage(), d = pget(), w = activeWeek, wk = wkOf(w), rf = !wk ? '' : st === 'reveal' ? wk.r : st === 'reframe' ? wk.f : st === 'respond' ? wk.s : wk.r;
+      d.l.push({ id:'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), t:Date.now(), w:w, st:st, rf:rf, n:'' }); pput(d);
+      var steps = st === 'all' ? ST : [st], tk = ssG().ticks[w] || {};
+      steps.forEach(function(k){ if(!tk[k]){ var i = ST.indexOf(k), row = document.querySelectorAll('#week-detail .wd-verse')[i], b = row && [].filter.call(row.querySelectorAll('.wd-verse-head button'), function(x){ return /Done\?/.test(x.textContent); })[0]; if(b) b.click(); } });
+      setTimeout(function(){ var tg = document.getElementById('share-toggle-btn'), pn = document.getElementById('share-panel'); if(pn && !pn.classList.contains('open') && tg) tg.click(); drawHist(); var s2 = document.getElementById('share-status'); if(s2){ s2.textContent = 'Logged. ' + LAB[st] + ' marked done.'; } }, 120);
+      return;
+    }
+    var b2 = t.closest && t.closest('[data-ph="del"]'); if(b2){ var d2 = pget(); d2.l = d2.l.filter(function(p){ return p.id !== b2.getAttribute('data-id'); }); pput(d2); drawHist(); }
+    var f = t.closest && t.closest('#format-quick button[data-format]'); if(f){ try{ LS.set(FK, f.getAttribute('data-format')); }catch(x){} }
+  });
+  document.addEventListener('input', function(e){ var t = e.target; if(t.matches && t.matches('[data-ph="note"]')){ var d = pget(); d.l.forEach(function(p){ if(p.id === t.getAttribute('data-id')) p.n = t.value; }); pput(d); } });
+
+  var prev = renderWeekDetail;
+  renderWeekDetail = function(){
+    prev();
+    try{
+      var pn = document.getElementById('share-panel'); if(!pn) return;
+      var fmt = LS.get(FK) || 'story'; selectedFormat = fmt;
+      document.querySelectorAll('#format-quick button').forEach(function(b){ b.classList.toggle('active', b.getAttribute('data-format') === fmt); });
+      var acts = pn.querySelector('.share-actions'); if(acts && !document.getElementById('share-posted-btn')){ var b = document.createElement('button'); b.type = 'button'; b.id = 'share-posted-btn'; b.className = 'share-action-btn secondary'; b.textContent = 'I posted this'; acts.appendChild(b); }
+      if(!document.getElementById('post-hist')){ var h = document.createElement('div'); h.id = 'post-hist'; pn.appendChild(h); }
+      drawHist();
+    }catch(e){}
+  };
+
+  window.__postToday = function(){
+    var st = stageFor() || 'reveal';
+    activeWeek = nowWeek; try{ window.__go('spirit', 'sec-weekly'); }catch(e){ setActivePage('spirit'); renderWeekDetail(); }
+    setTimeout(function(){
+      try{
+        var wk = wkOf(nowWeek), s = ssG(), note = document.getElementById('share-personal-note'), pn = document.getElementById('share-panel');
+        if(!pn) return; if(!pn.classList.contains('open')) document.getElementById('share-toggle-btn').click();
+        var fb = document.querySelector('#format-quick button[data-format="story"]'); if(fb && selectedFormat !== 'story') fb.click();
+        var ft = document.getElementById('inc-fulltext'); if(ft && !ft.checked){ ft.checked = true; }
+        var sb = document.querySelector('#stage-quick button[data-stage="' + st + '"]'); if(sb) sb.click();
+        if(note && !note.value.trim()){
+          var rp = (s.resp[nowWeek] && s.resp[nowWeek].text || '').trim(), rf = (s.notes[nowWeek] || '').trim();
+          var txt = st === 'respond' && rp ? 'This week I am doing this: ' + rp : st === 'reframe' && rf ? rf : '';
+          if(txt){ note.value = txt; note.dispatchEvent(new Event('input', { bubbles:true })); }
+        }
+        pn.scrollIntoView({ behavior:'smooth', block:'start' });
+      }catch(e){ if(window.console) console.error('postToday', e); }
+    }, 250);
+  };
+  try{ renderWeekDetail(); }catch(e){}
+})();
+ window.__SU.ok.push('Lean G: post today, posting history');
+}catch(e){ window.__SU.fail.push(['Lean G', String(e && e.message || e)]); if(window.console) console.error('Lean G', e); }
 
 
 </script>
