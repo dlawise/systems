@@ -700,6 +700,8 @@ function weekStartDate(weekNum){
   d.setDate(d.getDate() + (weekNum-1)*7);
   return d;
 }
+const SIG_DEFAULT = 'A DAY @ A TIME & N DEEDS';
+function sigText(){ const v = (LS.get('seasons-sig') || '').trim(); return v || SIG_DEFAULT; }
 function suggestedPostingDays(weekNum){
   // weekStartDate returns the Sunday the week starts on; Reveal, Reframe and Respond fall on Monday, Wednesday and Friday.
   const start = weekStartDate(weekNum);
@@ -1064,6 +1066,7 @@ function renderWeekDetail(){
         <label class="share-toggle"><input type="checkbox" id="inc-respond" checked> Respond</label>
         <label class="share-toggle"><input type="checkbox" id="inc-fulltext" checked> Full text (KJV)</label>
         <label class="share-toggle"><input type="checkbox" id="inc-sig" checked> Signature</label>
+        <input type="text" id="sig-text" maxlength="40" value="${escA(sigText())}" aria-label="Signature text" style="flex:1;min-width:180px;border:1px solid var(--line);border-radius:8px;padding:6px 9px;background:var(--paper-raised);color:var(--ink);font:11.5px 'IBM Plex Mono',monospace;letter-spacing:.06em">
       </div>
       <textarea class="share-note" id="share-personal-note" placeholder="Add a personal note (optional)…"></textarea>
       <div class="share-card-wrap"><canvas class="share-card-canvas" id="share-canvas" width="1080" height="1080"></canvas></div>
@@ -1117,7 +1120,7 @@ async function buildShareText(w, s){
   }
   const note = document.getElementById('share-personal-note').value.trim();
   if(note) lines.push('', note);
-  if(document.getElementById('inc-sig') && document.getElementById('inc-sig').checked) lines.push('', 'A DAY @ A TIME & IN DEEDS');
+  if(document.getElementById('inc-sig') && document.getElementById('inc-sig').checked) lines.push('', sigText());
   lines.push('', '— Seasons, by EiMAGiNE');
   return lines.join('\n');
 }
@@ -1199,7 +1202,7 @@ function paintCard(ctx, W, H, w, s, rows, includeFullText, hasPhoto, measureOnly
     y += note ? 40 : 24;
     ctx.fillStyle = textAccent; ctx.font = '500 26px "IBM Plex Mono", monospace';
     if('letterSpacing' in ctx) ctx.letterSpacing = '3px';
-    if(!measureOnly) ctx.fillText('A DAY @ A TIME & IN DEEDS', pad, y);
+    if(!measureOnly) ctx.fillText(sigText(), pad, y);
     if('letterSpacing' in ctx) ctx.letterSpacing = '0px';
     y += 24;
   }
@@ -1271,7 +1274,7 @@ function buildCaption(w){
     stagePart = ` — ${niceLabel} (${stageMap[rows[0].label]})`;
   }
   const sigOn = !document.getElementById('inc-sig') || document.getElementById('inc-sig').checked;
-  return `Week ${String(w.w).padStart(2,'0')} · ${coordLabel}${stagePart}` + (sigOn ? '\nA DAY @ A TIME & IN DEEDS' : '');
+  return `Week ${String(w.w).padStart(2,'0')} · ${coordLabel}${stagePart}` + (sigOn ? '\n' + sigText() : '');
 }
 function downloadImage(w){
   const canvas = document.getElementById('share-canvas');
@@ -1357,6 +1360,7 @@ function initShare(w, s){
   });
   ['inc-title','inc-reveal','inc-reframe','inc-respond','inc-fulltext','inc-sig'].forEach(id=> document.getElementById(id).addEventListener('change', ()=>drawShareCard(w, s)));
   document.getElementById('share-personal-note').addEventListener('input', ()=>drawShareCard(w, s));
+  document.getElementById('sig-text').addEventListener('input', (e)=>{ LS.set('seasons-sig', e.target.value); drawShareCard(w, s); });
   document.getElementById('share-native-btn').addEventListener('click', ()=>shareImage(w, s));
   document.getElementById('share-download-btn').addEventListener('click', ()=>downloadImage(w));
   document.getElementById('share-copy-btn').addEventListener('click', ()=>copyShareText(w, s));
@@ -2521,7 +2525,7 @@ const EXPORT_KEY_GROUPS = {
 const LAST_BACKUP_KEY = 'seasons-last-backup';
 async function exportData(scope){
   const keys = scope === 'all'
-    ? ['seasons-completed-weeks','seasons-journal-entries','seasons-domain-tasks','seasons-share-bg-photo','seasons-section-state','seasons-verse-cache','seasons-learning-entries','seasons-pt-state','seasons-active-page','seasons-goals','rc_v1','seasons-profile','seasons-names','seasons-learning-weekly','seasons-learning-season','seasons-compass','seasons-recall','seasons-measures','seasons-nkjv','seasons-posts']
+    ? ['seasons-completed-weeks','seasons-journal-entries','seasons-domain-tasks','seasons-share-bg-photo','seasons-section-state','seasons-verse-cache','seasons-learning-entries','seasons-pt-state','seasons-active-page','seasons-goals','rc_v1','seasons-profile','seasons-names','seasons-learning-weekly','seasons-learning-season','seasons-compass','seasons-recall','seasons-measures','seasons-posts','seasons-sig']
     : (EXPORT_KEY_GROUPS[scope] || []);
   const data = {};
   keys.forEach(k=>{ const v = LS.get(k); if(v!==null) data[k]=v; });
@@ -4123,7 +4127,7 @@ try{
     /* notes for this week */
     head(m, 'My notes for this week');
     var note = (s.notes && s.notes[iso]) || {};
-    [['focus', 'My one focus for next week'], ['well', 'What went well?'], ['fix', 'What will I change in the system next week?']].forEach(function(f){
+    [['focus', 'My one focus for next week'], ['learn', 'What did this week\u2019s verse teach me, and what would I tell someone else?'], ['well', 'What went well?'], ['fix', 'What will I change in the system next week?']].forEach(function(f){
       var lb = el('div', null, f[1]); lb.style.cssText = 'font-size:12px;color:var(--ink-faint);margin:6px 0 2px'; m.appendChild(lb);
       var ta = el('textarea', 'journal-input'); ta.style.minHeight = '56px'; ta.value = note[f[0]] || ''; ta.setAttribute('aria-label', f[1]);
       ta.addEventListener('input', function(){ var d = load(); d.notes = d.notes || {}; d.notes[iso] = d.notes[iso] || {}; d.notes[iso][f[0]] = ta.value; save(d); });
@@ -4149,10 +4153,10 @@ try{
       var i = el('input'); i.type = 'time'; i.value = val; i.style.cssText = 'border:1px solid var(--line);border-radius:7px;padding:7px;background:var(--paper-raised);color:var(--ink);font:13px "IBM Plex Mono",monospace';
       w2.appendChild(i); row.appendChild(w2); return i;
     }
-    var t1 = timeInput('Scripture + practices', '07:00'), t2 = timeInput('Workouts + review', '18:00');
+    var t1 = timeInput('Scripture + practices', '07:00'), t2 = timeInput('Workouts + review', '18:00'), t3 = timeInput('Post (Mon, Wed, Fri)', '19:00');
     var dl = el('button', 'save-btn', 'Download .ics'); dl.type = 'button'; dl.style.marginTop = '0';
     dl.onclick = function(){
-      var blob = new Blob([buildIcs(t1.value || '07:00', t2.value || '18:00')], { type: 'text/calendar' });
+      var blob = new Blob([buildIcs(t1.value || '07:00', t2.value || '18:00', t3.value || '19:00')], { type: 'text/calendar' });
       var link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = 'seasons-reminders.ics';
       document.body.appendChild(link); link.click(); document.body.removeChild(link);
     };
@@ -4220,7 +4224,7 @@ try{
   /* ---------- Calendar reminders (.ics) ---------- */
   function p2(n){ return n < 10 ? '0' + n : '' + n; }
   function stamp(d){ return d.getFullYear() + p2(d.getMonth() + 1) + p2(d.getDate()) + 'T' + p2(d.getHours()) + p2(d.getMinutes()) + '00'; }
-  function buildIcs(tAm, tPm){
+  function buildIcs(tAm, tPm, tPost){
     var DAY = { SU:0, MO:1, TU:2, WE:3, TH:4, FR:5, SA:6 };
     var EV = [
       ['Scripture: Reveal','MO',tAm],['Scripture: Reframe','WE',tAm],['Scripture: Respond','FR',tAm],
@@ -4236,6 +4240,7 @@ try{
         PD.forEach(function(p){ EV.push([p.name, pdays(p).map(function(i){ return BYD[i]; }).join(','), p.at, 'Practice' + (p.cue ? '. Cue: ' + p.cue : '') + (p.min ? '. Minimum: ' + p.min : ''), 'seasons-prac-' + p.id + '@seasons.local']); });
       }
     }catch(e){}
+    EV.push(['Post today: scripture story', 'MO,WE,FR', tPost || '19:00', 'Open Seasons and tap Post today on the Dashboard.', 'seasons-post-today@seasons.local']);
     function icsEsc(t){ return String(t == null ? '' : t).replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n'); }
     var now = new Date(), utc = now.getUTCFullYear() + p2(now.getUTCMonth() + 1) + p2(now.getUTCDate()) + 'T' + p2(now.getUTCHours()) + p2(now.getUTCMinutes()) + '00Z';
     var out = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Seasons//Reminders//EN', 'CALSCALE:GREGORIAN'];
@@ -4914,6 +4919,7 @@ try{
       var pre = '';
       if(fx) pre += '<div class="d-focus"><b>Focus this week:</b> ' + esc(fx) + '</div>';
       var d1 = window.__dayFocus ? window.__dayFocus(c.ts) : ''; if(d1) pre += '<div class="d-focus"><b>Today\u2019s one thing:</b> ' + esc(d1) + '</div>';
+      if(window.__votd) pre += window.__votd();
       if(items.some(function(i){ return i.tick && !i.done; })) pre += '<button type="button" class="d-run" data-act="runday">Run my day</button>';
       var pd = window.__postDue ? window.__postDue() : ''; if(pd) pre += '<button type="button" class="d-run" data-act="post" style="background:transparent;color:var(--ink)">Post today: ' + pd + ' (story)</button>';
       if(window.__seasonEnding && window.__seasonEnding()) pre += '<button type="button" class="d-run" data-act="season" style="background:transparent;color:var(--ink)">Season review</button>';
@@ -6704,7 +6710,7 @@ window.__SU = window.__SU || { ok:[], fail:[] };
 try{
 (function(){
   var CFG = 'seasons-sync-cfg', META = 'seasons-sync-meta', PRE = 'seasons-sync-prebackup', DESC = 'Seasons sync (encrypted)', FNAME = 'seasons-sync-meta.json';
-  var KEYS = ['seasons-completed-weeks','seasons-journal-entries','seasons-domain-tasks','seasons-learning-entries','seasons-learning-weekly','seasons-learning-season','seasons-pt-state','seasons-goals','rc_v1','seasons-profile','seasons-names','seasons-compass','seasons-recall','seasons-measures','seasons-nkjv','seasons-posts'];
+  var KEYS = ['seasons-completed-weeks','seasons-journal-entries','seasons-domain-tasks','seasons-learning-entries','seasons-learning-weekly','seasons-learning-season','seasons-pt-state','seasons-goals','rc_v1','seasons-profile','seasons-names','seasons-compass','seasons-recall','seasons-measures','seasons-posts','seasons-sig'];
   var host = document.getElementById('sec-xset'); if(!host) throw new Error('Dashboard cards not found');
   var enc = new TextEncoder(), dec = new TextDecoder();
 
@@ -7829,7 +7835,7 @@ try{
   }
   drawOffline();
   /* quietly keep the next four weeks on the device while online */
-  setTimeout(function(){ try{ if(navigator.onLine !== false) pull(refsFor(function(w){ return w >= nowWeek && w < nowWeek + 4; }), drawOffline); }catch(e){} }, 25000);
+  /* background pre-download removed: use the Save all verses offline button instead */
 
   try{ renderWeekDetail(); }catch(e){}
 })();
@@ -8219,6 +8225,7 @@ try{
     h += '<h4>Notes</h4><p>' + nj + ' journal points and ' + nl + ' learning notes in this period.</p>';
     if(window.__postStats){ var np = window.__postStats(from), pw = Math.max(1, Math.round((new Date(ts) - new Date(from)) / 864e5 / 7)); h += '<p>Posted ' + np + ' of ' + (pw * 3) + ' planned scripture posts.</p>'; }
     var fixes = []; Object.keys(P.notes || {}).sort().reverse().forEach(function(k){ var n = P.notes[k]; if(k >= from && n && (n.fix || '').trim() && fixes.length < 3) fixes.push(n.fix.trim()); });
+    var lrn = window.__learnLines ? window.__learnLines(from) : []; if(lrn.length) h += '<h4>What you would tell someone else</h4>' + lrn.map(function(f){ return '<p>\u2022 ' + esc(f) + '</p>'; }).join('');
     if(fixes.length) h += '<h4>What you kept needing to fix</h4>' + fixes.map(function(f){ return '<p>• ' + esc(f) + '</p>'; }).join('');
     h += '<h4>The one change for next season</h4><textarea id="sr-change" placeholder="What will you start, stop or shrink?">' + esc(D.sr[key] || '') + '</textarea><p style="font-size:12px;color:var(--ink-faint)">Saved on this device as you type.</p></div>';
     sr.innerHTML = h; sr.setAttribute('data-key', key);
@@ -8299,69 +8306,6 @@ try{
  window.__SU.ok.push('Lean E: compass in scripture steps');
 }catch(e){ window.__SU.fail.push(['Lean E', String(e && e.message || e)]); if(window.console) console.error('Lean E', e); }
 
-
-/* ===== lean-upgrade F: NKJV first. Licensed text cannot be bundled, so NKJV opens in one tap, and you can keep your own NKJV wording per verse ===== */
-try{
-(function(){
-  var NK = 'seasons-nkjv';
-  function esc(t){ return String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;'); }
-  function nget(){ try{ return JSON.parse(LS.get(NK) || '{}') || {}; }catch(e){ return {}; } }
-  function nset(ref, text){ var d = nget(); d.t = d.t || {}; if(text && text.trim()) d.t[ref] = text.trim(); else delete d.t[ref]; d.u = Date.now(); LS.set(NK, JSON.stringify(d)); }
-  function own(ref){ var d = nget(); return (d.t && d.t[ref]) || ''; }
-  var prev = fetchVerseText;
-  fetchVerseText = async function(ref){
-    var o = own(ref); if(o) return esc(o).replace(/\n/g, '<br>');
-    try{ return await prev(ref); }
-    catch(e){
-      if(navigator.onLine === false) throw e;
-      await new Promise(function(r){ setTimeout(r, 3000); });
-      return await prev(ref);
-    }
-  };
-  var css = document.createElement('style');
-  css.textContent = '.nk-row{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;margin-top:6px;font-size:12px}.nk-row a{font-weight:500}.nk-row button{background:none;border:0;padding:0;color:var(--accent-ink,var(--ink-soft));text-decoration:underline;font:inherit;cursor:pointer}' +
-    '.nk-ed{margin-top:8px;width:100%}.nk-ed textarea{width:100%;box-sizing:border-box;min-height:70px;border:1px solid var(--line);border-radius:10px;padding:9px 11px;background:var(--paper-raised,var(--paper));color:var(--ink);font:16px "Inter",sans-serif}.nk-ed button{margin:6px 8px 0 0;padding:6px 12px;border-radius:14px;border:1px solid var(--line);background:var(--paper);color:var(--ink);font-size:12px;cursor:pointer}';
-  document.head.appendChild(css);
-  function href(ref){ return 'https://www.biblegateway.com/passage/?search=' + encodeURIComponent(ref) + '&version=NKJV'; }
-  async function rerender(box, ref, nm){
-    try{ var t = await fetchVerseText(ref); box.innerHTML = '<p class="verse-text">' + t + '</p><div class="verse-source">' + esc(nm) + '</div>'; box.dataset.loaded = '1'; }catch(e){ box.innerHTML = '<span class="verse-error">Could not load. <a href="' + href(ref) + '" target="_blank" rel="noopener">Open NKJV</a></span>'; }
-  }
-  function decorate(src){
-    if(src.getAttribute('data-nk')) return; var box = src.closest('.verse-text-box'); if(!box) return; var ref = box.getAttribute('data-box'); if(!ref) return;
-    src.setAttribute('data-nk', '1'); var o = own(ref), p = box.querySelector('.verse-text');
-    var nm = box.getAttribute('data-nm') || src.textContent.replace(/\s*\u00b7.*$/, '').replace(/\s+\u2014.*$/, '').replace(/\s+shown here.*$/, '').trim() || 'King James Version';
-    box.setAttribute('data-nm', nm);
-    src.innerHTML = o ? 'New King James Version · your own copy' : esc(nm) + ' shown here (public domain, closest to NKJV wording). The NKJV text is copyrighted, so it opens on Bible Gateway.';
-    var row = document.createElement('div'); row.className = 'nk-row';
-    row.innerHTML = '<a href="' + href(ref) + '" target="_blank" rel="noopener">Open NKJV ↗</a><button type="button" data-nk="edit">' + (o ? 'Edit my NKJV text' : 'Use my own NKJV text') + '</button>' + (o ? '<button type="button" data-nk="clear">Back to ' + esc(nm) + '</button>' : '');
-    src.parentNode.insertBefore(row, src.nextSibling);
-    row.addEventListener('click', function(e){
-      var b = e.target.closest('button'); if(!b) return; var a = b.getAttribute('data-nk');
-      if(a === 'clear'){ nset(ref, ''); rerender(box, ref, nm); return; }
-      if(a === 'edit'){
-        if(row.querySelector('.nk-ed')) return; var ed = document.createElement('div'); ed.className = 'nk-ed';
-        ed.innerHTML = '<textarea placeholder="Type or paste the verse from your own NKJV Bible"></textarea><button type="button" data-nk="save">Save</button><button type="button" data-nk="cancel">Cancel</button>';
-        ed.querySelector('textarea').value = o; row.appendChild(ed);
-        ed.addEventListener('click', function(ev){
-          var x = ev.target.closest('button'); if(!x) return; if(x.getAttribute('data-nk') === 'cancel'){ ed.remove(); return; }
-          if(x.getAttribute('data-nk') === 'save'){ nset(ref, ed.querySelector('textarea').value); rerender(box, ref, nm); }
-        });
-      }
-    });
-  }
-  function fixErr(er){
-    if(er.getAttribute('data-nk')) return; er.setAttribute('data-nk', '1'); var box = er.closest('.verse-text-box'); if(!box) return; var ref = box.getAttribute('data-box');
-    var why = navigator.onLine === false ? 'You are offline.' : 'The free verse service did not answer (it limits how fast it can be asked).';
-    var d = document.createElement('div'); d.className = 'nk-row'; d.innerHTML = '<span>' + why + '</span><button type="button" data-nk="retry">Try again</button>'; er.parentNode.appendChild(d);
-    d.querySelector('button').onclick = function(){ box.innerHTML = '<span class="verse-loading">Loading\u2026</span>'; rerender(box, ref, box.getAttribute('data-nm') || 'King James Version'); };
-  }
-  new MutationObserver(function(muts){
-    muts.forEach(function(m){ [].forEach.call(m.addedNodes, function(n){ if(n.nodeType !== 1) return; var f = function(x){ if(x.classList && x.classList.contains('verse-source')) decorate(x); else if(x.classList && x.classList.contains('verse-error')) fixErr(x); };
-      f(n); if(n.querySelectorAll) [].forEach.call(n.querySelectorAll('.verse-source,.verse-error'), f); }); });
-  }).observe(document.body, { childList:true, subtree:true });
-})();
- window.__SU.ok.push('Lean F: NKJV first');
-}catch(e){ window.__SU.fail.push(['Lean F', String(e && e.message || e)]); if(window.console) console.error('Lean F', e); }
 
 
 /* ===== lean-upgrade G: Post today (story-first) and posting history ===== */
@@ -8452,6 +8396,34 @@ try{
 })();
  window.__SU.ok.push('Lean G: post today, posting history');
 }catch(e){ window.__SU.fail.push(['Lean G', String(e && e.message || e)]); if(window.console) console.error('Lean G', e); }
+
+
+/* ===== lean-upgrade H: verse of the day on the Dashboard ===== */
+try{
+(function(){
+  function esc(t){ return String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;'); }
+  var Q = { 1:'Does this verse show me something about who I am?', 3:'Which of my values does this verse speak to?', 5:'Which one action will I take this week, and when?' };
+  window.__votd = function(){
+    try{
+      var wk = WEEKS.filter(function(x){ return x.w === nowWeek; })[0]; if(!wk) return '';
+      var dow = new Date().getDay(), step = { 1:'Reveal', 3:'Reframe', 5:'Respond' }[dow];
+      var q = Q[dow] || 'What was this week’s verse, and what is it asking of me today?';
+      var c = {}; try{ c = JSON.parse(LS.get('seasons-verse-cache') || '{}'); }catch(e){}
+      var tx = (c[wk.r] || '').trim(); if(tx.length > 150) tx = tx.slice(0, 149).replace(/\s+\S*$/, '') + '…';
+      return '<div class="d-focus"><b>This week’s anchor:</b> ' + esc(wk.r) + (step ? ' · today is ' + step : '') + (tx ? '<br><span style="color:var(--ink-soft)">' + esc(tx) + '</span>' : '') + '<br><i style="color:var(--ink-faint);font-style:normal;font-size:12px">' + esc(q) + '</i></div>';
+    }catch(e){ return ''; }
+  };
+  /* what you learned, in the season review */
+  window.__learnLines = function(fromIso){
+    try{
+      var g = JSON.parse(LS.get('seasons-goals') || '{}'), n = (g.__prac || {}).notes || {}, out = [];
+      Object.keys(n).sort().reverse().forEach(function(k){ var v = n[k] && n[k].learn; if(k >= fromIso && v && v.trim() && out.length < 3) out.push(v.trim()); });
+      return out;
+    }catch(e){ return []; }
+  };
+})();
+ window.__SU.ok.push('Lean H: verse of the day, learn lines');
+}catch(e){ window.__SU.fail.push(['Lean H', String(e && e.message || e)]); if(window.console) console.error('Lean H', e); }
 
 
 </script>
