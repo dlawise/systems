@@ -3370,7 +3370,7 @@ try{
   function plan(w){
     var deload = (w <= 12 && w % 4 === 0), test = (w === 13), b = Math.min(2, Math.floor((w - 1) / 4));
     var sets = (deload || test || w === 1) ? 2 : (b === 2 ? 4 : 3);
-    var effort = deload ? 'Easy week: about 70% effort. Stop well short of failure.' : test ? 'Test week: keep sessions light, then do the final test at the end of the week.' : 'Finish each set with 1 or 2 reps still in reserve.';
+    var effort = deload ? 'Easy week: about 70% effort. Stop well short of failure.' : test ? 'Test week: keep sessions light, then do the season test at the end of the week.' : 'Finish each set with 1 or 2 reps still in reserve.';
     return { sets: sets, block: BLOCKS[b], deload: deload, test: test, effort: effort };
   }
   function lastTime(s, t, id){
@@ -3593,7 +3593,7 @@ try{
       return '<div class="pt-extra-block"><h4>Start test saved</h4><div style="font-size:12.5px;color:var(--ink-soft)">' + TESTS.filter(function(x){ return pre[x[0]] != null; }).map(function(x){ return x[1].replace(/ \(.*\)$/, '') + ': <b>' + pre[x[0]] + '</b>'; }).join(' · ') + '</div><div class="entry-meta" style="margin:6px 0">Retake it any time before you start. Saving again replaces these numbers.</div>' +
         '<details class="cal-tab"><summary>Retake the start test</summary>' + preForm() + '</details></div>';
     }
-    return '<div class="pt-extra-block"><h4>Take the fitness test first (optional)</h4><div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:8px">Do the eight tests now, with rest between them, then start the 12 weeks when you are ready. This becomes your Start check, so you do not repeat it in week 1.</div>' + preForm() + '</div>';
+    return '<div class="pt-extra-block"><h4>Take the fitness test first (optional)</h4><div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:8px">Do the eight tests now, with rest between them, then start your season routine when you are ready. This becomes your Start check, so you do not repeat it in week 1.</div>' + preForm() + '</div>';
   }
   function preForm(){
     return TESTS.map(function(x){ return '<div class="pt-set-input" style="margin-bottom:6px"><label>' + x[1] + '</label><input class="cal-in" type="number" min="0" inputmode="numeric" id="cal-t-pre-' + x[0] + '"></div>'; }).join('') + '<button class="mark-btn" data-act="test" data-k="pre">Save start test</button>';
@@ -4777,7 +4777,7 @@ try{
     return n;
   }
   function pracWeekCount(c, p){ return c.wk.filter(function(d){ return (c.P.log[d] || []).indexOf(p.id) >= 0; }).length; }
-  function ptEnabled(){ return !!(ptState && typeof ptDayTypeForDate === 'function' && ptDayIndexFor(ptFmtDate(new Date())) >= 0); }
+  function ptEnabled(){ return false; }   /* the old 4-week test programme is retired; the season routine (calOn) replaces it */
   function ptKind(d){ var t = ptDayTypeForDate(d); return (t === 'A' || t === 'B' || t === 'C') ? t : null; }
   function calOn(c){ return !!(c.C.start && !c.C.paused && c.C.start <= c.ts); }
 
@@ -7607,7 +7607,8 @@ try{
       se.querySelector('.csec-body').appendChild(l2); se.querySelector('.csec-body').appendChild(mg); go.parentNode.removeChild(go);
     }
     (function(){ var sh = $('sec-dash-short'); if(sh) sh.classList.add('tdy-bar'); })();
-    tabCard('tdy-dir', 'tdy-dir', 'Direction', 'season, compass, about me', [['Season', 'sec-dash-season'], ['Compass', 'sec-compass'], ['About me', 'sec-dash-profile']]);
+    var cs = $('sec-coordinates'); if(cs) cs.setAttribute('data-group', 'home');   /* coordinates live with Season and Compass: one place for direction */
+    tabCard('tdy-dir', 'tdy-dir', 'Direction', 'season, coordinates, compass, about me', [['Season', 'sec-dash-season'], ['Coordinates', 'sec-coordinates'], ['Compass', 'sec-compass'], ['About me', 'sec-dash-profile']]);
     tabCard('tdy-rev', 'tdy-rev', 'Reviews', 'week and season', [['Week', 'sec-review'], ['Season', 'sec-season']]);
     tabCard('tdy-set', 'tdy-set', 'Settings and backup', 'display, privacy, sync', [['Display', 'sec-xset'], ['Sync', 'sec-sync']]);
     /* order: attention, sync strip, today, rhythm, direction, shortcuts, reviews, settings */
@@ -7647,9 +7648,8 @@ try{
     ['spirit', 'soul', 'body'].forEach(function(g){
       tabCard('tdy-pm-' + g, 'tdy-pm-' + g, 'Practices and markers', 'system, dated outcomes', [['Practices', 'sec-prac-' + g], ['Markers', 'sec-goals-' + g]], g);
     });
-    tabCard('tdy-cf', 'tdy-cf', 'Coordinates and foundations', 'plan direction', [['Coordinates', 'sec-coordinates'], ['Foundations', 'sec-foundations']], 'spirit');
     tabCard('tdy-mem', 'tdy-mem', 'Memory and search', 'recall, verse search', [['Say it', 'sec-recall-spirit'], ['Search', 'sec-xsearch']], 'spirit');
-    tabCard('tdy-ns', 'tdy-ns', 'Notes and search', 'journal, learning, search', [['Notes', 'sec-notes'], ['Search', 'sec-xsoul']], 'soul');
+    tabCard('tdy-ns', 'tdy-ns', 'Notes, recall and search', 'journal, learning, recall, search', [['Notes', 'sec-notes'], ['Recall', 'sec-recall-soul'], ['Search', 'sec-xsoul']], 'soul');
   }
   /* this week's scripture: the step to do now stays open, the other two fold away */
   function foldSteps(){
