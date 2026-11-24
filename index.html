@@ -3069,11 +3069,11 @@ try{
 
 /* ===== calisthenics-challenge-upgrade.js ===== */
 try{
-/* Seasons: Progressive Calisthenics Plan (Body page). 12 weeks, no equipment.
+/* Seasons: Progressive Calisthenics Plan (Body page). 13-week seasonal cycles, no equipment.
    Built on the principles that make bodyweight training work long term:
    - Progressive overload by "double progression": reach the top of the rep range on every set, then move to a harder variation
-   - 4 required sessions a week (each muscle group about twice) plus one optional cardio day
-   - Three 4-week blocks, with an easy deload in weeks 4 and 8 and a test week at the end
+   - 5 short weekday sessions (Monday to Friday, about 15 to 20 minutes), weekends off
+   - One cycle per season: three 4-week blocks with an easy fourth week each, then a test week (week 13)
    - Stop each set with 1 or 2 reps left, so you can repeat it next week
    Data is saved inside your existing goals key (seasons-goals), so Export already backs it up. */
 (function(){
@@ -3083,13 +3083,13 @@ try{
     { n:'Build', tempo:'Lower for 3 seconds, pause 1 second, then rise.' },
     { n:'Strength', tempo:'Lower for 3 seconds, then drive up fast.' }
   ];
-  var SCHED = { 1:'U', 2:'L', 3:'K', 4:'C', 6:'F' };   /* Mon Upper, Tue Lower, Wed Cardio (optional), Thu Core, Sat Full body */
+  var SCHED = { 1:'U', 2:'L', 3:'C', 4:'F', 5:'K' };   /* Mon Upper, Tue Lower, Wed Core (lighter), Thu Full body, Fri Conditioning; weekends rest */
   var SESS = {
-    U:{ n:'Upper', t:'Upper body: chest, shoulders, arms, back', ex:['push','pike','walkout','updown','dips','superman'] },
-    L:{ n:'Lower', t:'Lower body: legs, glutes, calves', ex:['squat','lunge','bridge','sldl','calf','wall'], exB:['widesquat','lunge','abduct','bridge','sldl','calf'] },
-    C:{ n:'Core', t:'Core and conditioning: abs, obliques, lower back', ex:['plank','sideplank','legraise','revcrunch','deadbug','bicycle'], exB:['plank','sprot','flutter','rtwist','kneein','kneeraise'] },
-    F:{ n:'Full body', t:'Full-body session', ex:['push','latlunge','bridge','superman','plank','climber'] },
-    K:{ n:'Cardio (optional)', t:'Optional cardio and agility day. Skip it if you are tired.', ex:['jacks','hiknee','buttkick','clap','kneebend','skater','burpee'], opt:true }
+    U:{ n:'Upper', t:'Upper body: chest, shoulders, arms, back. About 20 minutes.', ex:['push','pike','updown','superman'] },
+    L:{ n:'Lower', t:'Lower body: legs, glutes, calves. About 20 minutes.', ex:['squat','lunge','bridge','calf'], exB:['widesquat','sldl','abduct','calf'] },
+    C:{ n:'Core', t:'Core: abs, obliques, lower back. A lighter midweek day, about 15 minutes.', ex:['plank','sideplank','legraise','deadbug'], exB:['plank','sprot','flutter','rtwist'] },
+    F:{ n:'Full body', t:'Full-body session. About 20 minutes.', ex:['push','latlunge','superman','plank'] },
+    K:{ n:'Conditioning', t:'Short conditioning day, easy on the joints. Keep the pace steady, about 15 minutes.', ex:['jacks','hiknee','skater','kneebend'] }
   };
   /* lo-hi = the rep (or seconds) range. Reach hi on every set, then move up a variation. */
   var EX = {
@@ -3327,7 +3327,7 @@ try{
     play(0);
   }
   var TESTS = [['push','Push-ups (max, no time limit)'],['squat','Squats in 60 seconds'],['situp','Sit-ups in 60 seconds'],['plank','Plank hold (seconds)'],['wall','Wall sit (seconds)'],['legr','Straight leg raises (max reps, slow)'],['sidep','Side plank hold, weaker side (seconds)'],['bal','Single-leg balance, weaker leg (seconds, eyes open)']];
-  var CHECKS = [['pre','Start',1],['w4','Week 4',4],['w8','Week 8',8],['post','Final',12]];
+  var CHECKS = [['pre','Start',1],['w4','Week 4',4],['w8','Week 8',8],['post','Season test',13]];
 
   var css = document.createElement('style');
   css.textContent =
@@ -3368,7 +3368,7 @@ try{
   function lvOf(s, id){ return s.lv[id] != null ? s.lv[id] : EX[id].lv; }
   function arr(s, t, id){ var a = (s.done[t] || {})[id]; return Array.isArray(a) ? a : []; }
   function plan(w){
-    var deload = (w === 4 || w === 8), test = (w === 12), b = Math.min(2, Math.floor((w - 1) / 4));
+    var deload = (w <= 12 && w % 4 === 0), test = (w === 13), b = Math.min(2, Math.floor((w - 1) / 4));
     var sets = (deload || test || w === 1) ? 2 : (b === 2 ? 4 : 3);
     var effort = deload ? 'Easy week: about 70% effort. Stop well short of failure.' : test ? 'Test week: keep sessions light, then do the final test at the end of the week.' : 'Finish each set with 1 or 2 reps still in reserve.';
     return { sets: sets, block: BLOCKS[b], deload: deload, test: test, effort: effort };
@@ -3409,7 +3409,7 @@ try{
       var ws = addDays(first, k * 7), cells = '', cnt = 0, sc = 0;
       for(var d = 0; d < 7; d++){
         var day = addDays(ws, d), on = hasWork(s.done[day]), sched = SCHED[mid(day).getDay()], cls = 'cal-cell';
-        if(on){ cls += ' on'; cnt++; } else if(day < t && sched && sched !== 'K' && day >= s.start) cls += ' miss';
+        if(on){ cls += ' on'; cnt++; } else if(day < t && sched && day >= s.start) cls += ' miss';
         if(day > t) cls += ' fut'; if(day === t) cls += ' today';
         cells += '<span class="' + cls + '" title="' + day + '"></span> ';
       }
@@ -3451,7 +3451,7 @@ try{
     return h;
   }
   function ctlHTML(s, wk){
-    var h = '<div style="font-size:12px;color:var(--ink-soft);margin:6px 0">Life happens. These controls keep the plan fitting your real weeks instead of punishing you for a gap. You are in week ' + Math.max(1, Math.min(12, wk)) + ' of 12.</div><div class="cal-row">';
+    var h = '<div style="font-size:12px;color:var(--ink-soft);margin:6px 0">Life happens. These controls keep the plan fitting your real weeks instead of punishing you for a gap. You are in week ' + Math.max(1, Math.min(13, wk)) + ' of 13.</div><div class="cal-row">';
     h += s.paused ? '<button class="cal-mini" data-act="resume">Resume plan</button>' : '<button class="cal-mini" data-act="pause">Pause plan (illness, travel)</button>';
     h += '<button class="cal-mini" data-act="shift" data-n="1">Go back one week</button><button class="cal-mini" data-act="shift" data-n="-1">Skip ahead one week</button><button class="cal-mini" data-act="restart">Restart from week 1</button></div>';
     h += '<div class="rv-h">Rest timer</div><div class="cal-row"><button class="cal-mini" data-act="autorest">' + (s.autoRest === false ? 'Auto-start: off' : 'Auto-start: on') + '</button>' +
@@ -3598,24 +3598,44 @@ try{
   function preForm(){
     return TESTS.map(function(x){ return '<div class="pt-set-input" style="margin-bottom:6px"><label>' + x[1] + '</label><input class="cal-in" type="number" min="0" inputmode="numeric" id="cal-t-pre-' + x[0] + '"></div>'; }).join('') + '<button class="mark-btn" data-act="test" data-k="pre">Save start test</button>';
   }
+  function nextMonday(t){ var d = mid(t); d.setDate(d.getDate() + ((8 - d.getDay()) % 7)); return ptFmtDate(d); }
+  function cycleSeasonIdx(startIso){ var wkn = Math.floor(Math.floor((mid(startIso) - new Date(PLAN_YEAR_ANCHOR)) / 86400000) / 7) + 1; return seasonIndexForWeek(Math.max(1, wkn)); }
+  function seasonName(startIso){ try{ return SEASONS[cycleSeasonIdx(startIso)].name; }catch(e){ return ''; } }
+  function nextSeasonStart(t){
+    try{
+      var wkn = Math.floor(Math.floor((mid(t) - new Date(PLAN_YEAR_ANCHOR)) / 86400000) / 7) + 1, ni = Math.floor((Math.max(1, wkn) - 1) / 13) + 1, d = new Date(weekStartDate(13 * ni + 1)); d.setDate(d.getDate() + 1);
+      return { date: ptFmtDate(d), name: SEASONS[ni % 4].name };
+    }catch(e){ return null; }
+  }
+  function startButtons(s, t){
+    var nm = nextMonday(t), ns = nextSeasonStart(t), b = '';
+    if(ns && daysBetween(t, ns.date) >= 0 && daysBetween(t, ns.date) <= 45) b += '<button class="save-btn" data-act="start" data-date="' + ns.date + '" style="margin-top:0">Start with ' + ns.name + ': Monday ' + ns.date.slice(8) + '/' + ns.date.slice(5, 7) + '</button>';
+    if(!(ns && ns.date === nm)) b += '<button class="' + (b ? 'cal-mini' : 'save-btn') + '" data-act="start" data-date="' + nm + '"' + (b ? ' style="margin-top:8px"' : ' style="margin-top:0"') + '>Start ' + (nm === t ? 'today' : 'Monday ' + nm.slice(8) + '/' + nm.slice(5, 7)) + '</button>';
+    return b;
+  }
   function render(){
     var m = document.getElementById('cal-mount'); if(!m) return;
     var s = load(), t = ptFmtDate(new Date());
     if(!s.start){
-      m.innerHTML = '<div class="week-detail"><details class="bm-about"><summary>How the plan works</summary><p style="margin:0 0 10px;font-size:13px;color:var(--ink-soft)">A 12-week progressive plan with no equipment. Four required sessions a week: Upper (Mon), Lower (Tue), Core (Thu) and Full body (Sat), plus an optional Cardio day on Wednesday. You log your reps, and the plan tells you when to make an exercise harder.</p>' +
-        '<p style="margin:0 0 12px;font-size:13px;color:var(--ink-soft)">Stop a set if you feel sharp pain, and check with a doctor first if you have an injury or health condition.</p></details><div class="entry-meta" style="margin:6px 0">Your starting profile (optional)</div>' + profileHTML(s) + preTestHTML(s) + '<button class="save-btn" data-act="start" style="margin-top:0">' + (s.tests.pre ? 'Start the 12 weeks today' : 'Start today') + '</button></div>';
+      m.innerHTML = '<div class="week-detail"><details class="bm-about"><summary>How the plan works</summary><p style="margin:0 0 10px;font-size:13px;color:var(--ink-soft)">A season routine with no equipment. One short session each weekday, about 15 to 20 minutes: Upper (Mon), Lower (Tue), Core (Wed, lighter), Full body (Thu) and Conditioning (Fri). Weekends are rest. Each season is a 13-week cycle: three 4-week blocks, each ending in an easy week, then a test in week 13 that sets the start of the next season. You log your reps, and the routine tells you when to make an exercise harder.</p>' +
+        '<p style="margin:0 0 12px;font-size:13px;color:var(--ink-soft)">Stop a set if you feel sharp pain, and check with a doctor first if you have an injury or health condition.</p></details><div class="entry-meta" style="margin:6px 0">Your starting profile (optional)</div>' + profileHTML(s) + preTestHTML(s) + startButtons(s, t) + '</div>';
       return;
     }
-    var wk = weekOf(s, t), w = Math.max(1, Math.min(12, wk)), P = plan(w);
+    if(s.start > t){
+      m.innerHTML = '<div class="week-detail"><div class="pt-day-banner"><span class="pt-dt-name">Starts Monday ' + s.start.slice(8) + '/' + s.start.slice(5, 7) + '</span><span class="pt-dt-tag">' + seasonName(s.start) + '</span></div><div style="font-size:12.5px;color:var(--ink-soft);margin:6px 0 10px">Your ' + seasonName(s.start) + ' routine begins then: ' + daysBetween(t, s.start) + ' day' + (daysBetween(t, s.start) === 1 ? '' : 's') + ' to go. Until then you can do or retake the fitness test.</div>' + preTestHTML(s) + '<div class="cal-row"><button class="cal-mini" data-act="start" data-date="' + t + '">Start today instead</button><button class="cal-mini" data-act="unstart">Change the start date</button></div></div>';
+      return;
+    }
+    var wk = weekOf(s, t), w = Math.max(1, Math.min(13, wk)), P = plan(w);
     var sched = SCHED[new Date().getDay()], sess = (s.viewDate === t && s.view) ? s.view : sched;
-    var h = '<div class="week-detail"><div class="pt-day-banner"><span class="pt-dt-name">Week ' + w + ' of 12</span><span class="pt-dt-tag">' + P.block.n + (P.deload ? ' \u00b7 deload' : P.test ? ' \u00b7 test week' : '') + '</span></div>';
+    var h = '<div class="week-detail"><div class="pt-day-banner"><span class="pt-dt-name">Week ' + w + ' of 13 \u00b7 ' + seasonName(s.start) + '</span><span class="pt-dt-tag">' + P.block.n + (P.deload ? ' \u00b7 deload' : P.test ? ' \u00b7 test week' : '') + '</span></div>';
     h += '<div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:10px">' + P.effort + ' ' + P.block.tempo + ' Rest 60 to 90 seconds between strength sets, 30 to 45 for core and cardio.</div>';
-    if(wk > 12) h += '<div class="pt-banner levelup">The 12 weeks are complete. Take the final check below and compare your numbers.</div>';
+    if(wk > 13 || (wk === 13 && s.tests.post)){ var nsn = nextSeasonStart(addDays(s.start, 91)), nxt = addDays(s.start, 91); if(nxt < t) nxt = nextMonday(t);
+      h += '<div class="pt-banner levelup">' + seasonName(s.start) + ' cycle complete.' + (s.tests.post ? '' : ' Take the season test below and compare your numbers.') + ' <button class="cal-mini" data-act="nextcycle">Start ' + (nsn ? nsn.name : 'the next season') + ' on Monday ' + nxt.slice(8) + '/' + nxt.slice(5, 7) + '</button></div>'; }
     if(s.paused){
       h += '<div class="pt-banner nudge">Plan paused since ' + s.paused + '. Week ' + w + ' is saved for you. <button class="cal-mini" data-act="resume">Resume the plan</button></div>';
     } else {
       var lg = loggedDates(s), base = lg.length ? lg[lg.length - 1] : s.start, gap = daysBetween(base, t), missed = Math.min(Math.floor(gap / 7), wk - 1);
-      if(gap >= 8 && s.gapDismiss !== t && wk <= 12){
+      if(gap >= 8 && s.gapDismiss !== t && wk <= 13){
         h += '<div class="pt-banner nudge"><b>Welcome back.</b> Your last session was ' + gap + ' days ago' + (missed > 0 ? ', about ' + missed + ' week' + (missed === 1 ? '' : 's') + ' of the plan.' : '.') + ' Missing a week does not undo your progress. Choose how to continue:' +
           '<div class="cal-row">' + (missed > 0 ? '<button class="cal-mini" data-act="catch" data-n="' + missed + '">Pick up at week ' + (wk - missed) + '</button>' : '') +
           (wk - missed > 1 ? '<button class="cal-mini" data-act="catch" data-n="' + (missed + 1) + '">Ease back in: week ' + (wk - missed - 1) + '</button>' : '') +
@@ -3643,7 +3663,7 @@ try{
     h += '<details class="stretch-block" style="border:1px solid var(--line);border-radius:9px;padding:8px 10px;margin-top:14px"><summary style="font-family:\'Fraunces\',serif;font-size:12.5px;font-weight:500;cursor:pointer">Starting profile</summary>' + profileHTML(s) + '<button class="mark-btn" data-act="apply">Apply to my plan</button><div style="font-size:11.5px;color:var(--ink-faint);margin-top:6px">Applying resets your exercise variations to the profile defaults. Your logged reps are kept.</div></details>';
     h += '<details class="stretch-block" style="border:1px solid var(--line);border-radius:9px;padding:8px 10px;margin-top:10px"><summary style="font-family:\'Fraunces\',serif;font-size:12.5px;font-weight:500;cursor:pointer">How this plan works</summary><ul style="margin:8px 0 0;padding-left:18px;font-size:12px;line-height:1.6;color:var(--ink-soft)">' +
       '<li>Each exercise has a rep range. Log your reps. When every set reaches the top, move to the next variation, which resets you near the bottom of the range.</li>' +
-      '<li>Weeks 1 to 3 build the habit and technique, weeks 5 to 7 add volume and control, weeks 9 to 11 add the hardest variations. Weeks 4 and 8 are easy on purpose, so you recover and come back stronger.</li>' +
+      '<li>Weeks 1 to 3 build the habit and technique, weeks 5 to 7 add volume and control, weeks 9 to 11 add the hardest variations. Weeks 4, 8 and 12 are easy on purpose, so you recover and come back stronger. Week 13 is the season test.</li><li>Five short weekday sessions beat a few long ones. Wednesday is a lighter day, and weekends are for rest, walking and mobility.</li>' +
       '<li>Stopping with 1 or 2 reps in reserve is what keeps this sustainable. Failing sets every day leads to injury and burnout.</li>' +
       '<li>Strength and size also depend on sleep and eating enough protein. This plan covers the training only.</li>' +
       '<li>Without a bar, pulling work is limited to the floor moves here. A towel row under a sturdy table, or a backpack curl, can fill the gap if you want it.</li></ul></details>';
@@ -3657,12 +3677,12 @@ try{
     }
     var missing = CHECKS.filter(function(c){ return wk >= c[2] && !s.tests[c[0]]; });
     var nextC = CHECKS.filter(function(c){ return wk < c[2]; })[0];
-    h += '<div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:8px">Eight simple tests, repeated at the start, week 4, week 8 and the end, so you can see your progress along the way. Rest between tests.</div>';
+    h += '<div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:8px">Eight simple tests, repeated at the start, week 4, week 8 and the season test in week 13, so you can see your progress along the way. Rest between tests.</div>';
     missing.forEach(function(c, i){
-      var intro = c[0] === 'pre' ? 'Do this once in week 1 before your first session.' : c[0] === 'post' ? 'Final test. Same eight tests as the start.' : 'Quick check. Same eight tests as the start. Do it in this easy week.';
+      var intro = c[0] === 'pre' ? 'Do this once in week 1 before your first session.' : c[0] === 'post' ? 'Season test, in week 13. Same eight tests as the start. These numbers become the start of your next season.' : 'Quick check. Same eight tests as the start. Do it in this easy week.';
       h += '<details class="cal-tab"' + (i === missing.length - 1 ? ' open' : '') + '><summary>' + c[1] + ' check</summary>' + form(c[0], intro, c[1]) + '</details>';
     });
-    if(nextC) h += '<div class="empty-note">Next check: ' + nextC[1].toLowerCase() + (nextC[0] === 'post' ? ' (week 12)' : '') + '.</div>';
+    if(nextC) h += '<div class="empty-note">Next check: ' + nextC[1].toLowerCase() + (nextC[0] === 'post' ? ' (week 13)' : '') + '.</div>';
     if(s.tests.pre){
       var got = CHECKS.filter(function(c){ return s.tests[c[0]]; });
       h += '<div style="overflow-x:auto"><table class="pt-prog-table"><tr><th>Test</th>' + got.map(function(c){ return '<th>' + c[1] + '</th>'; }).join('') + (got.length > 1 ? '<th>Change</th>' : '') + '</tr>' + TESTS.map(function(x){
@@ -3695,14 +3715,14 @@ try{
     else if(a === 'resume'){ if(s.paused){ s.start = addDays(s.start, Math.max(0, daysBetween(s.paused, t))); delete s.paused; s.gapDismiss = t; } }
     else if(a === 'shift'){
       var wk0 = weekOf(s, t), n0 = Number(b.dataset.n);
-      if((n0 > 0 && wk0 <= 1) || (n0 < 0 && wk0 >= 12)) return;
+      if((n0 > 0 && wk0 <= 1) || (n0 < 0 && wk0 >= 13)) return;
       s.start = addDays(s.start, 7 * n0);
     }
     else if(a === 'catch'){ s.start = addDays(s.start, 7 * Math.min(Number(b.dataset.n), weekOf(s, t) - 1)); s.gapDismiss = t; }
     else if(a === 'dismiss'){ s.gapDismiss = t; }
     else if(a === 'restart'){ if(!confirm('Restart the plan from week 1 today? Your logged reps, history and tests are kept.')) return; s.start = t; delete s.paused; delete s.gapDismiss; }
     else if(a === 'autorest'){ s.autoRest = (s.autoRest === false); }
-    else if(a === 'swap'){ var ss = (s.viewDate === t && s.view) ? s.view : SCHED[new Date().getDay()]; if(!ss) return; swapNext(s, ss, weekOf(s, t) > 12 ? 12 : Math.max(1, weekOf(s, t)), t, id); }
+    else if(a === 'swap'){ var ss = (s.viewDate === t && s.view) ? s.view : SCHED[new Date().getDay()]; if(!ss) return; swapNext(s, ss, weekOf(s, t) > 13 ? 13 : Math.max(1, weekOf(s, t)), t, id); }
     else if(a === 'sound'){ s.sound = b.dataset.v; save(s); chime(); render(); return; }
     else if(a === 'vibe'){ s.vibe = (s.vibe === false); }
     else if(a === 'testsnd'){ chime(); try{ if(s.vibe !== false && navigator.vibrate) navigator.vibrate([200, 100, 200]); }catch(e){} return; }
@@ -3720,7 +3740,13 @@ try{
       s.video[id] = yid; save(s); render(); return;
     }
     if(a === 'vrm'){ delete s.video[id]; save(s); render(); return; }
-    if(a === 'start'){ s.start = t; applyProfile(s); }
+    if(a === 'start'){ s.start = b.dataset.date || nextMonday(t); delete s.paused; delete s.gapDismiss; applyProfile(s); }
+    else if(a === 'unstart'){ delete s.start; }
+    else if(a === 'nextcycle'){
+      var nx = addDays(s.start, 91); if(nx < t) nx = nextMonday(t);
+      s.hist = s.hist || []; s.hist.push({ start:s.start, season:seasonName(s.start), tests:s.tests });
+      s.tests = s.tests.post ? { pre: s.tests.post } : (s.tests.w8 ? { pre: s.tests.w8 } : {}); s.start = nx; delete s.paused; delete s.gapDismiss; delete s.view; delete s.viewDate;
+    }
     else if(a === 'exp'){ s.profile = s.profile || {}; s.profile.exp = b.dataset.v; }
     else if(a === 'joint'){ s.profile = s.profile || {}; var J = s.profile.joints = s.profile.joints || [], ji = J.indexOf(b.dataset.v); if(ji < 0) J.push(b.dataset.v); else J.splice(ji, 1); }
     else if(a === 'low'){ s.profile = s.profile || {}; s.profile.low = !s.profile.low; }
@@ -3747,9 +3773,9 @@ try{
     s.vr = s.vr || {}; s.vr[t] = s.vr[t] || {}; s.vr[t][id] = lvOf(s, id);   /* remember which variation this was */
     save(s);
     var adv = document.getElementById('cal-adv-' + id);   /* update the advice in place so typing is not interrupted */
-    if(adv) adv.innerHTML = advice(s, t, id, plan(Math.max(1, Math.min(12, weekOf(s, t)))).sets);
+    if(adv) adv.innerHTML = advice(s, t, id, plan(Math.max(1, Math.min(13, weekOf(s, t)))).sets);
     if(a[i] > 0 && inp.dataset.was !== '1' && s.autoRest !== false && !s.paused){
-      var filled = a.filter(function(v){ return v > 0; }).length, total = plan(Math.max(1, Math.min(12, weekOf(s, t)))).sets;
+      var filled = a.filter(function(v){ return v > 0; }).length, total = plan(Math.max(1, Math.min(13, weekOf(s, t)))).sets;
       if(filled < total) begin('rest', restFor(s, id), null, false);
     }
     inp.dataset.was = a[i] > 0 ? '1' : '';
@@ -3761,7 +3787,7 @@ try{
     var sec = document.createElement('section');
     sec.className = 'csec' + (sectionState.calisthenics === true ? ' open' : '');
     sec.id = 'sec-calisthenics'; sec.setAttribute('data-key', 'calisthenics'); sec.setAttribute('data-group', 'body');
-    sec.innerHTML = '<button class="csec-head"><div class="csec-head-left"><span class="csec-title">Calisthenics plan</span><span class="csec-meta">12 weeks \u00b7 no equipment</span></div><span class="csec-chevron">\u2304</span></button>' +
+    sec.innerHTML = '<button class="csec-head"><div class="csec-head-left"><span class="csec-title">Calisthenics plan</span><span class="csec-meta">13-week seasons \u00b7 no equipment</span></div><span class="csec-chevron">\u2304</span></button>' +
       '<div class="csec-body"><div id="cal-mount"></div></div>';
     ref.parentNode.insertBefore(sec, ref.nextSibling);
     sec.querySelector('.csec-head').onclick = function(){
@@ -4229,7 +4255,7 @@ try{
     var EV = [
       ['Scripture: Reveal','MO',tAm],['Scripture: Reframe','WE',tAm],['Scripture: Respond','FR',tAm],
       ['Daily practices','SU,MO,TU,WE,TH,FR,SA',tAm],
-      ['Calisthenics: Upper body','MO',tPm],['Calisthenics: Lower body','TU',tPm],['Calisthenics: Cardio (optional)','WE',tPm],['Calisthenics: Core','TH',tPm],['Calisthenics: Full body','SA',tPm],
+      ['Training: Upper body','MO',tPm],['Training: Lower body','TU',tPm],['Training: Core (lighter day)','WE',tPm],['Training: Full body','TH',tPm],['Training: Conditioning','FR',tPm],
       ['Weekly review','SU',tPm]
     ];
     var BYD = ['SU','MO','TU','WE','TH','FR','SA'];
@@ -4696,7 +4722,7 @@ try{
   var KEY = 'seasons-goals', CK = 'seasons-verse-cache', INTRO = 'seasons-dash-intro';
   var DUE = { 1:'reveal', 3:'reframe', 5:'respond' };                 /* scripture rhythm: Mon / Wed / Fri */
   var DOW = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-  var CALS = { 1:'Upper', 2:'Lower', 3:'Cardio', 4:'Core', 6:'Full body' }, CAL_OPT = { 3:1 };
+  var CALS = { 1:'Upper', 2:'Lower', 3:'Core', 4:'Full body', 5:'Conditioning' }, CAL_OPT = {};
   var PAGES = { spirit:'Spirit', soul:'Soul', body:'Body' };
   var PILLAR_COLOR = { spirit:'var(--ink)', soul:'var(--ink-soft)', body:'var(--accent-ink)' };
 
@@ -4753,7 +4779,7 @@ try{
   function pracWeekCount(c, p){ return c.wk.filter(function(d){ return (c.P.log[d] || []).indexOf(p.id) >= 0; }).length; }
   function ptEnabled(){ return !!(ptState && typeof ptDayTypeForDate === 'function' && ptDayIndexFor(ptFmtDate(new Date())) >= 0); }
   function ptKind(d){ var t = ptDayTypeForDate(d); return (t === 'A' || t === 'B' || t === 'C') ? t : null; }
-  function calOn(c){ return !!(c.C.start && !c.C.paused); }
+  function calOn(c){ return !!(c.C.start && !c.C.paused && c.C.start <= c.ts); }
 
   /* ---------- styles ---------- */
   var css = document.createElement('style');
@@ -4872,7 +4898,7 @@ try{
     }
     if(calOn(c) && CALS[c.dow]){
       var cwk = c.C.start ? Math.floor(Math.round((new Date(c.ts + 'T00:00:00') - new Date(c.C.start + 'T00:00:00')) / 86400000) / 7) + 1 : 0;
-      items.push({ pillar:'body', label:'Calisthenics: ' + CALS[c.dow], sub:cwk > 0 ? 'Week ' + Math.min(12, cwk) + ' of 12' + (cwk === 4 || cwk === 8 ? ' \u00b7 easy week' : cwk >= 12 ? ' \u00b7 test week' : '') : '', done:hasWork(c.C.done && c.C.done[c.ts]), optional:!!CAL_OPT[c.dow], go:['body','sec-body','cal'] });
+      items.push({ pillar:'body', label:'Calisthenics: ' + CALS[c.dow], sub:cwk > 0 ? 'Week ' + Math.min(13, cwk) + ' of 13' + (cwk <= 12 && cwk % 4 === 0 ? ' \u00b7 easy week' : cwk >= 13 ? ' \u00b7 test week' : '') : '', done:hasWork(c.C.done && c.C.done[c.ts]), optional:!!CAL_OPT[c.dow], go:['body','sec-body','cal'] });
     }
     var SO = { morning:0, midday:1, evening:2 }, pr = [], notToday = 0;
     c.P.list.forEach(function(p){
@@ -6449,15 +6475,15 @@ try{
   while(bb.firstChild) paneFit.appendChild(bb.firstChild);          /* tagline + pt-mount move as they are */
   while(cb.firstChild) paneCal.appendChild(cb.firstChild);          /* intro + cal-mount move as they are */
   var tabs = document.createElement('div'); tabs.className = 'bm-tabs'; tabs.setAttribute('role', 'tablist');
-  tabs.innerHTML = '<button type="button" role="tab" data-t="cal">12-week plan</button><button type="button" role="tab" data-t="fit">Fitness test</button>';
+  tabs.innerHTML = '<button type="button" role="tab" data-t="cal">Season routine</button><button type="button" role="tab" data-t="fit">Fitness test</button>';
   bb.appendChild(tabs); bb.appendChild(paneCal); bb.appendChild(paneFit);
   var st = document.createElement('style');
   st.textContent = '.bm-tabs{display:flex;gap:6px;margin:2px 0 12px;padding:4px;background:var(--paper);border:1px solid var(--line);border-radius:12px}' +
     '.bm-tabs button{flex:1;font:inherit;font-size:.9rem;padding:8px 6px;border:0;border-radius:9px;background:transparent;color:var(--ink-soft);cursor:pointer}' +
-    '.bm-tabs button.on{background:var(--ink);color:var(--paper);font-weight:600}.bm-pane{display:none}.bm-pane.on{display:block}';
+    '.bm-tabs{display:none!important}.bm-hint{display:none!important}.bm-tabs button.on{background:var(--ink);color:var(--paper);font-weight:600}.bm-pane{display:none}.bm-pane.on{display:block}';
   document.head.appendChild(st);
   function pick(t){
-    if(t !== 'fit') t = 'cal';
+    t = 'cal';   /* one Body routine: the old separate Fitness test tab is retired, the season test lives inside the routine */
     tabs.querySelectorAll('button').forEach(function(b){ var on = b.getAttribute('data-t') === t; b.classList.toggle('on', on); b.setAttribute('aria-selected', on ? 'true' : 'false'); });
     paneCal.classList.toggle('on', t === 'cal'); paneFit.classList.toggle('on', t === 'fit');
     try{ LS.set(KEY, t); }catch(e){}
@@ -6477,7 +6503,7 @@ try{
   function pt(){ try{ var v = JSON.parse(LS.get('seasons-pt-state') || 'null'); return v && v.level ? v : null; }catch(e){ return null; } }
   function refreshHint(){
     var mnt = document.getElementById('cal-mount'); if(!mnt) return;
-    var notStarted = !!Array.prototype.find.call(mnt.querySelectorAll('button'), function(b){ return /^start today$/i.test(b.textContent.trim()); });
+    var notStarted = !!mnt.querySelector('[data-act="start"]');
     if(!notStarted){ hint.style.display = 'none'; return; }
     var p = pt(), m = p && MAP[p.level];
     if(m){
@@ -6503,7 +6529,7 @@ try{
   refreshHint();
   /* one card: title, hint, and it opens if either old card was open */
   var head = body.querySelector('.csec-head-left');
-  if(head && !head.querySelector('.csec-meta')){ var m = document.createElement('span'); m.className = 'csec-meta'; m.textContent = '12-week plan · fitness test'; head.appendChild(m); }
+  if(head && !head.querySelector('.csec-meta')){ var m = document.createElement('span'); m.className = 'csec-meta'; m.textContent = 'season routine'; head.appendChild(m); }
   if(sectionState.calisthenics === true && !body.classList.contains('open')){ body.classList.add('open'); sectionState.body = true; LS.set(SECTION_STATE_KEY, JSON.stringify(sectionState)); }
   cal.remove();
   setActivePage(LS.get(PAGE_KEY) || 'spirit');
